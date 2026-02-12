@@ -28,7 +28,7 @@ function BookmarkNode({ data }: NodeProps) {
   const image = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
 
   return (
-    <div className="group w-[320px] rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <div className="group w-[320px] rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md">
       {/* Image */}
       {image && (
         <div className="relative h-40 overflow-hidden rounded-t-xl">

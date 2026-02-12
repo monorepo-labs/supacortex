@@ -72,7 +72,7 @@ export default function Canvas({
   };
 
   return (
-    <div className="h-full w-full bg-background">
+    <div className="h-full w-full bg-white/60">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -80,13 +80,15 @@ export default function Canvas({
         onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
-        onInit={(instance) => { rfInstance.current = instance; }}
+        onInit={(instance) => {
+          rfInstance.current = instance;
+        }}
         fitView
         minZoom={0.2}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#e4e4e7" gap={24} size={1} />
+        {/*<Background color="#AFB5C0" gap={24} size={1} />*/}
       </ReactFlow>
     </div>
   );
