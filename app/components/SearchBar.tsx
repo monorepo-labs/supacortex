@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Search, Plus, MessageSquare } from "lucide-react";
+import { useCreateBookmark } from "@/hooks/use-bookmarks";
+import { toast } from "sonner";
 
 type Mode = "search" | "add" | "chat";
 
@@ -21,6 +23,8 @@ export default function SearchBar() {
   const [mode, setMode] = useState<Mode>("search");
   const [value, setValue] = useState("");
 
+  const { mutate: addBookmark, isPending } = useCreateBookmark();
+
   const activeIndex = modes.findIndex((m) => m.key === mode);
 
   const placeholders: Record<Mode, string> = {
@@ -37,6 +41,25 @@ export default function SearchBar() {
       setMode("add");
     }
   }
+
+  const handleSubmit = () => {
+    if (mode === "add" && value.trim()) {
+      toast.promise(
+        new Promise((resolve, reject) => {
+          addBookmark(
+            { url: value.trim() },
+            { onSuccess: resolve, onError: reject },
+          );
+        }),
+        {
+          loading: "Saving bookmark...",
+          success: "Bookmark saved",
+          error: (err) => err.message || "Failed to save bookmark",
+        },
+      );
+      setValue("");
+    }
+  };
 
   return (
     <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
@@ -67,6 +90,7 @@ export default function SearchBar() {
           type="text"
           value={value}
           onChange={handleChange}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           placeholder={placeholders[mode]}
           className="w-[400px] rounded-xl border border-zinc-200 bg-white py-2.5 pl-[100px] pr-4 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-100"
         />

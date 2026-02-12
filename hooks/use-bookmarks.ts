@@ -1,5 +1,5 @@
 "use client";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const useBookmarks = (search?: string) => {
   return useQuery({
@@ -15,8 +15,12 @@ export const useBookmarks = (search?: string) => {
 };
 
 export const useCreateBookmark = () => {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (bookmark) => {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+    mutationFn: async (bookmark: { url: string }) => {
       const res = await fetch(`/api/bookmarks`, {
         method: "POST",
         headers: {

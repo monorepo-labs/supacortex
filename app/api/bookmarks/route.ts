@@ -50,12 +50,17 @@ export async function POST(req: Request) {
       { status: 422 },
     );
 
+  const mediaUrls = scraped.ogImage
+    ? [{ type: "og", url: scraped.ogImage }]
+    : null;
+
   try {
     const result = await createBookmark({
       url: body.url,
       type,
-      title: scraped.data.title,
-      content: scraped.data.content,
+      title: scraped.title,
+      content: scraped.content,
+      mediaUrls,
       createdBy: user.id,
     });
     return NextResponse.json(result);

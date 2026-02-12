@@ -3,6 +3,7 @@
 import { memo } from "react";
 import Image from "next/image";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Link as LinkIcon } from "lucide-react";
 
 export type BookmarkData = {
   type: "tweet" | "link" | "article" | "pdf" | "image";
@@ -50,7 +51,7 @@ function BookmarkNode({ data }: NodeProps) {
         )}
 
         {/* Content */}
-        {bookmark.content && (
+        {bookmark.type !== "link" && bookmark.content && (
           <p className="mb-3 text-zinc-500">
             {bookmark.content.length > 160
               ? bookmark.content.slice(0, 160) + "…"
@@ -58,25 +59,37 @@ function BookmarkNode({ data }: NodeProps) {
           </p>
         )}
 
-        {/* Footer — avatar, username, read status */}
+        {/* Footer */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {avatar && (
               <Image
                 src={avatar.url}
                 alt=""
                 width={20}
                 height={20}
-                className="rounded-full object-cover"
+                className="shrink-0 rounded-full object-cover"
                 unoptimized
               />
             )}
-            {bookmark.author && (
+            {bookmark.author ? (
               <span className="text-xs text-zinc-400">@{bookmark.author}</span>
+            ) : (
+              <a
+                href={bookmark.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 min-w-0 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+              >
+                <LinkIcon size={12} className="shrink-0" />
+                <span className="truncate">
+                  {new URL(bookmark.url).hostname.replace("www.", "")}
+                </span>
+              </a>
             )}
           </div>
           {bookmark.isRead && (
-            <span className="h-2 w-2 rounded-full bg-zinc-300" />
+            <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-300" />
           )}
         </div>
       </div>
