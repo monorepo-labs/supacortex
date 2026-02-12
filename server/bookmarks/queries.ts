@@ -10,10 +10,14 @@ export const getBookmarksForUser = async (userId: string, search?: string) => {
       or(
         ilike(bookmarks.title, `%${search}%`),
         ilike(bookmarks.content, `%${search}%`),
+        ilike(bookmarks.aiTitle, `%${search}%`),
         ilike(bookmarks.author, `%${search}%`),
       )!,
     );
   }
 
-  return db.select().from(bookmarks).where(and(...conditions));
+  return db
+    .select()
+    .from(bookmarks)
+    .where(and(...conditions));
 };

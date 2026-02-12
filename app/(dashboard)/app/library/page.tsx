@@ -6,8 +6,7 @@ import Canvas from "@/app/components/Canvas";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 
 export default function LibraryPage() {
-  // TODO: replace hardcoded userId with auth session
-  const { data: bookmarks, isLoading, error } = useBookmarks("seed-user");
+  const { data: bookmarks, isLoading, error } = useBookmarks();
 
   return (
     <div className="flex h-screen">

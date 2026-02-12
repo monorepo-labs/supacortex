@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import Image from "next/image";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
 export type BookmarkData = {
@@ -19,55 +20,65 @@ function BookmarkNode({ data }: NodeProps) {
   const bookmark = data as BookmarkData;
 
   const displayTitle = bookmark.title || bookmark.aiTitle;
+  const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
+  const image = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
 
   return (
-    <div className="group w-[320px] rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      {/* Author */}
-      {bookmark.author && (
-        <p className="mb-2 text-xs text-zinc-400">@{bookmark.author}</p>
-      )}
-
-      {/* Title — serif font */}
-      {displayTitle && (
-        <h3
-          style={{ fontFamily: "var(--font-source-serif)" }}
-          className="mb-2 text-base font-medium leading-snug text-zinc-900"
-        >
-          {displayTitle}
-        </h3>
-      )}
-
-      {/* Content */}
-      {bookmark.content && (
-        <p className="text-sm leading-relaxed text-zinc-600">
-          {bookmark.content.length > 200
-            ? bookmark.content.slice(0, 200) + "…"
-            : bookmark.content}
-        </p>
-      )}
-
-      {/* Media preview */}
-      {bookmark.mediaUrls && bookmark.mediaUrls.length > 0 && (
-        <div className="mt-3 overflow-hidden rounded-lg">
-          <img
-            src={bookmark.mediaUrls[0].url}
+    <div className="group w-[320px] rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      {/* Image */}
+      {image && (
+        <div className="relative h-40 overflow-hidden rounded-t-xl">
+          <Image
+            src={image.url}
             alt=""
-            className="h-40 w-full object-cover"
+            fill
+            className="object-cover"
+            unoptimized
           />
         </div>
       )}
 
-      {/* Footer */}
-      <div className="mt-3 flex items-center justify-between">
-        <a
-          href={bookmark.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-zinc-400 transition-colors hover:text-zinc-600"
-        >
-          Open original
-        </a>
-        {bookmark.isRead && <span className="text-xs text-zinc-300">Read</span>}
+      <div className="p-4">
+        {/* Title — serif font */}
+        {displayTitle && (
+          <h3
+            style={{ fontFamily: "var(--font-source-serif)" }}
+            className="mb-2 text-lg font-medium leading-snug text-zinc-900"
+          >
+            {displayTitle}
+          </h3>
+        )}
+
+        {/* Content */}
+        {bookmark.content && (
+          <p className="mb-3 text-zinc-500">
+            {bookmark.content.length > 160
+              ? bookmark.content.slice(0, 160) + "…"
+              : bookmark.content}
+          </p>
+        )}
+
+        {/* Footer — avatar, username, read status */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {avatar && (
+              <Image
+                src={avatar.url}
+                alt=""
+                width={20}
+                height={20}
+                className="rounded-full object-cover"
+                unoptimized
+              />
+            )}
+            {bookmark.author && (
+              <span className="text-xs text-zinc-400">@{bookmark.author}</span>
+            )}
+          </div>
+          {bookmark.isRead && (
+            <span className="h-2 w-2 rounded-full bg-zinc-300" />
+          )}
+        </div>
       </div>
 
       {/* React Flow handles (hidden, for future connections) */}

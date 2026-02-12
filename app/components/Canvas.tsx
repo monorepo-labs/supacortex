@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -33,12 +33,11 @@ function bookmarksToNodes(bookmarks: BookmarkData[]): Node[] {
 }
 
 export default function Canvas({ bookmarks, isLoading, error }: { bookmarks: BookmarkData[]; isLoading: boolean; error: Error | null }) {
-  const initialNodes = useMemo(
-    () => bookmarksToNodes(bookmarks),
-    [bookmarks]
-  );
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  useEffect(() => {
+    setNodes(bookmarksToNodes(bookmarks));
+  }, [bookmarks]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   return (
