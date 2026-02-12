@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ReactFlow,
   Background,
@@ -13,6 +13,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import BookmarkNode, { type BookmarkData } from "./BookmarkNode";
+import Reader from "./Reader";
 import { useUpdateBookmarkPosition } from "@/hooks/use-bookmarks";
 
 const nodeTypes = { bookmark: BookmarkNode };
@@ -56,20 +57,32 @@ export default function Canvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const rfInstance = useRef<ReactFlowInstance | null>(null);
   const { mutate: updatePosition } = useUpdateBookmarkPosition();
+  const [activeBookmark, setActiveBookmark] = useState<BookmarkData | null>(null);
 
   useEffect(() => {
     setNodes(bookmarksToNodes(bookmarks, isSearching));
     setTimeout(() => rfInstance.current?.fitView({ padding: 0.2 }), 50);
   }, [bookmarks, isSearching]);
 
+  const lastDragTime = useRef(0);
+
   const onNodeDragStop: NodeDragHandler = (_, node) => {
-    if (isSearching) return; // don't persist positions during search
+    lastDragTime.current = Date.now();
+    if (isSearching) return;
     updatePosition({
       id: node.id,
       positionX: node.position.x,
       positionY: node.position.y,
     });
   };
+
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    // Ignore click if a drag just ended (within 100ms)
+    if (Date.now() - lastDragTime.current < 100) return;
+    const bookmark = node.data as BookmarkData;
+    if (bookmark._optimistic) return;
+    setActiveBookmark(bookmark);
+  }, []);
 
   return (
     <div className="h-full w-full bg-white/60">
@@ -78,6 +91,7 @@ export default function Canvas({
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         onInit={(instance) => {
@@ -90,6 +104,13 @@ export default function Canvas({
       >
         {/*<Background color="#AFB5C0" gap={24} size={1} />*/}
       </ReactFlow>
+
+      {activeBookmark && (
+        <Reader
+          bookmark={activeBookmark}
+          onClose={() => setActiveBookmark(null)}
+        />
+      )}
     </div>
   );
 }

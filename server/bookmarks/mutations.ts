@@ -6,7 +6,12 @@ import z from "zod";
 export const createBookmark = async (
   bookmark: z.infer<typeof bookmarksInsertSchema>,
 ) => {
-  return db.insert(bookmarks).values(bookmark);
+  const [result] = await db.insert(bookmarks).values(bookmark).returning();
+  return result;
+};
+
+export const deleteBookmark = async (id: string) => {
+  return db.delete(bookmarks).where(eq(bookmarks.id, id));
 };
 
 export const updateBookmarkPosition = async (

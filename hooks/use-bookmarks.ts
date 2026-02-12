@@ -28,22 +28,83 @@ export const useUpdateBookmarkPosition = () => {
   });
 };
 
+export const useDeleteBookmark = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/bookmarks`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error("Failed to delete bookmark");
+      return res.json();
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
+      const queries = queryClient.getQueriesData<{ id: string }[]>({ queryKey: ["bookmarks"] });
+      queries.forEach(([key, data]) => {
+        if (data) {
+          queryClient.setQueryData(key, data.filter((b) => b.id !== id));
+        }
+      });
+      return { queries };
+    },
+    onError: (_err, _id, context) => {
+      context?.queries.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+};
+
 export const useCreateBookmark = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
-    },
     mutationFn: async (bookmark: { url: string }) => {
       const res = await fetch(`/api/bookmarks`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bookmark),
       });
       if (!res.ok) throw new Error("Failed to create bookmark");
       return res.json();
+    },
+    onMutate: async (bookmark) => {
+      await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
+      const queries = queryClient.getQueriesData<Record<string, unknown>[]>({ queryKey: ["bookmarks"] });
+      const placeholder = {
+        id: `temp-${Date.now()}`,
+        type: "link",
+        title: null,
+        aiTitle: null,
+        content: null,
+        author: null,
+        url: bookmark.url,
+        isRead: false,
+        mediaUrls: null,
+        positionX: null,
+        positionY: null,
+        createdAt: new Date().toISOString(),
+        _optimistic: true,
+      };
+      queries.forEach(([key, data]) => {
+        if (data) {
+          queryClient.setQueryData(key, [...data, placeholder]);
+        }
+      });
+      return { queries };
+    },
+    onError: (_err, _bookmark, context) => {
+      context?.queries.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
     },
   });
 };

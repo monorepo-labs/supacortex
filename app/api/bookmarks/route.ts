@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBookmarksForUser } from "@/server/bookmarks/queries";
 import { getUser } from "@/lib/get-user";
-import { createBookmark, updateBookmarkPosition } from "@/server/bookmarks/mutations";
+import { createBookmark, deleteBookmark, updateBookmarkPosition } from "@/server/bookmarks/mutations";
 import { classifyUrlType } from "@/lib/ingest/url-type";
 import { scrapeContent } from "@/lib/ingest/scraper";
 
@@ -89,5 +89,24 @@ export async function PATCH(req: Request) {
   } catch (error) {
     console.log(error);
     return NextResponse.json({ error: "Failed to update position" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  const user = await getUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await req.json();
+
+  if (!id)
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  try {
+    await deleteBookmark(id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json({ error: "Failed to delete bookmark" }, { status: 500 });
   }
 }

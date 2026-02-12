@@ -6,6 +6,9 @@ export const scrapeContent = async (url: string) => {
         Accept: "application/json",
         Authorization: `Bearer ${process.env.JINA_API_KEY}`,
         "X-Return-Format": "markdown",
+        "X-Retain-Images": "none",
+        "X-Remove-Selector":
+          "header, .class, #id, nav, footer, .sidebar, button, input, h1",
       },
     }),
     fetchOgImage(url),
@@ -25,11 +28,13 @@ async function fetchOgImage(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     const html = await res.text();
-    const match = html.match(
-      /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
-    ) ?? html.match(
-      /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i,
-    );
+    const match =
+      html.match(
+        /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
+      ) ??
+      html.match(
+        /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i,
+      );
     return match?.[1] ?? null;
   } catch {
     return null;
