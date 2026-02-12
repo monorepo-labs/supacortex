@@ -12,7 +12,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import BookmarkNode, { type BookmarkData } from "./BookmarkNode";
+import BookmarkNode, { type BookmarkData, ToggleExpandContext } from "./BookmarkNode";
 import Reader from "./Reader";
 import { useUpdateBookmarkPosition } from "@/hooks/use-bookmarks";
 
@@ -64,6 +64,16 @@ export default function Canvas({
     setTimeout(() => rfInstance.current?.fitView({ padding: 0.2 }), 50);
   }, [bookmarks, isSearching]);
 
+  const toggleExpand = useCallback((id: string) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, _expanded: !n.data._expanded } }
+          : n,
+      ),
+    );
+  }, [setNodes]);
+
   const lastDragTime = useRef(0);
 
   const onNodeDragStop: NodeDragHandler = (_, node) => {
@@ -86,24 +96,26 @@ export default function Canvas({
 
   return (
     <div className="h-full w-full bg-white/60">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={onNodeClick}
-        onNodeDragStop={onNodeDragStop}
-        nodeTypes={nodeTypes}
-        onInit={(instance) => {
-          rfInstance.current = instance;
-        }}
-        fitView
-        minZoom={0.2}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-      >
-        {/*<Background color="#AFB5C0" gap={24} size={1} />*/}
-      </ReactFlow>
+      <ToggleExpandContext.Provider value={toggleExpand}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={onNodeClick}
+          onNodeDragStop={onNodeDragStop}
+          nodeTypes={nodeTypes}
+          onInit={(instance) => {
+            rfInstance.current = instance;
+          }}
+          fitView
+          minZoom={0.2}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+        >
+          {/*<Background color="#AFB5C0" gap={24} size={1} />*/}
+        </ReactFlow>
+      </ToggleExpandContext.Provider>
 
       {activeBookmark && (
         <Reader
