@@ -28,9 +28,27 @@ pnpm lint        # ESLint
 ## Architecture
 
 - `app/` — Next.js App Router pages and layouts (no `src/` directory)
-- API routes go in `app/api/`
-- Database schema and migrations live in `db/`
-- Vercel cron jobs configured in `vercel.json`
+  - `app/(marketing)/` — landing page route group
+  - `app/(dashboard)/app/` — main app route group
+  - `app/api/` — API routes
+  - `app/components/` — React components (PascalCase: `SearchBar.tsx`)
+- `db/` — Drizzle schema, migrations, seed
+- `server/` — server-side logic, organized by domain
+  - `server/bookmarks/queries.ts` — read operations
+  - `server/bookmarks/mutations.ts` — write operations
+  - `server/tags/queries.ts`, `mutations.ts` — same pattern
+- `services/` — external service clients (`db.ts`, future: `twitter.ts`)
+- `hooks/` — React hooks (`use-bookmarks.ts`, kebab-case)
+- `lib/` — generic utilities
+- `config/` — app config and constants
+- `types/` — shared TypeScript types
+- `drizzle/` — generated migration files
+
+## File Naming
+
+- **kebab-case** for all files: `queries.ts`, `use-bookmarks.ts`
+- **PascalCase** for React components: `SearchBar.tsx`, `BookmarkNode.tsx`
+- Hooks prefixed with `use`: `use-bookmarks.ts` → `useBookmarks`
 
 ## Design Principles
 

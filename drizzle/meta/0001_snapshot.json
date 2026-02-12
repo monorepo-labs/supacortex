@@ -1,6 +1,6 @@
 {
-  "id": "4249bd18-37ba-4533-9c18-19c8ab258390",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "557b5772-3d50-460a-92c9-d91dbc71ff1b",
+  "prevId": "4249bd18-37ba-4533-9c18-19c8ab258390",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -118,6 +118,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "is_read": {
+          "name": "is_read",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
         "position_x": {
           "name": "position_x",
           "type": "real",
@@ -139,12 +146,11 @@
           "notNull": false,
           "default": "now()"
         },
-        "is_read": {
-          "name": "is_read",
-          "type": "boolean",
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "default": false
+          "notNull": true
         }
       },
       "indexes": {},
@@ -199,6 +205,12 @@
           "primaryKey": false,
           "notNull": false,
           "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {},
