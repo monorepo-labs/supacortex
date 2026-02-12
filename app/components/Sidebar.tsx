@@ -20,7 +20,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex h-screen w-52 shrink-0 flex-col bg-zinc-50">
+    <aside className="flex h-screen w-52 shrink-0 flex-col bg-background">
       {/* Toggle */}
       <div className="flex items-center justify-between px-3 pt-3">
         <button

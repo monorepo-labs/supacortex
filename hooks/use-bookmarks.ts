@@ -14,6 +14,20 @@ export const useBookmarks = (search?: string) => {
   });
 };
 
+export const useUpdateBookmarkPosition = () => {
+  return useMutation({
+    mutationFn: async (data: { id: string; positionX: number; positionY: number }) => {
+      const res = await fetch(`/api/bookmarks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update position");
+      return res.json();
+    },
+  });
+};
+
 export const useCreateBookmark = () => {
   const queryClient = useQueryClient();
   return useMutation({

@@ -19,7 +19,7 @@ function looksLikeUrl(text: string): boolean {
   return /^https?:\/\//i.test(trimmed) || /^[\w-]+\.[\w]{2,}/i.test(trimmed);
 }
 
-export default function SearchBar() {
+export default function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
   const [mode, setMode] = useState<Mode>("search");
   const [value, setValue] = useState("");
 
@@ -39,6 +39,9 @@ export default function SearchBar() {
 
     if (mode !== "add" && looksLikeUrl(text)) {
       setMode("add");
+      onSearch("");
+    } else if (mode === "search") {
+      onSearch(text);
     }
   }
 
@@ -76,7 +79,10 @@ export default function SearchBar() {
           {modes.map(({ key, icon: Icon }) => (
             <button
               key={key}
-              onClick={() => setMode(key)}
+              onClick={() => {
+                setMode(key);
+                if (key !== "search") onSearch("");
+              }}
               className={`relative z-10 rounded-md p-1.5 transition-colors ${
                 mode === key ? "text-zinc-700" : "text-zinc-400"
               }`}

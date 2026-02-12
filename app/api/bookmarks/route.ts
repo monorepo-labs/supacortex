@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBookmarksForUser } from "@/server/bookmarks/queries";
 import { getUser } from "@/lib/get-user";
-import { createBookmark } from "@/server/bookmarks/mutations";
+import { createBookmark, updateBookmarkPosition } from "@/server/bookmarks/mutations";
 import { classifyUrlType } from "@/lib/ingest/url-type";
 import { scrapeContent } from "@/lib/ingest/scraper";
 
@@ -70,5 +70,24 @@ export async function POST(req: Request) {
       { error: "Failed to create bookmark" },
       { status: 500 },
     );
+  }
+}
+
+export async function PATCH(req: Request) {
+  const user = await getUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id, positionX, positionY } = await req.json();
+
+  if (!id || positionX == null || positionY == null)
+    return NextResponse.json({ error: "id, positionX, positionY required" }, { status: 400 });
+
+  try {
+    await updateBookmarkPosition(id, positionX, positionY);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json({ error: "Failed to update position" }, { status: 500 });
   }
 }

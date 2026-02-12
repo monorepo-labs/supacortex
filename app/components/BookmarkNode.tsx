@@ -6,6 +6,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Link as LinkIcon } from "lucide-react";
 
 export type BookmarkData = {
+  id: string;
   type: "tweet" | "link" | "article" | "pdf" | "image";
   title: string | null;
   aiTitle: string | null;
@@ -14,6 +15,8 @@ export type BookmarkData = {
   url: string;
   isRead: boolean;
   mediaUrls: { type: string; url: string }[] | null;
+  positionX: number | null;
+  positionY: number | null;
   createdAt: string | null;
 };
 
