@@ -131,3 +131,46 @@ body {
     }
 }
 
+/* Scrollbar: hidden until parent hovered (for cards) */
+.scrollbar-hover {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    scrollbar-gutter: stable;
+}
+.scrollbar-hover::-webkit-scrollbar {
+    width: 4px;
+}
+.scrollbar-hover::-webkit-scrollbar-track {
+    background: transparent;
+}
+.scrollbar-hover::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 2px;
+}
+*:hover > .scrollbar-hover {
+    scrollbar-color: #d4d4d8 transparent;
+}
+*:hover > .scrollbar-hover::-webkit-scrollbar-thumb {
+    background: #d4d4d8;
+}
+
+/* Scrollbar: always visible but very light (for research grid) */
+.scrollbar-light {
+    scrollbar-width: thin;
+    scrollbar-color: #e4e4e7 transparent;
+}
+.scrollbar-light::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+.scrollbar-light::-webkit-scrollbar-track {
+    background: transparent;
+}
+.scrollbar-light::-webkit-scrollbar-thumb {
+    background: #e4e4e7;
+    border-radius: 2px;
+}
+.scrollbar-light::-webkit-scrollbar-thumb:hover {
+    background: #d4d4d8;
+}
+

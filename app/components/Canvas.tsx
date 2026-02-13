@@ -1,24 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import {
   ReactFlow,
   Background,
   useNodesState,
   useEdgesState,
   type Node,
-  type NodeDragHandler,
+  type Edge,
+  type OnNodeDrag,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import BookmarkNode, { type BookmarkData, ToggleExpandContext } from "./BookmarkNode";
-import Reader from "./Reader";
 import { useUpdateBookmarkPosition } from "@/hooks/use-bookmarks";
 
 const nodeTypes = { bookmark: BookmarkNode };
 
-// Grid layout for search results or bookmarks without saved positions
 function gridPosition(index: number) {
   const cols = 3;
   const gapX = 380;
@@ -47,17 +46,18 @@ export default function Canvas({
   isLoading,
   error,
   isSearching,
+  onOpenReader,
 }: {
   bookmarks: BookmarkData[];
   isLoading: boolean;
   error: Error | null;
   isSearching: boolean;
+  onOpenReader: (bookmark: BookmarkData) => void;
 }) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const rfInstance = useRef<ReactFlowInstance | null>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const rfInstance = useRef<ReactFlowInstance<Node, Edge> | null>(null);
   const { mutate: updatePosition } = useUpdateBookmarkPosition();
-  const [activeBookmark, setActiveBookmark] = useState<BookmarkData | null>(null);
 
   useEffect(() => {
     setNodes(bookmarksToNodes(bookmarks, isSearching));
@@ -76,7 +76,7 @@ export default function Canvas({
 
   const lastDragTime = useRef(0);
 
-  const onNodeDragStop: NodeDragHandler = (_, node) => {
+  const onNodeDragStop: OnNodeDrag = (_, node) => {
     lastDragTime.current = Date.now();
     if (isSearching) return;
     updatePosition({
@@ -87,12 +87,11 @@ export default function Canvas({
   };
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    // Ignore click if a drag just ended (within 100ms)
     if (Date.now() - lastDragTime.current < 100) return;
     const bookmark = node.data as BookmarkData;
     if (bookmark._optimistic) return;
-    setActiveBookmark(bookmark);
-  }, []);
+    onOpenReader(bookmark);
+  }, [onOpenReader]);
 
   return (
     <div className="h-full w-full bg-white/60">
@@ -116,13 +115,6 @@ export default function Canvas({
           {/*<Background color="#AFB5C0" gap={24} size={1} />*/}
         </ReactFlow>
       </ToggleExpandContext.Provider>
-
-      {activeBookmark && (
-        <Reader
-          bookmark={activeBookmark}
-          onClose={() => setActiveBookmark(null)}
-        />
-      )}
     </div>
   );
 }

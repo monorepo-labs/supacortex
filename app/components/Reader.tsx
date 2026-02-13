@@ -47,7 +47,7 @@ export default function Reader({
       <div
         className="absolute inset-x-0 bottom-0 flex flex-col rounded-t-2xl bg-white shadow-2xl transition-transform duration-300 ease-out"
         style={{
-          height: "calc(100vh - 1rem)",
+          height: "calc(100vh - 2rem)",
           transform: open ? "translateY(0)" : "translateY(100%)",
         }}
       >

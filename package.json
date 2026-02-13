@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@dnd-kit/dom": "^0.2.4",
+    "@dnd-kit/helpers": "^0.2.4",
+    "@dnd-kit/react": "^0.2.4",
     "@openrouter/sdk": "^0.8.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.90.21",

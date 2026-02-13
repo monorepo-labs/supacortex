@@ -13,6 +13,11 @@ const USER_ID = "y0x020V0yUFdepBchmoRutO9d4KuvD9d";
 async function seed() {
   console.log("Seeding...");
 
+  // Clear existing data (bookmark_tags cascade-deleted with bookmarks)
+  await db.delete(bookmarkTags);
+  await db.delete(bookmarks);
+  await db.delete(tags);
+
   // Insert tags
   const insertedTags = await db
     .insert(tags)
@@ -189,6 +194,121 @@ All that matters is you start writing so you can build the skills that come afte
           { type: "image", url: "https://pbs.twimg.com/media/HAhcMDIaIAAwuQr?format=jpg&name=medium" },
         ],
       },
+      {
+        type: "article",
+        title: "The Arc Product-Market Fit Framework",
+        aiTitle: null,
+        url: "https://www.sequoiacap.com/article/pmf-framework",
+        createdBy: USER_ID,
+        content:
+          "Product-market fit isn't binary — it's a spectrum. Level 1: Hair on Fire (solving an urgent problem). Level 2: Hard Fact (inevitable shift). Level 3: Future Vision (creating a new category). Most founders fail because they skip straight to Level 3 without earning Level 1.",
+        author: null,
+        mediaUrls: null,
+      },
+      {
+        type: "tweet",
+        title: null,
+        aiTitle: "Why small teams win",
+        url: "https://x.com/dhh/status/1893729384726501",
+        createdBy: USER_ID,
+        content:
+          "A team of 3 can outship a team of 30. Less communication overhead, faster decisions, more ownership. The best software in the world was built by tiny teams. Stop hiring and start shipping.",
+        author: "dhh",
+        mediaUrls: null,
+      },
+      {
+        type: "article",
+        title: "Taste is the new skill",
+        aiTitle: null,
+        url: "https://www.worksinprogress.co/issue/taste-as-skill",
+        createdBy: USER_ID,
+        content:
+          "In an age where AI can generate anything, the ability to curate and judge quality becomes the most valuable skill. Taste isn't subjective — it's pattern recognition refined over thousands of hours of exposure to great work. The people who win will be the ones who know what good looks like.",
+        author: null,
+        mediaUrls: null,
+      },
+      {
+        type: "tweet",
+        title: null,
+        aiTitle: "Compounding effects of writing daily",
+        url: "https://x.com/sahilbloom/status/1893729384726503",
+        createdBy: USER_ID,
+        content:
+          "Writing is the most underrated skill in business. It clarifies your thinking, builds your reputation, and compounds over time. Write 1 post a day for a year. That's 365 pieces of content working for you while you sleep.",
+        author: "sahilbloom",
+        mediaUrls: null,
+        isRead: true,
+      },
+      {
+        type: "link",
+        title: "How Figma builds product",
+        aiTitle: null,
+        url: "https://figma.com/blog/how-we-build-product",
+        createdBy: USER_ID,
+        content:
+          "Small, empowered teams. Weekly design reviews. Tight feedback loops with dogfooding. Ship early betas to power users. The best product process is one that gets out of the way and lets makers make.",
+        author: null,
+        mediaUrls: null,
+      },
+      {
+        type: "tweet",
+        title: null,
+        aiTitle: "Local-first software is the future",
+        url: "https://x.com/schickling/status/1893729384726505",
+        createdBy: USER_ID,
+        content:
+          "Local-first means your data lives on your device. Sync when you want. Work offline always. No loading spinners, no server costs, no vendor lock-in. The cloud was a detour. We're coming back to personal computing.",
+        author: "schickling",
+        mediaUrls: null,
+      },
+      {
+        type: "article",
+        title: "The Grug Brained Developer",
+        aiTitle: null,
+        url: "https://grugbrain.dev",
+        createdBy: USER_ID,
+        content: `Grug brain developer not so smart but grug brain developer ship mass code. Grug say: complexity very very bad. Given choice between complexity or one more if statement, grug take if statement every time.
+
+**Big brain developer** say "what if we need to change this later?" Grug say: "then we change it later." Big brain developer make mass abstraction. Grug mass mass if statement. Grug code mass simple. Grug ship. Big brain developer mass mass abstraction, mass mass type, mass mass interface. Big brain developer mass mass not ship.
+
+Grug brain developer know mass mass important thing: **working software today mass mass more important than perfect software mass mass later.**`,
+        author: null,
+        mediaUrls: null,
+      },
+      {
+        type: "tweet",
+        title: null,
+        aiTitle: "Why solo founders should charge from day one",
+        url: "https://x.com/marckohlbrugge/status/1893729384726507",
+        createdBy: USER_ID,
+        content:
+          "Free users don't give you real feedback. They give you feature requests. Paying users tell you what's actually broken. Charge from day one, even if it's $5/month. The signal you get is worth 100x the revenue.",
+        author: "marckohlbrugge",
+        mediaUrls: null,
+      },
+      {
+        type: "link",
+        title: "Designing for the margins",
+        aiTitle: null,
+        url: "https://alistapart.com/article/designing-for-margins",
+        createdBy: USER_ID,
+        content:
+          "The best design decisions aren't about pixels — they're about margins. Margin between elements, margin for error, margin for different screen sizes. Give your content room to breathe and your interface will feel 10x more polished.",
+        author: null,
+        mediaUrls: null,
+      },
+      {
+        type: "tweet",
+        title: null,
+        aiTitle: "The 100-user rule for early-stage startups",
+        url: "https://x.com/paulg/status/1893729384726509",
+        createdBy: USER_ID,
+        content:
+          "Do things that don't scale. Talk to your first 100 users individually. Understand their problems deeply. The patterns you find will shape everything you build next. There are no shortcuts in the beginning.",
+        author: "paulg",
+        mediaUrls: null,
+        isRead: true,
+      },
     ])
     .returning();
 
@@ -203,6 +323,18 @@ All that matters is you start writing so you can build the skills that come afte
     { bookmarkId: insertedBookmarks[7].id, tagId: tagMap["Startups"] },
     { bookmarkId: insertedBookmarks[7].id, tagId: tagMap["Product"] },
     { bookmarkId: insertedBookmarks[8].id, tagId: tagMap["Writing"] },
+    { bookmarkId: insertedBookmarks[9].id, tagId: tagMap["Startups"] },
+    { bookmarkId: insertedBookmarks[9].id, tagId: tagMap["Product"] },
+    { bookmarkId: insertedBookmarks[10].id, tagId: tagMap["Startups"] },
+    { bookmarkId: insertedBookmarks[11].id, tagId: tagMap["Design"] },
+    { bookmarkId: insertedBookmarks[12].id, tagId: tagMap["Writing"] },
+    { bookmarkId: insertedBookmarks[13].id, tagId: tagMap["Design"] },
+    { bookmarkId: insertedBookmarks[13].id, tagId: tagMap["Product"] },
+    { bookmarkId: insertedBookmarks[14].id, tagId: tagMap["Engineering"] },
+    { bookmarkId: insertedBookmarks[15].id, tagId: tagMap["Engineering"] },
+    { bookmarkId: insertedBookmarks[16].id, tagId: tagMap["Startups"] },
+    { bookmarkId: insertedBookmarks[17].id, tagId: tagMap["Design"] },
+    { bookmarkId: insertedBookmarks[18].id, tagId: tagMap["Startups"] },
   ]);
 
   console.log(`Seeded ${insertedBookmarks.length} bookmarks and ${insertedTags.length} tags`);
