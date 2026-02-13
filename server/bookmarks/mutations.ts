@@ -26,13 +26,19 @@ export const updateBookmarkPosition = async (
 };
 
 export const updateGridLayout = async (
-  items: { id: string; gridX: number; gridY: number; gridW: number; gridH: number }[],
+  items: { id: string; gridX: number; gridY: number; gridW: number; gridH: number; gridExpanded?: boolean }[],
 ) => {
   if (items.length === 0) return;
   const queries = items.map((item) =>
     db
       .update(bookmarks)
-      .set({ gridX: item.gridX, gridY: item.gridY, gridW: item.gridW, gridH: item.gridH })
+      .set({
+        gridX: item.gridX,
+        gridY: item.gridY,
+        gridW: item.gridW,
+        gridH: item.gridH,
+        ...(item.gridExpanded !== undefined && { gridExpanded: item.gridExpanded }),
+      })
       .where(eq(bookmarks.id, item.id)),
   );
   await Promise.all(queries);

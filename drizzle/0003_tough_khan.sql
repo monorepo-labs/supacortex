@@ -1,0 +1,1 @@
+ALTER TABLE "bookmarks" ADD COLUMN "grid_expanded" boolean DEFAULT false;

@@ -31,6 +31,7 @@ export const bookmarks = pgTable("bookmarks", {
   gridY: real(),
   gridW: real(),
   gridH: real(),
+  gridExpanded: boolean().default(false),
   createdAt: timestamp().defaultNow(),
   createdBy: text().notNull(),
 });

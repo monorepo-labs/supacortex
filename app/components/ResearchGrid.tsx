@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import ReactGridLayout, { useContainerWidth, verticalCompactor } from "react-grid-layout";
+import ReactGridLayout, { verticalCompactor } from "react-grid-layout";
 import type { Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { useUpdateGridLayout } from "@/hooks/use-bookmarks";
 
 const COLS = 12;
 const ROW_HEIGHT = 30;
-const DEFAULT_W = 4;
+const DEFAULT_W = 3;
 const DEFAULT_H = 5;
 const IMAGE_H = 9;
 const EXPANDED_H = 14;
@@ -28,7 +28,7 @@ function buildLayout(bookmarks: BookmarkData[]): Layout {
     x: b.gridX ?? (i % perRow) * DEFAULT_W,
     y: b.gridY ?? Math.floor(i / perRow) * IMAGE_H,
     w: b.gridW ?? DEFAULT_W,
-    h: defaultH(b),
+    h: b.gridH ?? defaultH(b),
     minW: 2,
     minH: 3,
   }));
@@ -45,16 +45,30 @@ export default function ResearchGrid({
   error: Error | null;
   onOpenReader: (bookmark: BookmarkData) => void;
 }) {
-  const { width, containerRef, mounted } = useContainerWidth();
   const { mutate: saveLayout } = useUpdateGridLayout();
   const [layout, setLayout] = useState<Layout>(() => buildLayout(bookmarks));
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    () => new Set(bookmarks.filter((b) => b.gridExpanded === true).map((b) => b.id)),
+  );
   const [dragEnabled, setDragEnabled] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastDragTimeRef = useRef(0);
   const selectModeRef = useRef(false);
+  const preExpandH = useRef<Map<string, number>>(new Map());
+  const [gridWidth, setGridWidth] = useState(0);
 
-  // Sync layout when bookmarks change (new/deleted items)
+  // Measure width from scroll container (accounts for scrollbar)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setGridWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Sync layout and expanded state when bookmarks change
   useEffect(() => {
     setLayout((prev) => {
       const existing = new Map(prev.map((item) => [item.i, item]));
@@ -68,11 +82,20 @@ export default function ResearchGrid({
           x: b.gridX ?? ((kept.length + i) % perRow) * DEFAULT_W,
           y: b.gridY ?? Infinity,
           w: b.gridW ?? DEFAULT_W,
-          h: defaultH(b),
+          h: b.gridH ?? defaultH(b),
           minW: 2,
           minH: 3,
         }));
       return [...kept, ...newItems];
+    });
+
+    // Restore expanded state from DB
+    setExpandedIds((prev) => {
+      const fromDb = new Set(
+        bookmarks.filter((b) => b.gridExpanded === true).map((b) => b.id),
+      );
+      if (prev.size === 0 && fromDb.size > 0) return fromDb;
+      return prev;
     });
   }, [bookmarks]);
 
@@ -81,43 +104,54 @@ export default function ResearchGrid({
     [bookmarks],
   );
 
-  const toggleExpand = useCallback((id: string) => {
-    // Suppress if drag just ended
-    if (Date.now() - lastDragTimeRef.current < 200) return;
-
-    const bookmark = bookmarkMap.get(id);
-    const collapsedH = bookmark ? defaultH(bookmark) : DEFAULT_H;
-
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-    setLayout((prev) =>
-      prev.map((item) => {
-        if (item.i !== id) return item;
-        const isExpanded = expandedIds.has(id);
-        return { ...item, h: isExpanded ? collapsedH : EXPANDED_H };
-      }),
-    );
-  }, [expandedIds, bookmarkMap]);
-
-  const handleOpenReader = useCallback((bookmark: BookmarkData) => {
-    if (Date.now() - lastDragTimeRef.current < 200) return;
-    if (!bookmark._optimistic) onOpenReader(bookmark);
-  }, [onOpenReader]);
-
-  const persistLayout = useCallback((newLayout: Layout) => {
+  const persistLayout = useCallback((newLayout: Layout, expanded?: Set<string>) => {
     const items = newLayout.map((item) => ({
       id: item.i,
       gridX: item.x,
       gridY: item.y,
       gridW: item.w,
       gridH: item.h,
+      ...(expanded && { gridExpanded: expanded.has(item.i) }),
     }));
     saveLayout(items);
   }, [saveLayout]);
+
+  const toggleExpand = useCallback((id: string) => {
+    // Suppress if drag just ended
+    if (Date.now() - lastDragTimeRef.current < 200) return;
+
+    const isExpanded = expandedIds.has(id);
+    const currentItem = layout.find((item) => item.i === id);
+    if (!currentItem) return;
+
+    // Compute new height before calling setLayout (avoids ref issues in strict mode)
+    let newH: number;
+    if (isExpanded) {
+      newH = preExpandH.current.get(id) ?? currentItem.h;
+      preExpandH.current.delete(id);
+    } else {
+      preExpandH.current.set(id, currentItem.h);
+      newH = EXPANDED_H;
+    }
+
+    const newExpandedIds = new Set(expandedIds);
+    if (isExpanded) newExpandedIds.delete(id);
+    else newExpandedIds.add(id);
+
+    setExpandedIds(newExpandedIds);
+    setLayout((prev) => {
+      const next = prev.map((item) =>
+        item.i === id ? { ...item, h: newH } : item
+      );
+      persistLayout(next, newExpandedIds);
+      return next;
+    });
+  }, [expandedIds, layout, persistLayout]);
+
+  const handleOpenReader = useCallback((bookmark: BookmarkData) => {
+    if (Date.now() - lastDragTimeRef.current < 200) return;
+    if (!bookmark._optimistic) onOpenReader(bookmark);
+  }, [onOpenReader]);
 
   // Option+Shift text selection mode with copy on release
   useEffect(() => {
@@ -162,85 +196,73 @@ export default function ResearchGrid({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  if (error) {
-    return (
-      <div className="flex h-full items-center justify-center text-zinc-400">
-        Failed to load bookmarks.
-      </div>
-    );
-  }
+  const placeholder = error
+    ? "Failed to load bookmarks."
+    : isLoading && bookmarks.length === 0
+      ? "Loading..."
+      : bookmarks.length === 0
+        ? "No bookmarks yet."
+        : null;
 
-  if (isLoading && bookmarks.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-zinc-400">
-        Loading...
-      </div>
-    );
-  }
-
-  if (bookmarks.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-zinc-400">
-        No bookmarks yet.
-      </div>
-    );
-  }
-
-  const children = layout
-    .map((item) => {
-      const bookmark = bookmarkMap.get(item.i);
-      if (!bookmark) return null;
-      return (
-        <div key={item.i}>
-          <BookmarkCard
-            bookmark={bookmark}
-            expanded={expandedIds.has(bookmark.id)}
-            onToggleExpand={() => toggleExpand(bookmark.id)}
-            onClick={() => handleOpenReader(bookmark)}
-            textSelectable={!dragEnabled}
-          />
-        </div>
-      );
-    })
-    .filter(Boolean);
+  const children = placeholder
+    ? null
+    : layout
+        .map((item) => {
+          const bookmark = bookmarkMap.get(item.i);
+          if (!bookmark) return null;
+          return (
+            <div key={item.i}>
+              <BookmarkCard
+                bookmark={bookmark}
+                expanded={expandedIds.has(bookmark.id)}
+                onToggleExpand={() => toggleExpand(bookmark.id)}
+                onClick={() => handleOpenReader(bookmark)}
+                textSelectable={!dragEnabled}
+              />
+            </div>
+          );
+        })
+        .filter(Boolean);
 
   return (
     <div
       ref={scrollRef}
       className="relative h-full w-full overflow-y-auto overflow-x-hidden scrollbar-light bg-white/60"
     >
-      <div ref={containerRef}>
-        {mounted && (
-          <ReactGridLayout
-            layout={layout}
-            onLayoutChange={setLayout}
-            onDragStop={(_layout) => {
-              lastDragTimeRef.current = Date.now();
-              persistLayout(_layout);
-            }}
-            onResizeStop={(_layout) => {
-              persistLayout(_layout);
-            }}
-            width={width}
-            gridConfig={{
-              cols: COLS,
-              rowHeight: ROW_HEIGHT,
-              margin: [10, 10] as [number, number],
-              containerPadding: [10, 10] as [number, number],
-            }}
-            dragConfig={{
-              enabled: dragEnabled,
-            }}
-            resizeConfig={{
-              enabled: true,
-              handles: ["e", "s"],
-            }}
-            compactor={verticalCompactor}
-          >
-            {children}
-          </ReactGridLayout>
-        )}
-      </div>
+      {placeholder ? (
+        <div className="flex h-full items-center justify-center text-zinc-400">
+          {placeholder}
+        </div>
+      ) : gridWidth > 0 && children ? (
+        <ReactGridLayout
+          layout={layout}
+          onLayoutChange={setLayout}
+          onDragStop={(_layout) => {
+            lastDragTimeRef.current = Date.now();
+            persistLayout(_layout);
+          }}
+          onResizeStop={(_layout) => {
+            persistLayout(_layout);
+          }}
+          width={gridWidth}
+          gridConfig={{
+            cols: COLS,
+            rowHeight: ROW_HEIGHT,
+            margin: [24, 24] as [number, number],
+            containerPadding: [24, 24] as [number, number],
+          }}
+          dragConfig={{
+            enabled: dragEnabled,
+          }}
+          resizeConfig={{
+            enabled: true,
+            handles: ["w", "e", "s"],
+          }}
+          compactor={verticalCompactor}
+        >
+          {children}
+        </ReactGridLayout>
+      ) : null}
     </div>
   );
 }

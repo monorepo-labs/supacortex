@@ -30,7 +30,7 @@ export const useUpdateBookmarkPosition = () => {
 
 export const useUpdateGridLayout = () => {
   return useMutation({
-    mutationFn: async (layout: { id: string; gridX: number; gridY: number; gridW: number; gridH: number }[]) => {
+    mutationFn: async (layout: { id: string; gridX: number; gridY: number; gridW: number; gridH: number; gridExpanded?: boolean }[]) => {
       const res = await fetch(`/api/bookmarks`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
