@@ -23,6 +23,8 @@ export default function BookmarkCard({
   onResizeStart,
   onResizeEnd,
   dragHandleRef,
+  fillWidth,
+  onColumnResize,
   className,
 }: {
   bookmark: BookmarkData;
@@ -32,6 +34,8 @@ export default function BookmarkCard({
   onResizeStart?: () => void;
   onResizeEnd?: () => void;
   dragHandleRef?: ((el: Element | null) => void);
+  fillWidth?: boolean;
+  onColumnResize?: (width: number) => void;
   className?: string;
 }) {
   const { mutate: remove } = useDeleteBookmark();
@@ -54,7 +58,12 @@ export default function BookmarkCard({
 
     const onMove = (ev: PointerEvent) => {
       if (dir === "right") {
-        card.style.width = `${Math.max(280, startW + ev.clientX - startX)}px`;
+        const newW = Math.max(280, startW + ev.clientX - startX);
+        if (fillWidth && onColumnResize) {
+          onColumnResize(newW);
+        } else {
+          card.style.width = `${newW}px`;
+        }
       }
       if (dir === "bottom") {
         card.style.height = `${Math.max(300, startH + ev.clientY - startY)}px`;
@@ -69,7 +78,7 @@ export default function BookmarkCard({
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
-  }, [onResizeStart, onResizeEnd]);
+  }, [onResizeStart, onResizeEnd, fillWidth, onColumnResize]);
 
   if (bookmark._optimistic) {
     return (
@@ -99,8 +108,8 @@ export default function BookmarkCard({
         <div
           ref={cardRef}
           onClick={() => { if (!isResizingRef.current) onClick(); }}
-          className={`group/card relative rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md cursor-pointer ${expanded ? "flex flex-col" : ""} ${className ?? ""}`}
-          style={{ width: 320, height: expanded ? 500 : undefined }}
+          className={`group/card relative rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md cursor-pointer ${fillWidth ? "w-full" : "w-80"} ${expanded ? "flex flex-col" : ""} ${className ?? ""}`}
+          style={{ height: expanded ? 500 : undefined }}
         >
           {/* Image */}
           {image && !expanded && (
