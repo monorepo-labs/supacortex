@@ -174,3 +174,32 @@ body {
     background: #d4d4d8;
 }
 
+/* react-grid-layout — invisible full-edge resize handles */
+.react-grid-item > .react-resizable-handle {
+    background: none !important;
+    background-image: none !important;
+    opacity: 1 !important;
+}
+.react-grid-item > .react-resizable-handle::after {
+    content: none !important;
+    display: none !important;
+}
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e {
+    top: 0 !important;
+    right: 0 !important;
+    width: 12px !important;
+    height: 100% !important;
+    margin-top: 0 !important;
+    transform: none !important;
+    cursor: e-resize;
+}
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+    left: 0 !important;
+    bottom: 0 !important;
+    height: 12px !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    transform: none !important;
+    cursor: s-resize;
+}
+

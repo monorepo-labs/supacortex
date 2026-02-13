@@ -28,6 +28,20 @@ export const useUpdateBookmarkPosition = () => {
   });
 };
 
+export const useUpdateGridLayout = () => {
+  return useMutation({
+    mutationFn: async (layout: { id: string; gridX: number; gridY: number; gridW: number; gridH: number }[]) => {
+      const res = await fetch(`/api/bookmarks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ layout }),
+      });
+      if (!res.ok) throw new Error("Failed to update grid layout");
+      return res.json();
+    },
+  });
+};
+
 export const useDeleteBookmark = () => {
   const queryClient = useQueryClient();
   return useMutation({

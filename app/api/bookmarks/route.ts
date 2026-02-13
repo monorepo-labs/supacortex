@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBookmarksForUser } from "@/server/bookmarks/queries";
 import { getUser } from "@/lib/get-user";
-import { createBookmark, deleteBookmark, updateBookmarkPosition } from "@/server/bookmarks/mutations";
+import { createBookmark, deleteBookmark, updateBookmarkPosition, updateGridLayout } from "@/server/bookmarks/mutations";
 import { classifyUrlType } from "@/lib/ingest/url-type";
 import { scrapeContent } from "@/lib/ingest/scraper";
 
@@ -78,17 +78,25 @@ export async function PATCH(req: Request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, positionX, positionY } = await req.json();
-
-  if (!id || positionX == null || positionY == null)
-    return NextResponse.json({ error: "id, positionX, positionY required" }, { status: 400 });
+  const body = await req.json();
 
   try {
+    // Grid layout batch update
+    if (body.layout && Array.isArray(body.layout)) {
+      await updateGridLayout(body.layout);
+      return NextResponse.json({ ok: true });
+    }
+
+    // Canvas position update (single bookmark)
+    const { id, positionX, positionY } = body;
+    if (!id || positionX == null || positionY == null)
+      return NextResponse.json({ error: "id, positionX, positionY required" }, { status: 400 });
+
     await updateBookmarkPosition(id, positionX, positionY);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.log(error);
-    return NextResponse.json({ error: "Failed to update position" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
 }
 

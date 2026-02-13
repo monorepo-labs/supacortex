@@ -16,6 +16,10 @@ export type BookmarkData = {
   mediaUrls: { type: string; url: string }[] | null;
   positionX: number | null;
   positionY: number | null;
+  gridX: number | null;
+  gridY: number | null;
+  gridW: number | null;
+  gridH: number | null;
   createdAt: string | null;
   _optimistic?: boolean;
   _expanded?: boolean;

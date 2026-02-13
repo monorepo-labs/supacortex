@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef, useCallback } from "react";
 import Image from "next/image";
 import Markdown from "react-markdown";
 import { Link as LinkIcon, ExternalLink, Trash2, Maximize2, Minimize2, BookOpen } from "lucide-react";
@@ -20,10 +19,6 @@ export default function BookmarkCard({
   expanded,
   onToggleExpand,
   onClick,
-  onResizeStart,
-  onResizeEnd,
-  dragHandleRef,
-  fillWidth,
   textSelectable,
   className,
 }: {
@@ -31,53 +26,14 @@ export default function BookmarkCard({
   expanded: boolean;
   onToggleExpand: () => void;
   onClick: () => void;
-  onResizeStart?: () => void;
-  onResizeEnd?: () => void;
-  dragHandleRef?: ((el: Element | null) => void);
-  fillWidth?: boolean;
   textSelectable?: boolean;
   className?: string;
 }) {
   const { mutate: remove } = useDeleteBookmark();
-  const cardRef = useRef<HTMLDivElement>(null);
-  const isResizingRef = useRef(false);
-
-  const onEdgeResize = useCallback((dir: "right" | "bottom", e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const card = cardRef.current;
-    if (!card) return;
-
-    isResizingRef.current = true;
-    onResizeStart?.();
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startW = card.offsetWidth;
-    const startH = card.offsetHeight;
-
-    const onMove = (ev: PointerEvent) => {
-      if (dir === "right") {
-        card.style.width = `${Math.max(280, startW + ev.clientX - startX)}px`;
-      }
-      if (dir === "bottom") {
-        card.style.height = `${Math.max(300, startH + ev.clientY - startY)}px`;
-      }
-    };
-    const onUp = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      onResizeEnd?.();
-      // Keep flag true briefly so the click event that fires after pointerup is swallowed
-      requestAnimationFrame(() => { isResizingRef.current = false; });
-    };
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-  }, [onResizeStart, onResizeEnd]);
 
   if (bookmark._optimistic) {
     return (
-      <div className={`rounded-xl border border-zinc-200 bg-white shadow ${className ?? ""}`}>
+      <div className={`rounded-xl border border-zinc-200 bg-white shadow h-full ${className ?? ""}`}>
         <div className="p-4 space-y-3">
           <div className="h-4 w-3/4 rounded bg-zinc-100 animate-pulse" />
           <div className="h-3 w-full rounded bg-zinc-100 animate-pulse" />
@@ -101,9 +57,7 @@ export default function BookmarkCard({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={cardRef}
           onClick={(e) => {
-            if (isResizingRef.current) return;
             if (e.shiftKey) return;
             if (e.altKey) {
               onClick();
@@ -111,12 +65,11 @@ export default function BookmarkCard({
               onToggleExpand();
             }
           }}
-          className={`group/card relative rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${fillWidth ? "w-full" : "w-80"} ${expanded ? "flex flex-col" : ""} ${className ?? ""}`}
-          style={{ height: expanded ? (image ? 660 : 500) : undefined }}
+          className={`group/card relative flex flex-col h-full rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md overflow-hidden ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {/* Image */}
           {image && (
-            <div className={`relative h-40 overflow-hidden rounded-t-xl ${expanded ? "shrink-0" : ""}`}>
+            <div className="relative h-40 shrink-0 overflow-hidden">
               <Image
                 src={image.url}
                 alt=""
@@ -127,19 +80,19 @@ export default function BookmarkCard({
             </div>
           )}
 
-          {/* Title (pinned top when expanded) */}
+          {/* Title */}
           {displayTitle && (
-            <div className={expanded ? "shrink-0 px-4 pt-4 pb-2" : "px-4 pt-4"}>
+            <div className="shrink-0 px-4 pt-4 pb-2">
               <h3
                 style={{ fontFamily: "var(--font-source-serif)" }}
-                className="font-medium leading-snug text-zinc-900 text-lg"
+                className={`font-medium leading-snug text-zinc-900 text-lg ${expanded ? "" : "line-clamp-2"}`}
               >
                 {displayTitle}
               </h3>
             </div>
           )}
 
-          {/* Scrollable content area when expanded */}
+          {/* Content */}
           {expanded ? (
             <div
               className="flex-1 min-h-0 overflow-y-auto px-4 scrollbar-hover"
@@ -162,17 +115,15 @@ export default function BookmarkCard({
           ) : (
             bookmark.content && bookmark.type !== "link" && (
               <div className="px-4">
-                <p className="mb-3 text-zinc-500">
-                  {bookmark.content.length > 160
-                    ? bookmark.content.slice(0, 160) + "…"
-                    : bookmark.content}
+                <p className="mb-3 text-zinc-500 line-clamp-3">
+                  {bookmark.content}
                 </p>
               </div>
             )
           )}
 
-          {/* Footer (pinned bottom when expanded) */}
-          <div className={`flex items-center justify-between ${expanded ? "shrink-0 px-4 py-3" : "px-4 pb-4"}`}>
+          {/* Footer */}
+          <div className="shrink-0 flex items-center justify-between px-4 pb-4 pt-2">
             <div className="flex items-center gap-2 min-w-0">
               {avatar && (
                 <Image
@@ -205,36 +156,6 @@ export default function BookmarkCard({
               <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-300" />
             )}
           </div>
-
-          {/* Drag handle (inset from resize edges) */}
-          {expanded && dragHandleRef && (
-            <div
-              ref={dragHandleRef as React.Ref<HTMLDivElement>}
-              className="absolute top-0 left-0 z-[5]"
-              style={{
-                width: fillWidth ? "100%" : "calc(100% - 32px)",
-                height: "calc(100% - 32px)",
-              }}
-            />
-          )}
-
-          {/* Resize handles */}
-          {expanded && (
-            <>
-              {!fillWidth && (
-                <div
-                  onPointerDown={(e) => onEdgeResize("right", e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute top-0 right-0 w-8 h-full cursor-e-resize touch-none z-10"
-                />
-              )}
-              <div
-                onPointerDown={(e) => onEdgeResize("bottom", e)}
-                onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-0 left-0 h-8 w-full cursor-s-resize touch-none z-10"
-              />
-            </>
-          )}
         </div>
       </ContextMenuTrigger>
 
