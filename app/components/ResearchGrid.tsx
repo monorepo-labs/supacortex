@@ -30,21 +30,25 @@ function SortableBookmarkCard({
   const resizingRef = useRef(false);
 
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(true); };
-    const up = (e: KeyboardEvent) => {
-      if (e.key !== "Shift") return;
-      setShiftHeld(false);
-      const sel = window.getSelection();
-      const text = sel?.toString().trim();
-      if (text) {
-        navigator.clipboard.writeText(text);
-        toast.success("Copied to clipboard");
-        sel?.removeAllRanges();
-      }
+    const update = (e: KeyboardEvent) => {
+      const active = e.altKey && e.shiftKey;
+      setShiftHeld((prev) => {
+        if (prev && !active) {
+          // Leaving select mode — copy selection
+          const sel = window.getSelection();
+          const text = sel?.toString().trim();
+          if (text) {
+            navigator.clipboard.writeText(text);
+            toast.success("Copied to clipboard");
+            sel?.removeAllRanges();
+          }
+        }
+        return active;
+      });
     };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+    window.addEventListener("keydown", update);
+    window.addEventListener("keyup", update);
+    return () => { window.removeEventListener("keydown", update); window.removeEventListener("keyup", update); };
   }, []);
 
   const onResizeStart = useCallback(() => {

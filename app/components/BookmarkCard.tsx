@@ -206,18 +206,32 @@ export default function BookmarkCard({
             )}
           </div>
 
+          {/* Drag handle (inset from resize edges) */}
+          {expanded && dragHandleRef && (
+            <div
+              ref={dragHandleRef as React.Ref<HTMLDivElement>}
+              className="absolute top-0 left-0 z-[5]"
+              style={{
+                width: fillWidth ? "100%" : "calc(100% - 32px)",
+                height: "calc(100% - 32px)",
+              }}
+            />
+          )}
+
           {/* Resize handles */}
           {expanded && (
             <>
-              <div
-                onPointerDown={(e) => onEdgeResize("right", e)}
-                onClick={(e) => e.stopPropagation()}
-                className="absolute top-0 right-0 w-4 h-full cursor-e-resize touch-none z-10"
-              />
+              {!fillWidth && (
+                <div
+                  onPointerDown={(e) => onEdgeResize("right", e)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-0 right-0 w-8 h-full cursor-e-resize touch-none z-10"
+                />
+              )}
               <div
                 onPointerDown={(e) => onEdgeResize("bottom", e)}
                 onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-0 left-0 h-6 w-full cursor-s-resize touch-none z-10"
+                className="absolute bottom-0 left-0 h-8 w-full cursor-s-resize touch-none z-10"
               />
             </>
           )}
