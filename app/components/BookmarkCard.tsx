@@ -3,7 +3,7 @@
 import { useRef, useCallback } from "react";
 import Image from "next/image";
 import Markdown from "react-markdown";
-import { Link as LinkIcon, ExternalLink, Trash2, Maximize2, Minimize2 } from "lucide-react";
+import { Link as LinkIcon, ExternalLink, Trash2, Maximize2, Minimize2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import {
   ContextMenu,
@@ -24,7 +24,7 @@ export default function BookmarkCard({
   onResizeEnd,
   dragHandleRef,
   fillWidth,
-  onColumnResize,
+  textSelectable,
   className,
 }: {
   bookmark: BookmarkData;
@@ -35,7 +35,7 @@ export default function BookmarkCard({
   onResizeEnd?: () => void;
   dragHandleRef?: ((el: Element | null) => void);
   fillWidth?: boolean;
-  onColumnResize?: (width: number) => void;
+  textSelectable?: boolean;
   className?: string;
 }) {
   const { mutate: remove } = useDeleteBookmark();
@@ -58,12 +58,7 @@ export default function BookmarkCard({
 
     const onMove = (ev: PointerEvent) => {
       if (dir === "right") {
-        const newW = Math.max(280, startW + ev.clientX - startX);
-        if (fillWidth && onColumnResize) {
-          onColumnResize(newW);
-        } else {
-          card.style.width = `${newW}px`;
-        }
+        card.style.width = `${Math.max(280, startW + ev.clientX - startX)}px`;
       }
       if (dir === "bottom") {
         card.style.height = `${Math.max(300, startH + ev.clientY - startY)}px`;
@@ -78,7 +73,7 @@ export default function BookmarkCard({
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
-  }, [onResizeStart, onResizeEnd, fillWidth, onColumnResize]);
+  }, [onResizeStart, onResizeEnd]);
 
   if (bookmark._optimistic) {
     return (
@@ -107,13 +102,21 @@ export default function BookmarkCard({
       <ContextMenuTrigger asChild>
         <div
           ref={cardRef}
-          onClick={() => { if (!isResizingRef.current) onClick(); }}
-          className={`group/card relative rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md cursor-pointer ${fillWidth ? "w-full" : "w-80"} ${expanded ? "flex flex-col" : ""} ${className ?? ""}`}
-          style={{ height: expanded ? 500 : undefined }}
+          onClick={(e) => {
+            if (isResizingRef.current) return;
+            if (e.shiftKey) return;
+            if (e.altKey) {
+              onClick();
+            } else {
+              onToggleExpand();
+            }
+          }}
+          className={`group/card relative rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${fillWidth ? "w-full" : "w-80"} ${expanded ? "flex flex-col" : ""} ${className ?? ""}`}
+          style={{ height: expanded ? (image ? 660 : 500) : undefined }}
         >
           {/* Image */}
-          {image && !expanded && (
-            <div className="relative h-40 overflow-hidden rounded-t-xl">
+          {image && (
+            <div className={`relative h-40 overflow-hidden rounded-t-xl ${expanded ? "shrink-0" : ""}`}>
               <Image
                 src={image.url}
                 alt=""
@@ -129,7 +132,7 @@ export default function BookmarkCard({
             <div className={expanded ? "shrink-0 px-4 pt-4 pb-2" : "px-4 pt-4"}>
               <h3
                 style={{ fontFamily: "var(--font-source-serif)" }}
-                className={`font-medium leading-snug text-zinc-900 ${expanded ? "text-xl" : "text-lg"}`}
+                className="font-medium leading-snug text-zinc-900 text-lg"
               >
                 {displayTitle}
               </h3>
@@ -221,16 +224,32 @@ export default function BookmarkCard({
         </div>
       </ContextMenuTrigger>
 
-      <ContextMenuContent className="w-48">
+      <ContextMenuContent className="w-56">
         <ContextMenuItem
           onClick={(e) => {
             e.stopPropagation();
             onToggleExpand();
           }}
-          className="gap-2"
+          className="gap-2 justify-between"
         >
-          {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          {expanded ? "Collapse" : "Expand"}
+          <span className="flex items-center gap-2">
+            {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            {expanded ? "Collapse" : "Expand"}
+          </span>
+          <span className="text-[11px] text-zinc-400">Click</span>
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          className="gap-2 justify-between"
+        >
+          <span className="flex items-center gap-2">
+            <BookOpen size={14} />
+            Open in Reader
+          </span>
+          <span className="text-[11px] text-zinc-400">⌥ Click</span>
         </ContextMenuItem>
         <ContextMenuItem
           onClick={(e) => {

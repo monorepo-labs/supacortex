@@ -5,7 +5,7 @@ import Sidebar from "@/app/components/Sidebar";
 import SearchBar from "@/app/components/SearchBar";
 import Canvas from "@/app/components/Canvas";
 import ResearchGrid from "@/app/components/ResearchGrid";
-import ViewToggle from "@/app/components/ViewToggle";
+import ViewToggle, { type ViewMode } from "@/app/components/ViewToggle";
 import Reader from "@/app/components/Reader";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
@@ -19,13 +19,15 @@ export default function LibraryPage() {
     error,
   } = useBookmarks(deferredSearch.length >= 3 ? deferredSearch : "");
 
-  const [view, setView] = useState<"canvas" | "research">("canvas");
-  const [activeBookmark, setActiveBookmark] = useState<BookmarkData | null>(null);
+  const [view, setView] = useState<ViewMode>("vertical");
+  const [activeBookmark, setActiveBookmark] = useState<BookmarkData | null>(
+    null,
+  );
 
   return (
     <div className="flex h-screen">
       <Sidebar />
-      <main className="relative flex-1 border border-zinc-200 rounded-lg m-1 overflow-hidden">
+      <main className="relative flex-1 border border-zinc-200 rounded-2xl m-1 overflow-hidden">
         <ViewToggle mode={view} onChange={setView} />
         <SearchBar onSearch={setSearch} />
 

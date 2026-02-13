@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { move } from "@dnd-kit/helpers";
-import { Rows3, Columns3 } from "lucide-react";
+import { toast } from "sonner";
 import BookmarkCard from "./BookmarkCard";
 import type { BookmarkData } from "./BookmarkNode";
 
@@ -16,7 +16,6 @@ function SortableBookmarkCard({
   onClick,
   className,
   fillWidth,
-  onColumnResize,
 }: {
   bookmark: BookmarkData;
   index: number;
@@ -25,10 +24,28 @@ function SortableBookmarkCard({
   onClick: () => void;
   className?: string;
   fillWidth?: boolean;
-  onColumnResize?: (width: number) => void;
 }) {
   const [isResizing, setIsResizing] = useState(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
   const resizingRef = useRef(false);
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(true); };
+    const up = (e: KeyboardEvent) => {
+      if (e.key !== "Shift") return;
+      setShiftHeld(false);
+      const sel = window.getSelection();
+      const text = sel?.toString().trim();
+      if (text) {
+        navigator.clipboard.writeText(text);
+        toast.success("Copied to clipboard");
+        sel?.removeAllRanges();
+      }
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, []);
 
   const onResizeStart = useCallback(() => {
     resizingRef.current = true;
@@ -43,7 +60,7 @@ function SortableBookmarkCard({
   const { ref, handleRef, isDragging } = useSortable({
     id: bookmark.id,
     index,
-    disabled: isResizing,
+    disabled: isResizing || shiftHeld,
   });
 
   return (
@@ -61,7 +78,7 @@ function SortableBookmarkCard({
         onResizeEnd={onResizeEnd}
         dragHandleRef={expanded ? handleRef : undefined}
         fillWidth={fillWidth}
-        onColumnResize={onColumnResize}
+        textSelectable={shiftHeld}
       />
     </div>
   );
@@ -80,9 +97,7 @@ export default function ResearchGrid({
 }) {
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [scrollDir, setScrollDir] = useState<"horizontal" | "vertical">("vertical");
   const [colCount, setColCount] = useState(3);
-  const [columnWidths, setColumnWidths] = useState<Record<number, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -121,21 +136,6 @@ export default function ResearchGrid({
     return () => observer.disconnect();
   }, []);
 
-  // Reset column widths when column count changes
-  useEffect(() => {
-    setColumnWidths({});
-  }, [colCount]);
-
-  const onColumnResize = useCallback((colIndex: number, width: number) => {
-    setColumnWidths((prev) => ({ ...prev, [colIndex]: width }));
-  }, []);
-
-  // Distribute cards into columns (round-robin)
-  const columns: BookmarkData[][] = Array.from({ length: colCount }, () => []);
-  orderedBookmarks.forEach((b, i) => {
-    columns[i % colCount].push(b);
-  });
-
   // Option+Arrow keyboard scrolling
   useEffect(() => {
     const el = containerRef.current;
@@ -143,13 +143,7 @@ export default function ResearchGrid({
     const onKeyDown = (e: KeyboardEvent) => {
       if (!e.altKey) return;
       const amount = 300;
-      if (e.key === "ArrowLeft") {
-        el.scrollBy({ left: -amount, behavior: "smooth" });
-        e.preventDefault();
-      } else if (e.key === "ArrowRight") {
-        el.scrollBy({ left: amount, behavior: "smooth" });
-        e.preventDefault();
-      } else if (e.key === "ArrowUp") {
+      if (e.key === "ArrowUp") {
         el.scrollBy({ top: -amount, behavior: "smooth" });
         e.preventDefault();
       } else if (e.key === "ArrowDown") {
@@ -185,26 +179,11 @@ export default function ResearchGrid({
     );
   }
 
-  const isVertical = scrollDir === "vertical";
-
   return (
     <div
       ref={containerRef}
-      className={`relative h-full w-full scrollbar-light ${
-        isVertical
-          ? "overflow-y-auto overflow-x-hidden"
-          : "overflow-x-auto overflow-y-hidden"
-      }`}
+      className="relative h-full w-full overflow-y-auto overflow-x-hidden scrollbar-light"
     >
-      {/* Scroll direction toggle */}
-      <button
-        onClick={() => setScrollDir(isVertical ? "horizontal" : "vertical")}
-        className="absolute top-3 right-3 z-10 rounded-lg bg-zinc-200/60 p-1.5 text-zinc-400 hover:text-zinc-600 transition-colors"
-        title={isVertical ? "Switch to horizontal scroll" : "Switch to vertical scroll"}
-      >
-        {isVertical ? <Columns3 size={14} /> : <Rows3 size={14} />}
-      </button>
-
       <DragDropProvider
         onDragOver={(event) => {
           requestAnimationFrame(() => {
@@ -212,65 +191,25 @@ export default function ResearchGrid({
           });
         }}
       >
-        {isVertical ? (
-          <div className="flex gap-4 p-4 pt-6">
-            {columns.map((colCards, colIdx) => (
-              <div
-                key={colIdx}
-                className="flex flex-col gap-4"
-                style={{
-                  width: columnWidths[colIdx] ?? undefined,
-                  flex: columnWidths[colIdx] ? "none" : 1,
-                  minWidth: 0,
-                }}
-              >
-                {colCards.map((bookmark) => {
-                  const globalIndex = orderedBookmarks.indexOf(bookmark);
-                  return (
-                    <SortableBookmarkCard
-                      key={bookmark.id}
-                      bookmark={bookmark}
-                      index={globalIndex}
-                      expanded={expandedIds.has(bookmark.id)}
-                      onToggleExpand={() => toggleExpand(bookmark.id)}
-                      onClick={() => {
-                        if (bookmark._optimistic) return;
-                        if (expandedIds.has(bookmark.id)) {
-                          onOpenReader(bookmark);
-                        } else {
-                          toggleExpand(bookmark.id);
-                        }
-                      }}
-                      fillWidth
-                      onColumnResize={(width) => onColumnResize(colIdx, width)}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col flex-wrap content-start gap-4 p-4 h-full">
-            {orderedBookmarks.map((bookmark, index) => (
-              <SortableBookmarkCard
-                key={bookmark.id}
-                bookmark={bookmark}
-                index={index}
-                expanded={expandedIds.has(bookmark.id)}
-                onToggleExpand={() => toggleExpand(bookmark.id)}
-                onClick={() => {
-                  if (bookmark._optimistic) return;
-                  if (expandedIds.has(bookmark.id)) {
-                    onOpenReader(bookmark);
-                  } else {
-                    toggleExpand(bookmark.id);
-                  }
-                }}
-                className="w-fit"
-              />
-            ))}
-          </div>
-        )}
+        <div
+          className="p-4"
+          style={{ columns: `${colCount}`, columnGap: "1rem" }}
+        >
+          {orderedBookmarks.map((bookmark, index) => (
+            <SortableBookmarkCard
+              key={bookmark.id}
+              bookmark={bookmark}
+              index={index}
+              expanded={expandedIds.has(bookmark.id)}
+              onToggleExpand={() => toggleExpand(bookmark.id)}
+              onClick={() => {
+                if (!bookmark._optimistic) onOpenReader(bookmark);
+              }}
+              className="mb-4 break-inside-avoid"
+              fillWidth
+            />
+          ))}
+        </div>
       </DragDropProvider>
     </div>
   );
