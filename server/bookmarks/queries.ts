@@ -1,22 +1,60 @@
 import { db } from "@/services/db";
-import { bookmarks } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { bookmarks, bookmarkGroups } from "@/db/schema";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
-export const getBookmarksForUser = async (userId: string, search?: string) => {
+export const getBookmarksForUser = async (
+  userId: string,
+  search?: string,
+  groupId?: string,
+) => {
   const conditions = [eq(bookmarks.createdBy, userId)];
-  let query;
+  let tsQuery;
+
   if (search) {
-    query = sql`plainto_tsquery('english', ${search})`;
-    conditions.push(sql`${bookmarks.searchVector} @@ ${query}`);
+    tsQuery = sql`plainto_tsquery('english', ${search})`;
+    conditions.push(sql`${bookmarks.searchVector} @@ ${tsQuery}`);
   }
 
-  const order = query
-    ? sql`ts_rank(${bookmarks.searchVector}, ${query}, 1) DESC`
+  // When filtering by group, only return bookmarks in that group
+  if (groupId) {
+    const bookmarkIdsInGroup = db
+      .select({ bookmarkId: bookmarkGroups.bookmarkId })
+      .from(bookmarkGroups)
+      .where(eq(bookmarkGroups.groupId, groupId));
+    conditions.push(inArray(bookmarks.id, bookmarkIdsInGroup));
+  }
+
+  const order = tsQuery
+    ? sql`ts_rank(${bookmarks.searchVector}, ${tsQuery}, 1) DESC`
     : desc(bookmarks.createdAt);
 
-  return db
+  const rows = await db
     .select()
     .from(bookmarks)
     .where(and(...conditions))
     .orderBy(order);
+
+  // Fetch groupIds for all returned bookmarks
+  const bookmarkIds = rows.map((r) => r.id);
+  let groupMap = new Map<string, string[]>();
+  if (bookmarkIds.length > 0) {
+    const groupRows = await db
+      .select({
+        bookmarkId: bookmarkGroups.bookmarkId,
+        groupId: bookmarkGroups.groupId,
+      })
+      .from(bookmarkGroups)
+      .where(inArray(bookmarkGroups.bookmarkId, bookmarkIds));
+
+    for (const row of groupRows) {
+      const existing = groupMap.get(row.bookmarkId) ?? [];
+      existing.push(row.groupId);
+      groupMap.set(row.bookmarkId, existing);
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    groupIds: groupMap.get(row.id) ?? [],
+  }));
 };

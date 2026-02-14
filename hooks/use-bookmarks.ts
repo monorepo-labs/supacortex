@@ -1,12 +1,13 @@
 "use client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export const useBookmarks = (search?: string) => {
+export const useBookmarks = (search?: string, groupId?: string) => {
   return useQuery({
-    queryKey: ["bookmarks", search],
+    queryKey: ["bookmarks", search, groupId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
+      if (groupId) params.set("group", groupId);
       const res = await fetch(`/api/bookmarks?${params}`);
       if (!res.ok) throw new Error("Failed to fetch bookmarks");
       return res.json();
@@ -102,6 +103,7 @@ export const useCreateBookmark = () => {
         positionX: null,
         positionY: null,
         createdAt: new Date().toISOString(),
+        groupIds: [],
         _optimistic: true,
       };
       queries.forEach(([key, data]) => {

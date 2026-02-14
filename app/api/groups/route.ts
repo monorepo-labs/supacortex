@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/get-user";
-import { getTagsForUser } from "@/server/tags/queries";
-import { createTag, updateTag } from "@/server/tags/mutations";
+import { getGroupsForUser } from "@/server/groups/queries";
+import { createGroup, updateGroup, deleteGroup } from "@/server/groups/mutations";
 
 export async function GET() {
   const user = await getUser();
@@ -9,12 +9,12 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const result = await getTagsForUser(user.id);
+    const result = await getGroupsForUser(user.id);
     return NextResponse.json(result);
   } catch (error) {
     console.log(error);
     return NextResponse.json(
-      { error: "Failed to fetch tags" },
+      { error: "Failed to fetch groups" },
       { status: 500 },
     );
   }
@@ -28,12 +28,12 @@ export async function POST(req: Request) {
   const { name, color } = await req.json();
 
   try {
-    const result = await createTag({ name, color, createdBy: user.id });
+    const result = await createGroup({ name, color, createdBy: user.id });
     return NextResponse.json(result);
   } catch (error) {
     console.log(error);
     return NextResponse.json(
-      { error: "Failed to create tag" },
+      { error: "Failed to create group" },
       { status: 500 },
     );
   }
@@ -58,12 +58,34 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
 
   try {
-    await updateTag(id, data);
+    await updateGroup(id, data);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.log(error);
     return NextResponse.json(
-      { error: "Failed to update tag" },
+      { error: "Failed to update group" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  const user = await getUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await req.json();
+
+  if (!id)
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  try {
+    await deleteGroup(id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json(
+      { error: "Failed to delete group" },
       { status: 500 },
     );
   }

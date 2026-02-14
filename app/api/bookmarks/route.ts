@@ -12,9 +12,10 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || undefined;
+  const groupId = searchParams.get("group") || undefined;
 
   try {
-    const result = await getBookmarksForUser(user.id, search);
+    const result = await getBookmarksForUser(user.id, search, groupId);
     return NextResponse.json(result);
   } catch (error) {
     console.log(error);

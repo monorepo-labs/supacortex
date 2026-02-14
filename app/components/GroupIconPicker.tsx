@@ -61,7 +61,7 @@ export const ICON_MAP: Record<string, HeroIcon> = {
 
 const CURATED_KEYS = Object.keys(ICON_MAP);
 
-export default function TagIconPicker({
+export default function GroupIconPicker({
   color,
   icon,
   onColorChange,

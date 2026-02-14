@@ -47,7 +47,7 @@ export const bookmarks = pgTable(
   (table) => [index("bookmarks_search_idx").using("gin", table.searchVector)],
 );
 
-export const tags = pgTable("tags", {
+export const groups = pgTable("groups", {
   id: uuid().primaryKey().defaultRandom(),
   name: text().notNull(),
   color: text().notNull(),
@@ -58,23 +58,23 @@ export const tags = pgTable("tags", {
   createdBy: text().notNull(),
 });
 
-export const bookmarkTags = pgTable(
-  "bookmark_tags",
+export const bookmarkGroups = pgTable(
+  "bookmark_groups",
   {
     bookmarkId: uuid()
       .notNull()
       .references(() => bookmarks.id, { onDelete: "cascade" }),
-    tagId: uuid()
+    groupId: uuid()
       .notNull()
-      .references(() => tags.id, { onDelete: "cascade" }),
+      .references(() => groups.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.bookmarkId, table.tagId] })],
+  (table) => [primaryKey({ columns: [table.bookmarkId, table.groupId] })],
 );
 
 export const bookmarksInsertSchema = createInsertSchema(bookmarks);
 export const bookmarksSelectSchema = createSelectSchema(bookmarks);
-export const tagsInsertSchema = createInsertSchema(tags);
-export const tagsSelectSchema = createSelectSchema(tags);
+export const groupsInsertSchema = createInsertSchema(groups);
+export const groupsSelectSchema = createSelectSchema(groups);
 
 // ─── Auth tables (BetterAuth) ───────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 import { drizzle } from "drizzle-orm/postgres-js";
-import { bookmarks, tags, bookmarkTags } from "./schema";
+import { bookmarks, groups, bookmarkGroups } from "./schema";
 
 const db = drizzle({
   connection: process.env.DATABASE_URL!,
@@ -13,14 +13,14 @@ const USER_ID = "y0x020V0yUFdepBchmoRutO9d4KuvD9d";
 async function seed() {
   console.log("Seeding...");
 
-  // Clear existing data (bookmark_tags cascade-deleted with bookmarks)
-  await db.delete(bookmarkTags);
+  // Clear existing data (bookmark_groups cascade-deleted with bookmarks)
+  await db.delete(bookmarkGroups);
   await db.delete(bookmarks);
-  await db.delete(tags);
+  await db.delete(groups);
 
-  // Insert tags
-  const insertedTags = await db
-    .insert(tags)
+  // Insert groups
+  const insertedGroups = await db
+    .insert(groups)
     .values([
       { name: "AI", color: "#3b82f6", createdBy: USER_ID },
       { name: "Startups", color: "#f59e0b", createdBy: USER_ID },
@@ -31,7 +31,7 @@ async function seed() {
     ])
     .returning();
 
-  const tagMap = Object.fromEntries(insertedTags.map((t) => [t.name, t.id]));
+  const groupMap = Object.fromEntries(insertedGroups.map((g) => [g.name, g.id]));
 
   // Insert bookmarks
   const insertedBookmarks = await db
@@ -293,32 +293,32 @@ Grug brain developer know mass mass important thing: **working software today ma
     ])
     .returning();
 
-  // Tag some bookmarks
-  await db.insert(bookmarkTags).values([
-    { bookmarkId: insertedBookmarks[0].id, tagId: tagMap["AI"] },
-    { bookmarkId: insertedBookmarks[1].id, tagId: tagMap["AI"] },
-    { bookmarkId: insertedBookmarks[2].id, tagId: tagMap["Startups"] },
-    { bookmarkId: insertedBookmarks[3].id, tagId: tagMap["Engineering"] },
-    { bookmarkId: insertedBookmarks[5].id, tagId: tagMap["Engineering"] },
-    { bookmarkId: insertedBookmarks[6].id, tagId: tagMap["Engineering"] },
-    { bookmarkId: insertedBookmarks[7].id, tagId: tagMap["Startups"] },
-    { bookmarkId: insertedBookmarks[7].id, tagId: tagMap["Product"] },
-    { bookmarkId: insertedBookmarks[8].id, tagId: tagMap["Writing"] },
-    { bookmarkId: insertedBookmarks[9].id, tagId: tagMap["Startups"] },
-    { bookmarkId: insertedBookmarks[9].id, tagId: tagMap["Product"] },
-    { bookmarkId: insertedBookmarks[10].id, tagId: tagMap["Startups"] },
-    { bookmarkId: insertedBookmarks[11].id, tagId: tagMap["Design"] },
-    { bookmarkId: insertedBookmarks[12].id, tagId: tagMap["Writing"] },
-    { bookmarkId: insertedBookmarks[13].id, tagId: tagMap["Design"] },
-    { bookmarkId: insertedBookmarks[13].id, tagId: tagMap["Product"] },
-    { bookmarkId: insertedBookmarks[14].id, tagId: tagMap["Engineering"] },
-    { bookmarkId: insertedBookmarks[15].id, tagId: tagMap["Engineering"] },
-    { bookmarkId: insertedBookmarks[16].id, tagId: tagMap["Startups"] },
-    { bookmarkId: insertedBookmarks[17].id, tagId: tagMap["Design"] },
-    { bookmarkId: insertedBookmarks[18].id, tagId: tagMap["Startups"] },
+  // Add some bookmarks to groups
+  await db.insert(bookmarkGroups).values([
+    { bookmarkId: insertedBookmarks[0].id, groupId: groupMap["AI"] },
+    { bookmarkId: insertedBookmarks[1].id, groupId: groupMap["AI"] },
+    { bookmarkId: insertedBookmarks[2].id, groupId: groupMap["Startups"] },
+    { bookmarkId: insertedBookmarks[3].id, groupId: groupMap["Engineering"] },
+    { bookmarkId: insertedBookmarks[5].id, groupId: groupMap["Engineering"] },
+    { bookmarkId: insertedBookmarks[6].id, groupId: groupMap["Engineering"] },
+    { bookmarkId: insertedBookmarks[7].id, groupId: groupMap["Startups"] },
+    { bookmarkId: insertedBookmarks[7].id, groupId: groupMap["Product"] },
+    { bookmarkId: insertedBookmarks[8].id, groupId: groupMap["Writing"] },
+    { bookmarkId: insertedBookmarks[9].id, groupId: groupMap["Startups"] },
+    { bookmarkId: insertedBookmarks[9].id, groupId: groupMap["Product"] },
+    { bookmarkId: insertedBookmarks[10].id, groupId: groupMap["Startups"] },
+    { bookmarkId: insertedBookmarks[11].id, groupId: groupMap["Design"] },
+    { bookmarkId: insertedBookmarks[12].id, groupId: groupMap["Writing"] },
+    { bookmarkId: insertedBookmarks[13].id, groupId: groupMap["Design"] },
+    { bookmarkId: insertedBookmarks[13].id, groupId: groupMap["Product"] },
+    { bookmarkId: insertedBookmarks[14].id, groupId: groupMap["Engineering"] },
+    { bookmarkId: insertedBookmarks[15].id, groupId: groupMap["Engineering"] },
+    { bookmarkId: insertedBookmarks[16].id, groupId: groupMap["Startups"] },
+    { bookmarkId: insertedBookmarks[17].id, groupId: groupMap["Design"] },
+    { bookmarkId: insertedBookmarks[18].id, groupId: groupMap["Startups"] },
   ]);
 
-  console.log(`Seeded ${insertedBookmarks.length} bookmarks and ${insertedTags.length} tags`);
+  console.log(`Seeded ${insertedBookmarks.length} bookmarks and ${insertedGroups.length} groups`);
   process.exit(0);
 }
 

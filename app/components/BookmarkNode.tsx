@@ -21,6 +21,7 @@ export type BookmarkData = {
   gridH: number | null;
   gridExpanded: boolean | null;
   createdAt: string | null;
+  groupIds: string[];
   _optimistic?: boolean;
   _expanded?: boolean;
 };
