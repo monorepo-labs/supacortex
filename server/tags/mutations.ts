@@ -14,3 +14,10 @@ export const createTag = async (tag: {
 export const renameTag = async (id: string, name: string) => {
   return db.update(tags).set({ name }).where(eq(tags.id, id));
 };
+
+export const updateTag = async (
+  id: string,
+  data: { name?: string; color?: string; icon?: string },
+) => {
+  return db.update(tags).set(data).where(eq(tags.id, id));
+};

@@ -89,7 +89,7 @@ body {
 
 :root {
     --radius: 0.625rem;
-    --background: #f8f9fa;
+    --background: #f9fafc;
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
@@ -218,4 +218,3 @@ body {
     transform: none !important;
     cursor: s-resize;
 }
-

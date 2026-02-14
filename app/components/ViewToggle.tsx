@@ -19,7 +19,7 @@ export default function ViewToggle({
   const activeIndex = views.findIndex((v) => v.key === mode);
 
   return (
-    <div className="group/toggle absolute top-0 left-1/2 z-10 -translate-x-1/2 p-6">
+    <div className="group/toggle absolute bottom-0 left-1/2 z-10 -translate-x-1/2 p-6">
       <div className="relative flex rounded-lg bg-zinc-200/60 p-[2px] transition-transform duration-200 ease-out scale-100 group-hover/toggle:scale-125 origin-top">
         {/* Sliding indicator */}
         <div

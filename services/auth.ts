@@ -9,4 +9,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  socialProviders: {
+    twitter: {
+      clientId: process.env.TWITTER_CLIENT_ID!,
+      clientSecret: process.env.TWITTER_CLIENT_SECRET!,
+    },
+  },
+  account: {
+    accountLinking: {
+      allowDifferentEmails: true,
+    },
+  },
 });

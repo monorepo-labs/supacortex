@@ -45,8 +45,41 @@ export const useRenameTag = () => {
     onMutate: async (data) => {
       await queryClient.cancelQueries({ queryKey: ["tags"] });
       const previous = queryClient.getQueryData(["tags"]);
-      queryClient.setQueryData(["tags"], (old: { id: string; name: string }[]) =>
+      queryClient.setQueryData(["tags"], (old: Tag[]) =>
         old?.map((tag) => (tag.id === data.id ? { ...tag, name: data.name } : tag)),
+      );
+      return { previous };
+    },
+    onError: (_err, _data, context) => {
+      queryClient.setQueryData(["tags"], context?.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
+    },
+  });
+};
+
+type Tag = { id: string; name: string; color: string; icon?: string | null };
+
+export const useUpdateTag = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { id: string; color?: string; icon?: string }) => {
+      const res = await fetch("/api/tags", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update tag");
+      return res.json();
+    },
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ["tags"] });
+      const previous = queryClient.getQueryData(["tags"]);
+      queryClient.setQueryData(["tags"], (old: Tag[]) =>
+        old?.map((tag) =>
+          tag.id === data.id ? { ...tag, ...data } : tag,
+        ),
       );
       return { previous };
     },
