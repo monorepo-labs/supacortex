@@ -1,0 +1,1 @@
+ALTER TABLE "tags" ADD COLUMN "icon" text DEFAULT 'hash';

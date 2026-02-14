@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import Markdown from "react-markdown";
-import { Link as LinkIcon, ExternalLink, Trash2, Maximize2, Minimize2, BookOpen } from "lucide-react";
+import {
+  Link as LinkIcon,
+  ExternalLink,
+  Trash2,
+  Maximize2,
+  Minimize2,
+  BookOpen,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   ContextMenu,
@@ -17,6 +24,7 @@ import type { BookmarkData } from "./BookmarkNode";
 export default function BookmarkCard({
   bookmark,
   expanded,
+  expandedOverflows,
   onToggleExpand,
   onClick,
   textSelectable,
@@ -24,6 +32,7 @@ export default function BookmarkCard({
 }: {
   bookmark: BookmarkData;
   expanded: boolean;
+  expandedOverflows?: boolean;
   onToggleExpand: () => void;
   onClick: () => void;
   textSelectable?: boolean;
@@ -33,7 +42,9 @@ export default function BookmarkCard({
 
   if (bookmark._optimistic) {
     return (
-      <div className={`rounded-xl border border-zinc-200 bg-white shadow h-full ${className ?? ""}`}>
+      <div
+        className={`rounded-xl border border-zinc-100 bg-white/40 shadow-[0px_0.5px_1px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] h-full ${className ?? ""}`}
+      >
         <div className="p-4 space-y-3">
           <div className="h-4 w-3/4 rounded bg-zinc-100 animate-pulse" />
           <div className="h-3 w-full rounded bg-zinc-100 animate-pulse" />
@@ -49,7 +60,7 @@ export default function BookmarkCard({
     );
   }
 
-  const displayTitle = bookmark.title || bookmark.aiTitle;
+  const displayTitle = bookmark.title;
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
   const image = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
 
@@ -65,7 +76,7 @@ export default function BookmarkCard({
               onToggleExpand();
             }
           }}
-          className={`group/card relative flex flex-col h-full rounded-xl border border-zinc-200 bg-white shadow transition-shadow hover:shadow-md overflow-hidden ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
+          className={`group/card relative flex flex-col h-full rounded-lg border border-zinc-100 bg-white/40 shadow-[0px_0.5px_1px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {/* Image */}
           {image && (
@@ -85,7 +96,7 @@ export default function BookmarkCard({
             <div className="shrink-0 px-4 pt-4 pb-2">
               <h3
                 style={{ fontFamily: "var(--font-source-serif)" }}
-                className={`font-medium leading-snug text-zinc-900 text-lg ${expanded ? "" : "line-clamp-2"}`}
+                className={`font-medium leading-snug ${expanded ? "text-zinc-500" : "text-zinc-800 line-clamp-2"}`}
               >
                 {displayTitle}
               </h3>
@@ -95,13 +106,15 @@ export default function BookmarkCard({
           {/* Content */}
           {expanded ? (
             <div
-              className="flex-1 min-h-0 overflow-y-auto px-4 scrollbar-hover"
+              className={`flex-1 min-h-0 px-4 ${!displayTitle ? "pt-2" : ""} ${expandedOverflows ? "overflow-y-auto scrollbar-hover" : "overflow-hidden"}`}
               onWheel={(e) => e.stopPropagation()}
             >
               {bookmark.content && (
                 <div className="prose prose-zinc prose-base max-w-none mb-3 reader-content">
                   <style>{`
-                    .reader-content p { line-height: 1.7; }
+                    .reader-content p { line-height: 1.7; margin-top: 12px; margin-bottom: 12px; }
+                    .reader-content p:first-of-type { margin-top: 8px; }
+                    .reader-content p:last-of-type { margin-bottom: 8px; }
                     .reader-content ul, .reader-content ol { margin-top: 0.5rem; margin-bottom: 0.5rem; padding-left: 1.25rem; }
                     .reader-content li { margin-top: 0.25rem; margin-bottom: 0.25rem; line-height: 1.6; }
                     .reader-content img { border-radius: 0.5rem; }
@@ -113,9 +126,12 @@ export default function BookmarkCard({
               )}
             </div>
           ) : (
-            bookmark.content && bookmark.type !== "link" && (
-              <div className="px-4">
-                <p className="mb-3 text-zinc-500 line-clamp-3">
+            bookmark.content &&
+            bookmark.type !== "link" && (
+              <div className={`px-4 ${!displayTitle ? "pt-4" : ""}`}>
+                <p
+                  className={`mb-3 text-sm line-clamp-3 ${displayTitle ? "text-zinc-500" : "text-zinc-800"}`}
+                >
                   {bookmark.content}
                 </p>
               </div>
@@ -136,7 +152,9 @@ export default function BookmarkCard({
                 />
               )}
               {bookmark.author ? (
-                <span className="text-xs text-zinc-400">@{bookmark.author}</span>
+                <span className="text-xs text-zinc-400">
+                  @{bookmark.author}
+                </span>
               ) : (
                 <a
                   href={bookmark.url}

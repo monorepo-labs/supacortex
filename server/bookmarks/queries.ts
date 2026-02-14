@@ -1,23 +1,22 @@
 import { db } from "@/services/db";
 import { bookmarks } from "@/db/schema";
-import { eq, and, or, ilike } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export const getBookmarksForUser = async (userId: string, search?: string) => {
   const conditions = [eq(bookmarks.createdBy, userId)];
-
+  let query;
   if (search) {
-    conditions.push(
-      or(
-        ilike(bookmarks.title, `%${search}%`),
-        ilike(bookmarks.content, `%${search}%`),
-        ilike(bookmarks.aiTitle, `%${search}%`),
-        ilike(bookmarks.author, `%${search}%`),
-      )!,
-    );
+    query = sql`plainto_tsquery('english', ${search})`;
+    conditions.push(sql`${bookmarks.searchVector} @@ ${query}`);
   }
+
+  const order = query
+    ? sql`ts_rank(${bookmarks.searchVector}, ${query}, 1) DESC`
+    : desc(bookmarks.createdAt);
 
   return db
     .select()
     .from(bookmarks)
-    .where(and(...conditions));
+    .where(and(...conditions))
+    .orderBy(order);
 };

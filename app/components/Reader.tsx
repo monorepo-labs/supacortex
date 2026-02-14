@@ -12,7 +12,7 @@ export default function Reader({
   bookmark: BookmarkData;
   onClose: () => void;
 }) {
-  const displayTitle = bookmark.title || bookmark.aiTitle;
+  const displayTitle = bookmark.title;
   const [open, setOpen] = useState(false);
 
   // Trigger slide-up on mount
@@ -45,7 +45,7 @@ export default function Reader({
 
       {/* Panel — slides up from bottom */}
       <div
-        className="absolute inset-x-0 bottom-0 flex flex-col rounded-t-2xl bg-white shadow-2xl transition-transform duration-300 ease-out"
+        className="absolute inset-x-0 bottom-0 flex flex-col rounded-t-2xl bg-background shadow-2xl transition-transform duration-300 ease-out"
         style={{
           height: "calc(100vh - 2rem)",
           transform: open ? "translateY(0)" : "translateY(100%)",

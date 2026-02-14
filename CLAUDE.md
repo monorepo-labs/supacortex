@@ -11,7 +11,7 @@ Supercortex — a personal knowledge workspace for bookmarking, reading, writing
 - **Framework**: Next.js 16 (App Router) on Vercel
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4
-- **Database**: PostgreSQL on Railway, Drizzle ORM
+- **Database**: PostgreSQL on Railway, Drizzle ORM (camelCase → snake_case column mapping is configured automatically — don't pass explicit SQL column names in schema definitions)
 - **Auth**: BetterAuth
 - **Package manager**: pnpm
 - **Path alias**: `@/*` maps to project root

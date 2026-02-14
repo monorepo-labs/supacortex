@@ -94,7 +94,6 @@ export const useCreateBookmark = () => {
         id: `temp-${Date.now()}`,
         type: "link",
         title: null,
-        aiTitle: null,
         content: null,
         author: null,
         url: bookmark.url,

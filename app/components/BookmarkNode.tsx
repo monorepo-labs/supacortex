@@ -8,7 +8,6 @@ export type BookmarkData = {
   id: string;
   type: "tweet" | "link" | "article" | "pdf" | "image";
   title: string | null;
-  aiTitle: string | null;
   content: string | null;
   author: string | null;
   url: string;

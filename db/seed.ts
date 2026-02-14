@@ -39,8 +39,7 @@ async function seed() {
     .values([
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Future of AI agents as computing interface",
+        title: "Future of AI agents as computing interface",
         url: "https://x.com/karpathy/status/1893729384726491",
         createdBy: USER_ID,
         content:
@@ -50,8 +49,7 @@ async function seed() {
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "OpenAI ships open source o3 model",
+        title: "OpenAI ships open source o3 model",
         url: "https://x.com/sama/status/1893729384726492",
         createdBy: USER_ID,
         content:
@@ -63,7 +61,6 @@ async function seed() {
       {
         type: "article",
         title: "Why bootstrapping beats VC every time",
-        aiTitle: null,
         url: "https://levels.io/bootstrapping-vs-vc",
         createdBy: USER_ID,
         content:
@@ -74,7 +71,6 @@ async function seed() {
       {
         type: "link",
         title: "React Server Components explained",
-        aiTitle: null,
         url: "https://react.dev/blog/rsc-explained",
         createdBy: USER_ID,
         content:
@@ -84,8 +80,7 @@ async function seed() {
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Building products you need yourself",
+        title: "Building products you need yourself",
         url: "https://x.com/paborenstein/status/1893729384726495",
         createdBy: USER_ID,
         content:
@@ -96,8 +91,7 @@ async function seed() {
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Postgres is the only database you need",
+        title: "Postgres is the only database you need",
         url: "https://x.com/t3dotgg/status/1893729384726496",
         createdBy: USER_ID,
         content:
@@ -108,7 +102,6 @@ async function seed() {
       {
         type: "article",
         title: "The unreasonable effectiveness of plain text",
-        aiTitle: null,
         url: "https://www.simplethread.com/plain-text",
         createdBy: USER_ID,
         content:
@@ -118,8 +111,7 @@ async function seed() {
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Ship fast, iterate faster",
+        title: "Ship fast, iterate faster",
         url: "https://x.com/naval/status/1893729384726498",
         createdBy: USER_ID,
         content:
@@ -130,7 +122,6 @@ async function seed() {
       {
         type: "tweet",
         title: "9 Harsh Truths That Will Make You A Better Writer",
-        aiTitle: null,
         url: "https://x.com/dickiebush/status/2020490408669651439",
         createdBy: USER_ID,
         content: `I can point every good thing in my life over the last 6 years back to a simple, daily practice:
@@ -197,7 +188,6 @@ All that matters is you start writing so you can build the skills that come afte
       {
         type: "article",
         title: "The Arc Product-Market Fit Framework",
-        aiTitle: null,
         url: "https://www.sequoiacap.com/article/pmf-framework",
         createdBy: USER_ID,
         content:
@@ -207,8 +197,7 @@ All that matters is you start writing so you can build the skills that come afte
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Why small teams win",
+        title: "Why small teams win",
         url: "https://x.com/dhh/status/1893729384726501",
         createdBy: USER_ID,
         content:
@@ -219,7 +208,6 @@ All that matters is you start writing so you can build the skills that come afte
       {
         type: "article",
         title: "Taste is the new skill",
-        aiTitle: null,
         url: "https://www.worksinprogress.co/issue/taste-as-skill",
         createdBy: USER_ID,
         content:
@@ -229,8 +217,7 @@ All that matters is you start writing so you can build the skills that come afte
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Compounding effects of writing daily",
+        title: "Compounding effects of writing daily",
         url: "https://x.com/sahilbloom/status/1893729384726503",
         createdBy: USER_ID,
         content:
@@ -242,7 +229,6 @@ All that matters is you start writing so you can build the skills that come afte
       {
         type: "link",
         title: "How Figma builds product",
-        aiTitle: null,
         url: "https://figma.com/blog/how-we-build-product",
         createdBy: USER_ID,
         content:
@@ -252,8 +238,7 @@ All that matters is you start writing so you can build the skills that come afte
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Local-first software is the future",
+        title: "Local-first software is the future",
         url: "https://x.com/schickling/status/1893729384726505",
         createdBy: USER_ID,
         content:
@@ -264,7 +249,6 @@ All that matters is you start writing so you can build the skills that come afte
       {
         type: "article",
         title: "The Grug Brained Developer",
-        aiTitle: null,
         url: "https://grugbrain.dev",
         createdBy: USER_ID,
         content: `Grug brain developer not so smart but grug brain developer ship mass code. Grug say: complexity very very bad. Given choice between complexity or one more if statement, grug take if statement every time.
@@ -277,8 +261,7 @@ Grug brain developer know mass mass important thing: **working software today ma
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "Why solo founders should charge from day one",
+        title: "Why solo founders should charge from day one",
         url: "https://x.com/marckohlbrugge/status/1893729384726507",
         createdBy: USER_ID,
         content:
@@ -289,7 +272,6 @@ Grug brain developer know mass mass important thing: **working software today ma
       {
         type: "link",
         title: "Designing for the margins",
-        aiTitle: null,
         url: "https://alistapart.com/article/designing-for-margins",
         createdBy: USER_ID,
         content:
@@ -299,8 +281,7 @@ Grug brain developer know mass mass important thing: **working software today ma
       },
       {
         type: "tweet",
-        title: null,
-        aiTitle: "The 100-user rule for early-stage startups",
+        title: "The 100-user rule for early-stage startups",
         url: "https://x.com/paulg/status/1893729384726509",
         createdBy: USER_ID,
         content:
