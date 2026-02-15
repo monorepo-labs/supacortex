@@ -228,32 +228,33 @@ export default function Sidebar({
     });
   };
 
-  if (collapsed) {
-    return (
-      <button
-        onClick={() => onCollapsedChange(false)}
-        className="absolute left-3 top-3 z-20 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-      >
-        <PanelLeft size={18} />
-      </button>
-    );
-  }
-
   return (
-    <aside className="flex h-screen w-52 shrink-0 flex-col bg-background">
-      {/* Toggle + Avatar */}
-      <div className="flex items-center justify-between px-3 pt-3">
+    <>
+      {collapsed && (
         <button
-          onClick={() => onCollapsedChange(true)}
-          className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+          onClick={() => onCollapsedChange(false)}
+          className="absolute left-3 top-3 z-20 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
         >
           <PanelLeft size={18} />
         </button>
-        <UserMenu />
-      </div>
+      )}
+      <aside
+        className="flex h-screen shrink-0 flex-col bg-background overflow-hidden transition-[width] duration-200 ease-out"
+        style={{ width: collapsed ? 0 : 208 }}
+      >
+        {/* Toggle + Avatar */}
+        <div className="flex w-52 items-center justify-between px-3 pt-3">
+          <button
+            onClick={() => onCollapsedChange(true)}
+            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+          >
+            <PanelLeft size={18} />
+          </button>
+          <UserMenu />
+        </div>
 
       {/* Groups */}
-      <nav className="mt-4 flex-1 px-3">
+      <nav className="mt-4 flex-1 w-52 px-3">
         <Button
           onClick={handleAddGroup}
           variant="ghost"
@@ -293,7 +294,7 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom actions */}
-      <div className="px-3 pb-3 space-y-1">
+      <div className="w-52 px-3 pb-3 space-y-1">
         {twitterAccount ? (
           <Button
             variant="link"
@@ -335,5 +336,6 @@ export default function Sidebar({
         )}
       </div>
     </aside>
+    </>
   );
 }
