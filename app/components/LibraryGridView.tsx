@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ReactGridLayout, { verticalCompactor } from "react-grid-layout";
 import type { Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { RotateCcw } from "lucide-react";
 import BookmarkCard from "./BookmarkCard";
 import BulkActions from "./BulkActions";
@@ -39,12 +39,16 @@ export default function LibraryGridView({
   isLoading,
   error,
   onOpenReader,
+  onOpenInNewPanel,
+  openReaderIds,
   isFiltered,
 }: {
   bookmarks: BookmarkData[];
   isLoading: boolean;
   error: Error | null;
   onOpenReader: (bookmark: BookmarkData) => void;
+  onOpenInNewPanel?: (bookmark: BookmarkData) => void;
+  openReaderIds?: Set<string>;
   isFiltered?: boolean;
 }) {
   const { mutate: saveLayout } = useUpdateGridLayout();
@@ -169,7 +173,7 @@ export default function LibraryGridView({
         const text = sel?.toString().trim();
         if (text) {
           navigator.clipboard.writeText(text);
-          toast.success("Copied to clipboard");
+          sileo.success("Copied to clipboard");
           sel?.removeAllRanges();
         }
       }
@@ -227,8 +231,14 @@ export default function LibraryGridView({
                 expanded={false}
                 onToggleExpand={() => {}}
                 onClick={() => handleOpenReader(bookmark)}
+                onOpenInNewPanel={
+                  onOpenInNewPanel
+                    ? () => onOpenInNewPanel(bookmark)
+                    : undefined
+                }
                 textSelectable={!dragEnabled}
                 isSelected={selectedIds.has(bookmark.id)}
+                isOpenInReader={openReaderIds?.has(bookmark.id)}
                 onSelect={handleSelect}
               />
             </div>
@@ -307,7 +317,7 @@ export default function LibraryGridView({
             onSuccess: () => {
               setLayout([]);
               setMeasured(false);
-              toast.success("Grid layout reset");
+              sileo.success("Grid layout reset");
             },
           });
         }}

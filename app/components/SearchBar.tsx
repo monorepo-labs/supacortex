@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Search, Plus, MessageSquare } from "lucide-react";
 import { useCreateBookmark } from "@/hooks/use-bookmarks";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 
 type Mode = "search" | "add" | "chat";
 
@@ -51,7 +51,7 @@ export default function SearchBar({
 
   const handleSubmit = () => {
     if (mode === "add" && value.trim()) {
-      toast.promise(
+      sileo.promise(
         new Promise((resolve, reject) => {
           addBookmark(
             { url: value.trim() },

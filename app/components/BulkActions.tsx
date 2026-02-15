@@ -12,7 +12,7 @@ import { useGroups } from "@/hooks/use-groups";
 import { useAddBookmarksToGroups, useRemoveBookmarksFromGroups } from "@/hooks/use-bookmark-groups";
 import { useDeleteBookmark } from "@/hooks/use-bookmarks";
 import { ICON_MAP } from "./GroupIconPicker";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 
 export default function BulkActions({
   selectedIds,
@@ -38,7 +38,7 @@ export default function BulkActions({
     }
     bookmarkIds.forEach((id) => {
       deleteBookmark(id, {
-        onError: () => toast.error("Failed to delete bookmark"),
+        onError: () => sileo.error("Failed to delete bookmark"),
       });
     });
     onClear();
@@ -69,7 +69,7 @@ export default function BulkActions({
                 key={group.id}
                 onClick={() => {
                   addToGroups({ bookmarkIds, groupIds: [group.id] });
-                  toast.success(`Added to ${group.name}`);
+                  sileo.success(`Added to ${group.name}`);
                   setPopoverOpen(false);
                 }}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100"

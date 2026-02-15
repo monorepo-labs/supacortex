@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Toaster } from "sileo";
 import Providers from "@/app/components/Providers";
 import "./globals.css";
 
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased`}
       >
+        <Toaster position="top-center" />
         <Providers>{children}</Providers>
       </body>
     </html>
