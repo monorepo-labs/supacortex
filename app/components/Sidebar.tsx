@@ -298,16 +298,25 @@ export default function Sidebar({
           <Button
             variant="link"
             onClick={() =>
-              syncTwitter(undefined, {
-                onSuccess: (data) => {
-                  sileo.success(`Synced ${data.synced} bookmarks from X`);
-                  if (data.rateLimited)
-                    sileo.warning(
-                      "Rate limited by X. Sync again later for remaining bookmarks.",
-                    );
+              sileo.promise(
+                new Promise((resolve, reject) => {
+                  syncTwitter(undefined, {
+                    onSuccess: (data) => {
+                      resolve(data);
+                      if (data.rateLimited)
+                        sileo.warning(
+                          "Rate limited by X. Sync again later for remaining bookmarks.",
+                        );
+                    },
+                    onError: (err) => reject(err),
+                  });
+                }),
+                {
+                  loading: "Syncing bookmarks from X...",
+                  success: (data) => `Synced ${data.synced} bookmarks from X`,
+                  error: (err) => err.message || "Failed to sync bookmarks",
                 },
-                onError: (err) => sileo.error(err.message),
-              })
+              )
             }
             disabled={isSyncing}
             className="w-full justify-start text-zinc-500 hover:text-zinc-600"
