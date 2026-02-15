@@ -204,6 +204,7 @@ function LibraryPageContent() {
               edges={graphData?.edges ?? []}
               isLoading={graphLoading || isLoading}
               onOpenReader={handleOpenReader}
+              onOpenInNewPanel={handleOpenInNewPanel}
             />
           ) : (
             <LibraryGridView

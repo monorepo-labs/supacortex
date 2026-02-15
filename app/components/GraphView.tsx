@@ -86,11 +86,13 @@ export default function GraphView({
   edges: rawEdges,
   isLoading,
   onOpenReader,
+  onOpenInNewPanel,
 }: {
   bookmarks: BookmarkData[];
   edges: BookmarkEdge[];
   isLoading: boolean;
   onOpenReader: (bookmark: BookmarkData) => void;
+  onOpenInNewPanel?: (bookmark: BookmarkData) => void;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -229,14 +231,17 @@ export default function GraphView({
   }, []);
 
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
+    (e: React.MouseEvent, node: Node) => {
       if (Date.now() - lastDragTime.current < 100) return;
       const bookmark = bookmarkMap.get(node.id);
-      if (bookmark && !bookmark._optimistic) {
+      if (!bookmark || bookmark._optimistic) return;
+      if ((e.metaKey || e.ctrlKey) && onOpenInNewPanel) {
+        onOpenInNewPanel(bookmark);
+      } else {
         onOpenReader(bookmark);
       }
     },
-    [onOpenReader, bookmarkMap],
+    [onOpenReader, onOpenInNewPanel, bookmarkMap],
   );
 
   if (isLoading) {
