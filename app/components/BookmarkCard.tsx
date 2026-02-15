@@ -142,7 +142,7 @@ export default function BookmarkCard({
             isSelected
               ? "border-blue-500 ring-2 ring-blue-500"
               : "border-black/6"
-          } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
+          } ${textSelectable ? "cursor-text select-text" : isArticle ? "cursor-default select-none" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {isTweet ? (
             <>
@@ -190,45 +190,20 @@ export default function BookmarkCard({
               {media && (
                 <div className="shrink-0 px-4 pt-3 pb-4">
                   <div className="relative overflow-hidden rounded-[8px]">
-                    {isVideo && media.videoUrl ? (
-                      <>
-                        <video
-                          src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
-                          poster={media.url}
-                          muted
-                          loop
-                          playsInline
-                          preload="metadata"
-                          className="w-full object-cover"
-                          onMouseEnter={(e) => {
-                            e.currentTarget.play().catch(() => {});
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.pause();
-                            e.currentTarget.currentTime = 0;
-                          }}
-                        />
-                        <div className="absolute bottom-2 left-2 pointer-events-none transition-opacity duration-200 group-hover/card:opacity-0 drop-shadow-md">
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="white"
-                            stroke="rgba(0,0,0,0.3)"
-                            strokeWidth="1"
-                            className="h-5 w-5"
-                          >
-                            <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
-                          </svg>
-                        </div>
-                      </>
-                    ) : (
-                      <Image
-                        src={media.url}
-                        alt=""
-                        width={600}
-                        height={400}
-                        className="w-full object-cover"
-                        unoptimized
-                      />
+                    <Image
+                      src={media.url}
+                      alt=""
+                      width={600}
+                      height={400}
+                      className="w-full object-cover"
+                      unoptimized
+                    />
+                    {isVideo && (
+                      <div className="absolute bottom-2 left-2 pointer-events-none drop-shadow-md">
+                        <svg viewBox="0 0 24 24" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="1" className="h-5 w-5">
+                          <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
+                        </svg>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -242,7 +217,7 @@ export default function BookmarkCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="shrink-0 flex items-center justify-center gap-1.5 mx-4 mb-4 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-500 opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-zinc-50 hover:text-zinc-700"
+                  className="shrink-0 flex items-center justify-center gap-1.5 mx-4 mb-4 rounded-lg bg-blue-500 py-2 text-xs font-medium text-white translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 transition-all duration-200 hover:bg-blue-600"
                 >
                   Read article
                   <ArrowUpRight size={12} />
@@ -254,44 +229,19 @@ export default function BookmarkCard({
               {/* Media — full bleed for non-tweets */}
               {media && (
                 <div className="relative h-40 shrink-0 overflow-hidden">
-                  {isVideo && media.videoUrl ? (
-                    <>
-                      <video
-                        src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
-                        poster={media.url}
-                        muted
-                        loop
-                        playsInline
-                        preload="metadata"
-                        className="h-full w-full object-cover"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.play().catch(() => {});
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.pause();
-                          e.currentTarget.currentTime = 0;
-                        }}
-                      />
-                      <div className="absolute bottom-2 left-2 pointer-events-none transition-opacity duration-200 group-hover/card:opacity-0 drop-shadow-md">
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="white"
-                          stroke="rgba(0,0,0,0.3)"
-                          strokeWidth="1"
-                          className="h-5 w-5"
-                        >
-                          <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
-                        </svg>
-                      </div>
-                    </>
-                  ) : (
-                    <Image
-                      src={media.url}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
+                  <Image
+                    src={media.url}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  {isVideo && (
+                    <div className="absolute bottom-2 left-2 pointer-events-none drop-shadow-md">
+                      <svg viewBox="0 0 24 24" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="1" className="h-5 w-5">
+                        <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
+                      </svg>
+                    </div>
                   )}
                 </div>
               )}
