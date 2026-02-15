@@ -25,7 +25,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { useDeleteBookmark } from "@/hooks/use-bookmarks";
 import { useGroups } from "@/hooks/use-groups";
-import { useAddBookmarksToGroups, useRemoveBookmarksFromGroups } from "@/hooks/use-bookmark-groups";
+import {
+  useAddBookmarksToGroups,
+  useRemoveBookmarksFromGroups,
+} from "@/hooks/use-bookmark-groups";
 import { ICON_MAP } from "./GroupIconPicker";
 import type { BookmarkData } from "./BookmarkNode";
 
@@ -51,7 +54,9 @@ export default function BookmarkCard({
   className?: string;
 }) {
   const { mutate: remove } = useDeleteBookmark();
-  const [contextMode, setContextMode] = useState<"default" | "addToGroup">("default");
+  const [contextMode, setContextMode] = useState<"default" | "addToGroup">(
+    "default",
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: groups } = useGroups();
   const { mutate: addToGroups } = useAddBookmarksToGroups();
@@ -92,7 +97,14 @@ export default function BookmarkCard({
   };
 
   return (
-    <ContextMenu onOpenChange={(open) => { if (!open) { setContextMode("default"); setConfirmDelete(false); } }}>
+    <ContextMenu
+      onOpenChange={(open) => {
+        if (!open) {
+          setContextMode("default");
+          setConfirmDelete(false);
+        }
+      }}
+    >
       <ContextMenuTrigger asChild>
         <div
           onClick={(e) => {
@@ -106,10 +118,10 @@ export default function BookmarkCard({
               onToggleExpand();
             }
           }}
-          className={`group/card relative flex flex-col h-full rounded-lg border bg-white/40 shadow-[0px_0.5px_1px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
+          className={`group/card relative flex flex-col h-full rounded-lg border bg-white/40 shadow-[0px_0.5px_0px_rgba(0,0,0,0.08),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
             isSelected
               ? "border-blue-500 ring-2 ring-blue-500"
-              : "border-zinc-100"
+              : "border-t-zinc-100 border-x-zinc-100"
           } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {/* Image */}
@@ -273,7 +285,9 @@ export default function BookmarkCard({
                     remove(bookmark.id, {
                       onError: () => toast.error("Failed to delete bookmark"),
                     });
-                    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+                    document.dispatchEvent(
+                      new KeyboardEvent("keydown", { key: "Escape" }),
+                    );
                   }}
                 >
                   Yes, delete
@@ -317,35 +331,44 @@ export default function BookmarkCard({
               Back
             </ContextMenuItem>
             <ContextMenuSeparator />
-            {groups?.map((group: { id: string; name: string; color: string; icon?: string | null }) => {
-              const isInGroup = bookmarkGroupIds.includes(group.id);
-              const iconName = group.icon ?? "hash";
-              const Icon = ICON_MAP[iconName] ?? ICON_MAP.hash;
-              return (
-                <ContextMenuItem
-                  key={group.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    toggleGroupMembership(group.id);
-                  }}
-                  className="gap-2 justify-between"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
-                      style={{ backgroundColor: group.color }}
-                    >
-                      <Icon className="h-2.5 w-2.5 text-white" />
+            {groups?.map(
+              (group: {
+                id: string;
+                name: string;
+                color: string;
+                icon?: string | null;
+              }) => {
+                const isInGroup = bookmarkGroupIds.includes(group.id);
+                const iconName = group.icon ?? "hash";
+                const Icon = ICON_MAP[iconName] ?? ICON_MAP.hash;
+                return (
+                  <ContextMenuItem
+                    key={group.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      toggleGroupMembership(group.id);
+                    }}
+                    className="gap-2 justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+                        style={{ backgroundColor: group.color }}
+                      >
+                        <Icon className="h-2.5 w-2.5 text-white" />
+                      </span>
+                      {group.name}
                     </span>
-                    {group.name}
-                  </span>
-                  {isInGroup && <Check size={14} className="text-zinc-600" />}
-                </ContextMenuItem>
-              );
-            })}
+                    {isInGroup && <Check size={14} className="text-zinc-600" />}
+                  </ContextMenuItem>
+                );
+              },
+            )}
             {(!groups || groups.length === 0) && (
-              <div className="px-2 py-1.5 text-sm text-zinc-400">No groups yet</div>
+              <div className="px-2 py-1.5 text-sm text-zinc-400">
+                No groups yet
+              </div>
             )}
           </>
         )}
