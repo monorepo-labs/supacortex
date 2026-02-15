@@ -45,6 +45,7 @@ export function useSyncTwitter() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
   });
 }
