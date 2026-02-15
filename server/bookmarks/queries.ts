@@ -11,7 +11,15 @@ export const getBookmarksForUser = async (
   let tsQuery;
 
   if (search) {
-    tsQuery = sql`plainto_tsquery('english', ${search})`;
+    // Split into words, append :* for prefix matching, join with | (OR)
+    // ts_rank handles relevance — more term matches = higher score
+    const prefixQuery = search
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => `${word}:*`)
+      .join(" | ");
+    tsQuery = sql`to_tsquery('english', ${prefixQuery})`;
     conditions.push(sql`${bookmarks.searchVector} @@ ${tsQuery}`);
   }
 
