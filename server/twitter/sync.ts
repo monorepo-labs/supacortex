@@ -283,11 +283,12 @@ async function initialSync(
   accessToken: string,
   xUserId: string,
 ) {
-  let synced = 0;
   let apiCalls = 0;
   let tweetsTotal = 0;
   let paginationToken: string | undefined;
+  const pages: BookmarksResponse[] = [];
 
+  // Fetch all pages first (API returns newest → oldest)
   let batch = 0;
   do {
     batch++;
@@ -296,22 +297,33 @@ async function initialSync(
       apiCalls++;
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
-      console.log(`[sync:initial] batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
+      console.log(`[sync:initial] fetch batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
       if (!page.data || count === 0) break;
 
-      const result = await insertTweets(page, userId, false);
-      synced += result.synced;
-      console.log(`[sync:initial] batch=${batch} inserted=${result.synced} dupes=${result.hitDuplicate}`);
-
+      pages.push(page);
       paginationToken = page.meta?.next_token;
     } catch (err) {
       if (err instanceof RateLimitError) {
-        console.log(`[sync:initial] rate limited after batch=${batch} synced=${synced}`);
+        console.log(`[sync:initial] rate limited after batch=${batch}, inserting ${pages.length} pages collected so far`);
+        // Insert what we have so far, oldest first
+        let synced = 0;
+        for (const page of pages.reverse()) {
+          const result = await insertTweets(page, userId, false);
+          synced += result.synced;
+        }
         return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal };
       }
       throw err;
     }
   } while (paginationToken);
+
+  // Insert in reverse order so oldest tweets get earliest createdAt
+  let synced = 0;
+  for (let i = pages.length - 1; i >= 0; i--) {
+    const result = await insertTweets(pages[i], userId, false);
+    synced += result.synced;
+    console.log(`[sync:initial] insert batch=${pages.length - i}/${pages.length} inserted=${result.synced}`);
+  }
 
   return { synced, rateLimited: false, apiCalls, tweetsTotal };
 }
@@ -406,7 +418,8 @@ async function insertTweets(
     tweetMap.set(t.id, t);
   }
 
-  const tweets = page.data ?? [];
+  // Reverse so oldest tweets are inserted first (earliest createdAt)
+  const tweets = [...(page.data ?? [])].reverse();
 
   for (let i = 0; i < tweets.length; i++) {
     const tweet = tweets[i];

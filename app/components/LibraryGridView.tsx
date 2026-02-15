@@ -34,11 +34,13 @@ export default function LibraryGridView({
   isLoading,
   error,
   onOpenReader,
+  isFiltered,
 }: {
   bookmarks: BookmarkData[];
   isLoading: boolean;
   error: Error | null;
   onOpenReader: (bookmark: BookmarkData) => void;
+  isFiltered?: boolean;
 }) {
   const { mutate: saveLayout } = useUpdateGridLayout();
   const { mutate: resetGrid } = useResetGridLayout();
@@ -86,6 +88,18 @@ export default function LibraryGridView({
         return bookmarks.map((b, i) => {
           const prev = existing.get(b.id);
           const measuredH = heights.get(b.id) ?? 6;
+          // When filtered (search/group), ignore DB positions — use fresh flow layout
+          if (isFiltered) {
+            return {
+              i: b.id,
+              x: (i % perRow) * DEFAULT_W,
+              y: Math.floor(i / perRow) * measuredH,
+              w: DEFAULT_W,
+              h: measuredH,
+              minW: 2,
+              minH: MIN_H,
+            };
+          }
           return {
             i: b.id,
             x: prev?.x ?? b.gridX ?? (i % perRow) * DEFAULT_W,
@@ -100,7 +114,7 @@ export default function LibraryGridView({
 
       setMeasured(true);
     });
-  }, [bookmarks, gridWidth]);
+  }, [bookmarks, gridWidth, isFiltered]);
 
   const bookmarkMap = useMemo(
     () => new Map(bookmarks.map((b) => [b.id, b])),
@@ -257,11 +271,11 @@ export default function LibraryGridView({
           onDragStop={(_layout) => {
             setLayout(_layout);
             lastDragTimeRef.current = Date.now();
-            persistLayout(_layout);
+            if (!isFiltered) persistLayout(_layout);
           }}
           onResizeStop={(_layout) => {
             setLayout(_layout);
-            persistLayout(_layout);
+            if (!isFiltered) persistLayout(_layout);
           }}
           width={gridWidth}
           gridConfig={{

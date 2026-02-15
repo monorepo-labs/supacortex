@@ -102,6 +102,7 @@ function LibraryPageContent() {
             isLoading={isLoading}
             error={error}
             onOpenReader={setActiveBookmark}
+            isFiltered={!!activeGroupId || deferredSearch.length >= 3}
           />
         </div>
 
