@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/services/db";
 import { bookmarks } from "@/db/schema";
-import { scrapeContent } from "@/lib/ingest/scraper";
+
 
 
 export class RateLimitError extends Error {
@@ -195,7 +195,8 @@ function resolveReferencedTweet(
   tweet: TweetData,
   tweetMap: Map<string, TweetData>,
   userMap: Map<string, UserData>,
-): string | null {
+  mediaMap: Map<string, MediaData>,
+): { content: string; media: { type: string; url: string; videoUrl?: string }[] } | null {
   const ref = tweet.referenced_tweets?.find(
     (r) => r.type === "retweeted" || r.type === "quoted",
   );
@@ -210,7 +211,27 @@ function resolveReferencedTweet(
   const refContent = resolveLinks(refTweet);
   const label = ref.type === "retweeted" ? "Retweet" : "Quote";
 
-  return `\n\n> ${label} from [@${refUsername}](${refUrl}):\n> ${refContent.replace(/\n/g, "\n> ")}`;
+  // Resolve quote tweet media with "quote_" prefix types
+  const media: { type: string; url: string; videoUrl?: string }[] = [];
+  if (refAuthor?.profile_image_url) {
+    media.push({ type: "quote_avatar", url: refAuthor.profile_image_url });
+  }
+  for (const key of refTweet.attachments?.media_keys ?? []) {
+    const m = mediaMap.get(key);
+    if (!m) continue;
+    const url = m.url ?? m.preview_image_url;
+    if (!url) continue;
+    if (m.type === "video" || m.type === "animated_gif") {
+      media.push({ type: `quote_${m.type}`, url, videoUrl: bestMp4(m.variants) });
+    } else {
+      media.push({ type: `quote_${m.type}`, url });
+    }
+  }
+
+  return {
+    content: `\n\n> ${label} from [@${refUsername}](${refUrl})\n> ${refContent.replace(/\n/g, "\n> ")}`,
+    media,
+  };
 }
 
 // ── Check if this is the first sync ─────────────────────────────────
@@ -397,28 +418,17 @@ async function insertTweets(
     // Build content: resolved links + referenced tweet + enrichment
     let content = resolveLinks(tweet);
 
-    const refContent = resolveReferencedTweet(tweet, tweetMap, userMap);
-    if (refContent) content += refContent;
+    const ref = resolveReferencedTweet(tweet, tweetMap, userMap, mediaMap);
+    if (ref) {
+      content += ref.content;
+      mediaUrls.push(...ref.media);
+    }
 
     // Detect article type — from API field or URL pattern
     const articleUrl = findArticleUrl(tweet);
     const isArticle = !!tweet.article || !!articleUrl;
     const type = isArticle ? "article" : "tweet";
-    let title = isArticle ? (tweet.article?.title ?? null) : null;
-
-    // Scrape article content using the public URL format
-    if (isArticle && articleUrl) {
-      const articleId = articleUrl.match(/article\/(\d+)/)?.[1];
-      if (articleId) {
-        try {
-          const scraped = await scrapeContent(`https://x.com/${username}/article/${articleId}`);
-          if (scraped?.content) {
-            content = scraped.content;
-            if (scraped.title) title = scraped.title;
-          }
-        } catch { /* scrape failed, keep tweet text as content */ }
-      }
-    }
+    const title = isArticle ? (tweet.article?.title ?? null) : null;
 
 
     try {

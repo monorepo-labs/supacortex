@@ -43,3 +43,10 @@ export const updateGridLayout = async (
   );
   await Promise.all(queries);
 };
+
+export const resetGridLayout = async (userId: string) => {
+  await db
+    .update(bookmarks)
+    .set({ gridX: null, gridY: null, gridW: null, gridH: null, gridExpanded: false })
+    .where(eq(bookmarks.createdBy, userId));
+};

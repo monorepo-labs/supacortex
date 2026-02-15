@@ -43,6 +43,24 @@ export const useUpdateGridLayout = () => {
   });
 };
 
+export const useResetGridLayout = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/bookmarks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetGrid: true }),
+      });
+      if (!res.ok) throw new Error("Failed to reset grid layout");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+};
+
 export const useDeleteBookmark = () => {
   const queryClient = useQueryClient();
   return useMutation({

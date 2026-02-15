@@ -67,17 +67,17 @@ Content types: **tweets and links only**. No images, videos, or other media type
 1. Frontend to read bookmarks — beautiful, minimal UI
 2. Twitter API connection — OAuth 2.0 to connect account
 3. Database — Railway Postgres + Drizzle schema for bookmarks
-4. Vercel cron — syncs Twitter bookmarks to DB
+4. Vercel cron — syncs Twitter bookmarks to DB (Skipped)
 5. Search, groups, reading modes
 
 ### Phase 2: Intelligence
-- Smart auto-categorization
-- Vector DB + RAG + BM25 hybrid search
+- Smart auto-categorization (No longer doing it)
+- Vector DB + RAG + BM25 hybrid search (Not now)
 - Graph view (connections visualization)
 
-### Phase 3: Writing and annotation
+### Phase 3: Writing and annotation (Not yet)
 - Long-form notes
-- Highlights and annotations
+- Highlights and annotations 
 
 ### Phase 4: API and CLI
 - Server with public API

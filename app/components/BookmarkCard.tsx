@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   Link as LinkIcon,
   ExternalLink,
@@ -53,6 +51,8 @@ export default function BookmarkCard({
   className?: string;
 }) {
   const { mutate: remove } = useDeleteBookmark();
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const wasDragged = useRef(false);
   const [contextMode, setContextMode] = useState<"default" | "addToGroup">(
     "default",
   );
@@ -64,7 +64,7 @@ export default function BookmarkCard({
   if (bookmark._optimistic) {
     return (
       <div
-        className={`rounded-xl border border-zinc-100 bg-white/40 shadow-[0px_0.5px_1px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] h-full ${className ?? ""}`}
+        className={`rounded-xl border border-zinc-100 bg-white/80 shadow-[0px_0.5px_1px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] h-full ${className ?? ""}`}
       >
         <div className="p-4 space-y-3">
           <div className="h-4 w-3/4 rounded bg-zinc-100 animate-pulse" />
@@ -83,8 +83,11 @@ export default function BookmarkCard({
 
   const displayTitle = bookmark.title;
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
-  const media = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
+  const media = bookmark.mediaUrls?.find(
+    (m) => m.type !== "avatar" && !m.type.startsWith("quote_"),
+  );
   const isVideo = media?.type === "video" || media?.type === "animated_gif";
+  const isTweet = bookmark.type === "tweet" || bookmark.type === "article";
   const bookmarkGroupIds = bookmark.groupIds ?? [];
 
   const toggleGroupMembership = (groupId: string) => {
@@ -107,167 +110,245 @@ export default function BookmarkCard({
     >
       <ContextMenuTrigger asChild>
         <div
+          onMouseDown={(e) => {
+            mouseDownPos.current = { x: e.clientX, y: e.clientY };
+            wasDragged.current = false;
+          }}
+          onMouseUp={(e) => {
+            if (mouseDownPos.current) {
+              const dx = e.clientX - mouseDownPos.current.x;
+              const dy = e.clientY - mouseDownPos.current.y;
+              if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                wasDragged.current = true;
+              }
+            }
+          }}
           onClick={(e) => {
+            if (wasDragged.current) return;
             if (e.shiftKey) {
               onSelect?.(bookmark.id);
               return;
             }
-            if (e.altKey) {
-              onClick();
-            } else {
-              onToggleExpand();
+            if (bookmark.type === "article") {
+              const urlMatch = bookmark.content?.match(/https?:\/\/[^\s)]+/);
+              if (urlMatch) {
+                window.open(urlMatch[0], "_blank");
+                return;
+              }
             }
+            onClick();
           }}
-          className={`group/card relative flex flex-col h-full rounded-lg border bg-white/40 shadow-[0px_0.5px_0px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
+          className={`group/card relative flex flex-col h-full rounded-lg border bg-white/70 shadow-[0px_0.5px_0px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
             isSelected
               ? "border-blue-500 ring-2 ring-blue-500"
               : "border-black/6"
           } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
-          {/* Media */}
-          {media && (
-            <div className="relative h-40 shrink-0 overflow-hidden">
-              {isVideo && media.videoUrl ? (
-                <>
-                  <video
-                    src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
-                    poster={media.url}
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                    onMouseEnter={(e) => {
-                      e.currentTarget.play().catch(() => {});
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.pause();
-                      e.currentTarget.currentTime = 0;
-                    }}
+          {isTweet ? (
+            <>
+              {/* Author — top */}
+              <div className="shrink-0 flex items-center gap-2 px-4 pt-4">
+                {avatar && (
+                  <Image
+                    src={avatar.url}
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="shrink-0 rounded-full object-cover"
+                    unoptimized
                   />
-                  <div className="absolute bottom-2 left-2 pointer-events-none transition-opacity duration-200 group-hover/card:opacity-0 drop-shadow-md">
-                    <svg viewBox="0 0 24 24" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="1" className="h-5 w-5">
-                      <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
-                    </svg>
-                  </div>
-                </>
-              ) : (
-                <Image
-                  src={media.url}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              )}
-            </div>
-          )}
-
-          {/* Title */}
-          {displayTitle && (
-            <div className="shrink-0 px-4 pt-4 pb-2">
-              <h3
-                style={{ fontFamily: "var(--font-source-serif)" }}
-                className={`font-medium leading-snug ${expanded ? "text-zinc-500" : "text-zinc-800 line-clamp-2"}`}
-              >
-                {displayTitle}
-              </h3>
-            </div>
-          )}
-
-          {/* Content */}
-          {expanded ? (
-            <div
-              className={`flex-1 min-h-0 px-4 ${!displayTitle ? "pt-2" : ""} ${expandedOverflows ? "overflow-y-auto overflow-x-hidden scrollbar-hide" : "overflow-hidden"}`}
-              onWheel={(e) => e.stopPropagation()}
-            >
-              {bookmark.content && (
-                <div className="prose prose-zinc prose-base max-w-none mb-3 break-words reader-content">
-                  <style>{`
-                    .reader-content p { line-height: 1.7; margin-top: 12px; margin-bottom: 12px; }
-                    .reader-content p:first-of-type { margin-top: 8px; }
-                    .reader-content p:last-of-type { margin-bottom: 8px; }
-                    .reader-content ul, .reader-content ol { margin-top: 0.5rem; margin-bottom: 0.5rem; padding-left: 1.25rem; }
-                    .reader-content li { margin-top: 0.25rem; margin-bottom: 0.25rem; line-height: 1.6; }
-                    .reader-content img { border-radius: 0.5rem; }
-                    .reader-content pre { background: #fafafa; font-size: 0.8rem; }
-                    .reader-content blockquote { border-color: #e4e4e7; color: #71717a; }
-                  `}</style>
-                  <Markdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      a: ({ href, children }) => (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {children}
-                        </a>
-                      ),
-                    }}
+                )}
+                {bookmark.author && (
+                  <a
+                    href={`https://x.com/${bookmark.author}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-zinc-900 hover:text-zinc-500 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {bookmark.content}
-                  </Markdown>
+                    @{bookmark.author}
+                  </a>
+                )}
+              </div>
+
+              {/* Content */}
+              {bookmark.content && (
+                <div className={`shrink-0 px-4 pt-2 ${!media ? "pb-4" : ""}`}>
+                  <p
+                    className={`break-words text-zinc-800 text-[15px] leading-normal ${media ? "line-clamp-3" : ""}`}
+                  >
+                    {media
+                      ? bookmark.content
+                      : bookmark.content && bookmark.content.length > 280
+                        ? bookmark.content.slice(0, 280) + "…"
+                        : bookmark.content}
+                  </p>
                 </div>
               )}
-            </div>
-          ) : (
-            bookmark.content &&
-            bookmark.type !== "link" && (
-              <div className={`px-4 ${!displayTitle ? "pt-4" : ""}`}>
-                <p
-                  className={`mb-3 line-clamp-3 break-words ${displayTitle ? "text-zinc-500" : "text-zinc-800"}`}
-                >
-                  {bookmark.content}
-                </p>
-              </div>
-            )
-          )}
 
-          {/* Footer */}
-          <div className="shrink-0 flex items-center justify-between px-4 pb-4 pt-2">
-            <div className="flex items-center gap-2 min-w-0">
-              {avatar && (
-                <Image
-                  src={avatar.url}
-                  alt=""
-                  width={20}
-                  height={20}
-                  className="shrink-0 rounded-full object-cover"
-                  unoptimized
-                />
+              {/* Media — with margin and roundness */}
+              {media && (
+                <div className="shrink-0 px-4 pt-3 pb-4">
+                  <div className="relative overflow-hidden rounded-[8px]">
+                    {isVideo && media.videoUrl ? (
+                      <>
+                        <video
+                          src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
+                          poster={media.url}
+                          muted
+                          loop
+                          playsInline
+                          preload="metadata"
+                          className="w-full object-cover"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.play().catch(() => {});
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.pause();
+                            e.currentTarget.currentTime = 0;
+                          }}
+                        />
+                        <div className="absolute bottom-2 left-2 pointer-events-none transition-opacity duration-200 group-hover/card:opacity-0 drop-shadow-md">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="white"
+                            stroke="rgba(0,0,0,0.3)"
+                            strokeWidth="1"
+                            className="h-5 w-5"
+                          >
+                            <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
+                          </svg>
+                        </div>
+                      </>
+                    ) : (
+                      <Image
+                        src={media.url}
+                        alt=""
+                        width={600}
+                        height={400}
+                        className="w-full object-cover"
+                        unoptimized
+                      />
+                    )}
+                  </div>
+                </div>
               )}
-              {bookmark.author ? (
-                <a
-                  href={`https://x.com/${bookmark.author}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  @{bookmark.author}
-                </a>
-              ) : (
-                <a
-                  href={bookmark.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 min-w-0 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <LinkIcon size={12} className="shrink-0" />
-                  <span className="truncate">
-                    {new URL(bookmark.url).hostname.replace("www.", "")}
-                  </span>
-                </a>
+              {!media && !bookmark.content && <div className="shrink-0 h-4" />}
+            </>
+          ) : (
+            <>
+              {/* Media — full bleed for non-tweets */}
+              {media && (
+                <div className="relative h-40 shrink-0 overflow-hidden">
+                  {isVideo && media.videoUrl ? (
+                    <>
+                      <video
+                        src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
+                        poster={media.url}
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-cover"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.play().catch(() => {});
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.pause();
+                          e.currentTarget.currentTime = 0;
+                        }}
+                      />
+                      <div className="absolute bottom-2 left-2 pointer-events-none transition-opacity duration-200 group-hover/card:opacity-0 drop-shadow-md">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="white"
+                          stroke="rgba(0,0,0,0.3)"
+                          strokeWidth="1"
+                          className="h-5 w-5"
+                        >
+                          <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
+                        </svg>
+                      </div>
+                    </>
+                  ) : (
+                    <Image
+                      src={media.url}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  )}
+                </div>
               )}
-            </div>
-            {bookmark.isRead && (
-              <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-300" />
-            )}
-          </div>
+
+              {/* Title */}
+              {displayTitle && (
+                <div className="shrink-0 px-4 pt-4 pb-2">
+                  <h3
+                    style={{ fontFamily: "var(--font-source-serif)" }}
+                    className="font-medium leading-snug text-zinc-800 line-clamp-2"
+                  >
+                    {displayTitle}
+                  </h3>
+                </div>
+              )}
+
+              {/* Content */}
+              {bookmark.content && bookmark.type !== "link" && (
+                <div className={`px-4 ${!displayTitle ? "pt-4" : ""}`}>
+                  <p
+                    className={`mb-3 line-clamp-3 break-words ${displayTitle ? "text-zinc-500" : "text-zinc-800"}`}
+                  >
+                    {bookmark.content}
+                  </p>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="shrink-0 flex items-center justify-between px-4 pb-4 pt-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {avatar && (
+                    <Image
+                      src={avatar.url}
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="shrink-0 rounded-full object-cover"
+                      unoptimized
+                    />
+                  )}
+                  {bookmark.author ? (
+                    <a
+                      href={`https://x.com/${bookmark.author}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      @{bookmark.author}
+                    </a>
+                  ) : (
+                    <a
+                      href={bookmark.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 min-w-0 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <LinkIcon size={12} className="shrink-0" />
+                      <span className="truncate">
+                        {new URL(bookmark.url).hostname.replace("www.", "")}
+                      </span>
+                    </a>
+                  )}
+                </div>
+                {bookmark.isRead && (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-300" />
+                )}
+              </div>
+            </>
+          )}
         </div>
       </ContextMenuTrigger>
 
@@ -279,13 +360,10 @@ export default function BookmarkCard({
                 e.stopPropagation();
                 onClick();
               }}
-              className="gap-2 justify-between"
+              className="gap-2"
             >
-              <span className="flex items-center gap-2">
-                <BookOpen size={14} />
-                Open in Reader
-              </span>
-              <span className="text-[11px] text-zinc-400">⌥ Click</span>
+              <BookOpen size={14} />
+              Open in Reader
             </ContextMenuItem>
             <ContextMenuItem
               onClick={(e) => {
