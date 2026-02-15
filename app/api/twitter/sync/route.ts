@@ -7,6 +7,8 @@ import { account } from "@/db/schema";
 import { getUser } from "@/lib/get-user";
 import { syncTwitterBookmarks, RateLimitError } from "@/server/twitter/sync";
 
+export const maxDuration = 720;
+
 export async function POST() {
   const user = await getUser();
   if (!user)

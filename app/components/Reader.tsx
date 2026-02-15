@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { X, ExternalLink } from "lucide-react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { BookmarkData } from "./BookmarkNode";
 
 export default function Reader({
@@ -15,7 +16,8 @@ export default function Reader({
 }) {
   const displayTitle = bookmark.title;
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
-  const image = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
+  const media = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
+  const isVideo = media?.type === "video" || media?.type === "animated_gif";
   const [open, setOpen] = useState(false);
 
   // Trigger slide-up on mount
@@ -105,16 +107,26 @@ export default function Reader({
               </div>
             )}
 
-            {image && (
+            {media && (
               <div className="mb-8 overflow-hidden rounded-xl">
-                <Image
-                  src={image.url}
-                  alt=""
-                  width={672}
-                  height={400}
-                  className="w-full object-cover"
-                  unoptimized
-                />
+                {isVideo && media.videoUrl ? (
+                  <video
+                    src={media.videoUrl}
+                    poster={media.url}
+                    controls
+                    playsInline
+                    className="w-full"
+                  />
+                ) : (
+                  <Image
+                    src={media.url}
+                    alt=""
+                    width={672}
+                    height={400}
+                    className="w-full object-cover"
+                    unoptimized
+                  />
+                )}
               </div>
             )}
 
@@ -132,7 +144,7 @@ export default function Reader({
                   .reader-content blockquote { border-color: #e4e4e7; color: #71717a; }
                 `}</style>
                 <div className="prose prose-zinc prose-lg max-w-none reader-content">
-                  <Markdown>{bookmark.content}</Markdown>
+                  <Markdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{bookmark.content}</Markdown>
                 </div>
               </>
             ) : (

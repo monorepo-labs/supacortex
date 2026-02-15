@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Link as LinkIcon,
   ExternalLink,
@@ -84,7 +85,8 @@ export default function BookmarkCard({
 
   const displayTitle = bookmark.title;
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
-  const image = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
+  const media = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
+  const isVideo = media?.type === "video" || media?.type === "animated_gif";
   const bookmarkGroupIds = bookmark.groupIds ?? [];
 
   const toggleGroupMembership = (groupId: string) => {
@@ -124,16 +126,29 @@ export default function BookmarkCard({
               : "border-black/6"
           } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
-          {/* Image */}
-          {image && (
+          {/* Media */}
+          {media && (
             <div className="relative h-40 shrink-0 overflow-hidden">
-              <Image
-                src={image.url}
-                alt=""
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              {isVideo && media.videoUrl ? (
+                <video
+                  src={media.videoUrl}
+                  poster={media.url}
+                  muted
+                  loop
+                  playsInline
+                  className="h-full w-full object-cover"
+                  onMouseEnter={(e) => e.currentTarget.play()}
+                  onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                />
+              ) : (
+                <Image
+                  src={media.url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              )}
             </div>
           )}
 
@@ -156,7 +171,7 @@ export default function BookmarkCard({
               onWheel={(e) => e.stopPropagation()}
             >
               {bookmark.content && (
-                <div className="prose prose-zinc prose-base max-w-none mb-3 reader-content">
+                <div className="prose prose-zinc prose-base max-w-none mb-3 break-words reader-content">
                   <style>{`
                     .reader-content p { line-height: 1.7; margin-top: 12px; margin-bottom: 12px; }
                     .reader-content p:first-of-type { margin-top: 8px; }
@@ -167,7 +182,7 @@ export default function BookmarkCard({
                     .reader-content pre { background: #fafafa; font-size: 0.8rem; }
                     .reader-content blockquote { border-color: #e4e4e7; color: #71717a; }
                   `}</style>
-                  <Markdown>{bookmark.content}</Markdown>
+                  <Markdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{children}</a> }}>{bookmark.content}</Markdown>
                 </div>
               )}
             </div>
@@ -176,7 +191,7 @@ export default function BookmarkCard({
             bookmark.type !== "link" && (
               <div className={`px-4 ${!displayTitle ? "pt-4" : ""}`}>
                 <p
-                  className={`mb-3 text-sm line-clamp-3 ${displayTitle ? "text-zinc-500" : "text-zinc-800"}`}
+                  className={`mb-3 text-sm line-clamp-3 break-words ${displayTitle ? "text-zinc-500" : "text-zinc-800"}`}
                 >
                   {bookmark.content}
                 </p>

@@ -1,6 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/services/db";
 import { bookmarks } from "@/db/schema";
+import { scrapeContent } from "@/lib/ingest/scraper";
 
 export class RateLimitError extends Error {
   resetAt: Date | null;
@@ -23,6 +24,11 @@ type TweetEntity = {
   display_url: string;
 };
 
+type ReferencedTweet = {
+  type: "retweeted" | "quoted" | "replied_to";
+  id: string;
+};
+
 type TweetData = {
   id: string;
   text: string;
@@ -30,6 +36,9 @@ type TweetData = {
   created_at?: string;
   attachments?: { media_keys?: string[] };
   entities?: { urls?: TweetEntity[] };
+  referenced_tweets?: ReferencedTweet[];
+  note_tweet?: { text: string; entities?: { urls?: TweetEntity[] } };
+  article?: { cover_media?: { media_key: string }; title?: string; description?: string };
 };
 
 type UserData = {
@@ -39,11 +48,18 @@ type UserData = {
   profile_image_url?: string;
 };
 
+type MediaVariant = {
+  bit_rate?: number;
+  content_type: string;
+  url: string;
+};
+
 type MediaData = {
   media_key: string;
   type: "photo" | "video" | "animated_gif";
   url?: string;
   preview_image_url?: string;
+  variants?: MediaVariant[];
 };
 
 type BookmarksResponse = {
@@ -51,6 +67,7 @@ type BookmarksResponse = {
   includes?: {
     users?: UserData[];
     media?: MediaData[];
+    tweets?: TweetData[];
   };
   meta?: {
     next_token?: string;
@@ -68,10 +85,10 @@ async function fetchBookmarksPage(
 ): Promise<BookmarksResponse> {
   const params = new URLSearchParams({
     max_results: String(maxResults),
-    "tweet.fields": "created_at,author_id,attachments,entities",
-    expansions: "author_id,attachments.media_keys",
+    "tweet.fields": "created_at,author_id,attachments,entities,referenced_tweets,note_tweet,article",
+    expansions: "author_id,attachments.media_keys,referenced_tweets.id,referenced_tweets.id.author_id,article.cover_media",
     "user.fields": "username,name,profile_image_url",
-    "media.fields": "url,preview_image_url,type",
+    "media.fields": "url,preview_image_url,type,variants",
   });
   if (paginationToken) params.set("pagination_token", paginationToken);
 
@@ -98,12 +115,20 @@ async function fetchBookmarksPage(
 
 // ── Resolve media from includes ─────────────────────────────────────
 
+function bestMp4(variants?: MediaVariant[]): string | undefined {
+  if (!variants) return undefined;
+  const mp4s = variants
+    .filter((v) => v.content_type === "video/mp4" && v.bit_rate != null)
+    .sort((a, b) => (b.bit_rate ?? 0) - (a.bit_rate ?? 0));
+  return mp4s[0]?.url;
+}
+
 function resolveMedia(
   tweet: TweetData,
   mediaMap: Map<string, MediaData>,
   author?: UserData,
-): { type: string; url: string }[] {
-  const result: { type: string; url: string }[] = [];
+): { type: string; url: string; videoUrl?: string }[] {
+  const result: { type: string; url: string; videoUrl?: string }[] = [];
 
   if (author?.profile_image_url) {
     result.push({ type: "avatar", url: author.profile_image_url });
@@ -114,20 +139,100 @@ function resolveMedia(
     const media = mediaMap.get(key);
     if (!media) continue;
     const url = media.url ?? media.preview_image_url;
-    if (url) result.push({ type: media.type, url });
+    if (!url) continue;
+
+    if (media.type === "video" || media.type === "animated_gif") {
+      const videoUrl = bestMp4(media.variants);
+      result.push({ type: media.type, url, videoUrl });
+    } else {
+      result.push({ type: media.type, url });
+    }
   }
 
   return result;
 }
 
-// ── Replace t.co URLs with real URLs ────────────────────────────────
+// ── URL patterns to strip (media attachments rendered separately) ────
+
+const MEDIA_URL_RE = /https?:\/\/(x\.com|twitter\.com)\/\w+\/status\/\d+\/(photo|video)\/\d+/g;
+
+// ── Replace t.co URLs with real URLs, strip media URLs ──────────────
 
 function resolveLinks(tweet: TweetData): string {
-  let text = tweet.text;
-  for (const entity of tweet.entities?.urls ?? []) {
-    text = text.replace(entity.url, entity.expanded_url);
+  // Use note_tweet for long tweets (280+ chars), fallback to text
+  let text = tweet.note_tweet?.text ?? tweet.text;
+  const entities = tweet.note_tweet?.entities?.urls ?? tweet.entities?.urls ?? [];
+  for (const entity of entities) {
+    const url = entity.expanded_url.replace(/^http:\/\//, "https://");
+    text = text.replace(entity.url, url);
   }
+  // Strip photo/video attachment URLs (already in mediaUrls)
+  text = text.replace(MEDIA_URL_RE, "").trim();
   return text;
+}
+
+// ── Check if tweet contains an X article link ───────────────────────
+
+function findArticleUrl(tweet: TweetData): string | null {
+  for (const entity of tweet.entities?.urls ?? []) {
+    const url = entity.expanded_url.replace(/^http:\/\//, "https://");
+    if (url.includes("x.com/i/article/")) return url;
+  }
+  return null;
+}
+
+// ── Extract first external (non-X) URL from tweet for enrichment ────
+
+function findExternalUrl(tweet: TweetData): string | null {
+  for (const entity of tweet.entities?.urls ?? []) {
+    const url = entity.expanded_url.replace(/^http:\/\//, "https://");
+    try {
+      const { hostname } = new URL(url);
+      if (hostname.includes("x.com") || hostname.includes("twitter.com")) continue;
+      return url;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+// ── Enrich a tweet with scraped link content ────────────────────────
+
+async function enrichWithLink(externalUrl: string): Promise<string | null> {
+  try {
+    const scraped = await scrapeContent(externalUrl);
+    if (!scraped?.content) return null;
+    const domain = new URL(externalUrl).hostname.replace("www.", "");
+    const title = scraped.title ? `**${scraped.title}** (${domain})` : domain;
+    const snippet = scraped.content.slice(0, 500);
+    return `\n\n---\n${title}\n${snippet}`;
+  } catch {
+    return null;
+  }
+}
+
+// ── Resolve referenced tweet (retweet/quote) content ────────────────
+
+function resolveReferencedTweet(
+  tweet: TweetData,
+  tweetMap: Map<string, TweetData>,
+  userMap: Map<string, UserData>,
+): string | null {
+  const ref = tweet.referenced_tweets?.find(
+    (r) => r.type === "retweeted" || r.type === "quoted",
+  );
+  if (!ref) return null;
+
+  const refTweet = tweetMap.get(ref.id);
+  if (!refTweet) return null;
+
+  const refAuthor = userMap.get(refTweet.author_id);
+  const refUsername = refAuthor?.username ?? "unknown";
+  const refContent = resolveLinks(refTweet);
+  const label = ref.type === "retweeted" ? "Retweet" : "Quote";
+
+  return `\n\n> ${label} from @${refUsername}:\n> ${refContent.replace(/\n/g, "\n> ")}`;
 }
 
 // ── Check if this is the first sync ─────────────────────────────────
@@ -149,10 +254,14 @@ export async function syncTwitterBookmarks(
   xUserId: string,
 ) {
   const firstSync = await isFirstSync(userId);
+  console.log(`[sync] mode=${firstSync ? "initial" : "incremental"} user=${userId}`);
 
-  return firstSync
-    ? initialSync(userId, accessToken, xUserId)
-    : incrementalSync(userId, accessToken, xUserId);
+  const result = firstSync
+    ? await initialSync(userId, accessToken, xUserId)
+    : await incrementalSync(userId, accessToken, xUserId);
+
+  console.log(`[sync] done — synced=${result.synced} rateLimited=${result.rateLimited}`);
+  return result;
 }
 
 // ── First sync: batches of 100, no early exit ───────────────────────
@@ -165,17 +274,23 @@ async function initialSync(
   let synced = 0;
   let paginationToken: string | undefined;
 
+  let batch = 0;
   do {
+    batch++;
     try {
       const page = await fetchBookmarksPage(xUserId, accessToken, 100, paginationToken);
-      if (!page.data || page.data.length === 0) break;
+      const count = page.data?.length ?? 0;
+      console.log(`[sync:initial] batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
+      if (!page.data || count === 0) break;
 
-      const result = await insertTweets(page, userId);
+      const result = await insertTweets(page, userId, false);
       synced += result.synced;
+      console.log(`[sync:initial] batch=${batch} inserted=${result.synced} dupes=${result.hitDuplicate}`);
 
       paginationToken = page.meta?.next_token;
     } catch (err) {
       if (err instanceof RateLimitError) {
+        console.log(`[sync:initial] rate limited after batch=${batch} synced=${synced}`);
         return { synced, rateLimited: true, resetAt: err.resetAt };
       }
       throw err;
@@ -196,30 +311,43 @@ async function incrementalSync(
 
   // Probe with 1 tweet to check if there's anything new
   const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
-  if (!probe.data || probe.data.length === 0) return { synced, rateLimited: false };
+  if (!probe.data || probe.data.length === 0) {
+    console.log("[sync:incremental] probe empty — nothing new");
+    return { synced, rateLimited: false };
+  }
 
   const probeInserted = await insertTweets(probe, userId);
   synced += probeInserted.synced;
 
-  // Probe was a duplicate — nothing new
-  if (probeInserted.synced === 0) return { synced, rateLimited: false };
+  if (probeInserted.synced === 0) {
+    console.log("[sync:incremental] probe was duplicate — nothing new");
+    return { synced, rateLimited: false };
+  }
+
+  console.log("[sync:incremental] probe found new bookmark, fetching more...");
 
   // Fetch in batches of 10, stop on first duplicate
   let paginationToken = probe.meta?.next_token;
+  let batch = 0;
 
   while (paginationToken) {
+    batch++;
     try {
       const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
-      if (!page.data || page.data.length === 0) break;
+      const count = page.data?.length ?? 0;
+      console.log(`[sync:incremental] batch=${batch} received=${count}`);
+      if (!page.data || count === 0) break;
 
       const result = await insertTweets(page, userId);
       synced += result.synced;
+      console.log(`[sync:incremental] batch=${batch} inserted=${result.synced} dupes=${result.hitDuplicate}`);
 
       if (result.hitDuplicate) break;
 
       paginationToken = page.meta?.next_token;
     } catch (err) {
       if (err instanceof RateLimitError) {
+        console.log(`[sync:incremental] rate limited after batch=${batch} synced=${synced}`);
         return { synced, rateLimited: true, resetAt: err.resetAt };
       }
       throw err;
@@ -234,6 +362,7 @@ async function incrementalSync(
 async function insertTweets(
   page: BookmarksResponse,
   userId: string,
+  stopOnDuplicate = true,
 ) {
   let synced = 0;
   let hitDuplicate = false;
@@ -248,18 +377,47 @@ async function insertTweets(
     mediaMap.set(m.media_key, m);
   }
 
-  for (const tweet of page.data ?? []) {
+  // Referenced tweets from includes (retweets, quotes)
+  const tweetMap = new Map<string, TweetData>();
+  for (const t of page.includes?.tweets ?? []) {
+    tweetMap.set(t.id, t);
+  }
+
+  // Pre-fetch link enrichments in parallel for all tweets in this batch
+  const tweets = page.data ?? [];
+  const enrichments = await Promise.all(
+    tweets.map((tweet) => {
+      const externalUrl = findExternalUrl(tweet);
+      return externalUrl ? enrichWithLink(externalUrl) : Promise.resolve(null);
+    }),
+  );
+
+  for (let i = 0; i < tweets.length; i++) {
+    const tweet = tweets[i];
     const author = userMap.get(tweet.author_id);
     const username = author?.username ?? "unknown";
     const url = `https://x.com/${username}/status/${tweet.id}`;
     const mediaUrls = resolveMedia(tweet, mediaMap, author);
-    const content = resolveLinks(tweet);
+
+    // Build content: resolved links + referenced tweet + enrichment
+    let content = resolveLinks(tweet);
+
+    const refContent = resolveReferencedTweet(tweet, tweetMap, userMap);
+    if (refContent) content += refContent;
+
+    if (enrichments[i]) content += enrichments[i];
+
+    // Detect article type — from API field or URL pattern
+    const isArticle = !!tweet.article || !!findArticleUrl(tweet);
+    const type = isArticle ? "article" : "tweet";
+    const title = isArticle ? (tweet.article?.title ?? null) : null;
 
     try {
       const [inserted] = await db
         .insert(bookmarks)
         .values({
-          type: "tweet",
+          type,
+          title,
           url,
           content,
           author: username,
@@ -273,11 +431,11 @@ async function insertTweets(
         synced++;
       } else {
         hitDuplicate = true;
-        break;
+        if (stopOnDuplicate) break;
       }
     } catch {
       hitDuplicate = true;
-      break;
+      if (stopOnDuplicate) break;
     }
   }
 

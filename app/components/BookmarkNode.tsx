@@ -12,7 +12,7 @@ export type BookmarkData = {
   author: string | null;
   url: string;
   isRead: boolean;
-  mediaUrls: { type: string; url: string }[] | null;
+  mediaUrls: { type: string; url: string; videoUrl?: string }[] | null;
   positionX: number | null;
   positionY: number | null;
   gridX: number | null;

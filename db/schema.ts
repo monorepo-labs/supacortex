@@ -31,7 +31,7 @@ export const bookmarks = pgTable(
     url: text().unique().notNull(),
     content: text(),
     author: text(),
-    mediaUrls: json().$type<{ type: string; url: string }[]>(),
+    mediaUrls: json().$type<{ type: string; url: string; videoUrl?: string }[]>(),
     isRead: boolean().default(false),
     positionX: real().default(0),
     positionY: real().default(0),
