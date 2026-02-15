@@ -87,12 +87,14 @@ export default function GraphView({
   isLoading,
   onOpenReader,
   onOpenInNewPanel,
+  openReaderIds,
 }: {
   bookmarks: BookmarkData[];
   edges: BookmarkEdge[];
   isLoading: boolean;
   onOpenReader: (bookmark: BookmarkData) => void;
   onOpenInNewPanel?: (bookmark: BookmarkData) => void;
+  openReaderIds?: Set<string>;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -195,6 +197,7 @@ export default function GraphView({
           connectionCount: connectionCounts.get(sn.id) ?? 0,
           groupColor,
           mediaUrls: bk?.mediaUrls ?? null,
+          isOpenInReader: openReaderIds?.has(sn.id) ?? false,
         },
         draggable: true,
       };
@@ -223,6 +226,17 @@ export default function GraphView({
 
     setTimeout(() => rfInstance.current?.fitView({ padding: 0.3 }), 50);
   }, [connectedBookmarks, filteredEdges, connectionCounts, bookmarkMap, groupColorMap]);
+
+  // Patch isOpenInReader without re-running simulation
+  useEffect(() => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        const open = openReaderIds?.has(n.id) ?? false;
+        if ((n.data as Record<string, unknown>).isOpenInReader === open) return n;
+        return { ...n, data: { ...n.data, isOpenInReader: open } };
+      }),
+    );
+  }, [openReaderIds, setNodes]);
 
   const lastDragTime = useRef(0);
 

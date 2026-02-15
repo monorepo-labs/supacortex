@@ -14,10 +14,11 @@ export type GraphNodeData = {
   connectionCount: number;
   groupColor: string | null;
   mediaUrls: { type: string; url: string }[] | null;
+  isOpenInReader?: boolean;
 };
 
 function GraphNodeComponent({ data, selected }: NodeProps) {
-  const { title, content, author, url, type, groupColor, mediaUrls } =
+  const { title, content, author, url, type, groupColor, mediaUrls, isOpenInReader } =
     data as unknown as GraphNodeData;
 
   const isTweet = type === "tweet" || type === "article";
@@ -45,7 +46,7 @@ function GraphNodeComponent({ data, selected }: NodeProps) {
         className="!opacity-0 !w-0 !h-0 !min-w-0 !min-h-0"
       />
       <div
-        className={`w-[200px] rounded-lg border bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden ${selected ? "ring-2 ring-black/20 border-black/20" : ""}`}
+        className={`w-[200px] rounded-lg border bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden ${selected ? "ring-2 ring-black/20 border-black/20" : isOpenInReader ? "ring-2 ring-black/6 border-black/6" : ""}`}
         style={{
           borderColor: selected ? undefined : (groupColor ?? "#e4e4e7"),
           borderLeftWidth: groupColor && !selected ? 3 : undefined,

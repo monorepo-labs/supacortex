@@ -205,6 +205,7 @@ function LibraryPageContent() {
               isLoading={graphLoading || isLoading}
               onOpenReader={handleOpenReader}
               onOpenInNewPanel={handleOpenInNewPanel}
+              openReaderIds={openReaderIds}
             />
           ) : (
             <LibraryGridView
