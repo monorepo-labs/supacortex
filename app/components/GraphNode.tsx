@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Link as LinkIcon } from "lucide-react";
+import Image from "next/image";
 
 export type GraphNodeData = {
   title: string | null;
@@ -12,10 +13,11 @@ export type GraphNodeData = {
   type: string;
   connectionCount: number;
   groupColor: string | null;
+  mediaUrls: { type: string; url: string }[] | null;
 };
 
 function GraphNodeComponent({ data, selected }: NodeProps) {
-  const { title, content, author, url, type, groupColor } =
+  const { title, content, author, url, type, groupColor, mediaUrls } =
     data as unknown as GraphNodeData;
 
   const isTweet = type === "tweet" || type === "article";
@@ -23,6 +25,13 @@ function GraphNodeComponent({ data, selected }: NodeProps) {
   try {
     hostname = new URL(url as string).hostname.replace("www.", "");
   } catch {}
+
+  const avatar = (mediaUrls as GraphNodeData["mediaUrls"])?.find(
+    (m) => m.type === "avatar",
+  );
+  const media = (mediaUrls as GraphNodeData["mediaUrls"])?.find(
+    (m) => m.type !== "avatar" && !m.type.startsWith("quote_"),
+  );
 
   const displayText = isTweet
     ? (content as string)?.slice(0, 120) || ""
@@ -42,8 +51,28 @@ function GraphNodeComponent({ data, selected }: NodeProps) {
           borderLeftWidth: groupColor && !selected ? 3 : undefined,
         }}
       >
-        <div className="p-3 space-y-1.5">
-          {isTweet && author && (
+        {/* Author row */}
+        {avatar && (
+          <div className="flex items-center gap-1.5 px-3 pt-3">
+            <Image
+              src={avatar.url}
+              alt=""
+              width={16}
+              height={16}
+              className="rounded-full shrink-0"
+              unoptimized
+            />
+            {author && (
+              <span className="text-[10px] text-zinc-400 truncate">
+                @{author}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Text content */}
+        <div className="px-3 pt-2 pb-2 space-y-1">
+          {!avatar && isTweet && author && (
             <p className="text-[10px] text-zinc-400 truncate">@{author}</p>
           )}
           <p className="text-xs leading-snug text-zinc-700 line-clamp-3">
@@ -58,6 +87,21 @@ function GraphNodeComponent({ data, selected }: NodeProps) {
             </div>
           )}
         </div>
+
+        {/* Media image */}
+        {media && (
+          <div className="px-3 pb-3">
+            <div className="relative h-24 overflow-hidden rounded-md">
+              <Image
+                src={media.url}
+                alt=""
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          </div>
+        )}
       </div>
       <Handle
         type="source"

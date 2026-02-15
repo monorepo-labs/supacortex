@@ -8,6 +8,10 @@ import {
   type Node,
   type Edge,
   type ReactFlowInstance,
+  EdgeLabelRenderer,
+  BaseEdge,
+  getStraightPath,
+  type EdgeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -27,6 +31,47 @@ import type { BookmarkEdge } from "@/server/bookmarks/queries";
 import { useGroups } from "@/hooks/use-groups";
 
 const nodeTypes = { graph: GraphNode };
+
+const LABEL_THRESHOLD = 20;
+
+function TermEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  data,
+  style,
+}: EdgeProps) {
+  const [edgePath, labelX, labelY] = getStraightPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+  });
+
+  const { terms, shared } = (data ?? {}) as { terms?: string[]; shared?: number };
+  const topTerms = terms?.slice(0, 3).join(", ") ?? "";
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} />
+      <EdgeLabelRenderer>
+        <div
+          className="nodrag nopan pointer-events-none rounded-full bg-white/90 px-2 py-0.5 text-[9px] text-zinc-400 border border-zinc-100 shadow-sm whitespace-nowrap"
+          style={{
+            position: "absolute",
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+          }}
+        >
+          {topTerms}{shared && shared > 3 ? ` +${shared - 3}` : ""}
+        </div>
+      </EdgeLabelRenderer>
+    </>
+  );
+}
+
+const edgeTypes = { term: TermEdge };
 
 interface SimNode extends SimulationNodeDatum {
   id: string;
@@ -118,12 +163,12 @@ export default function GraphView({
       .force(
         "link",
         forceLink<SimNode, SimLink>(simLinks)
-          .distance(200)
-          .strength((d) => Math.min(1, (d.shared || 1) * 0.12)),
+          .distance(260)
+          .strength((d) => Math.min(1, (d.shared || 1) * 0.11)),
       )
-      .force("charge", forceManyBody().strength(-400))
+      .force("charge", forceManyBody().strength(-600))
       .force("center", forceCenter(0, 0))
-      .force("collide", forceCollide(120))
+      .force("collide", forceCollide(140))
       .stop();
 
     for (let i = 0; i < 300; i++) sim.tick();
@@ -147,10 +192,13 @@ export default function GraphView({
           type: bk?.type ?? "link",
           connectionCount: connectionCounts.get(sn.id) ?? 0,
           groupColor,
+          mediaUrls: bk?.mediaUrls ?? null,
         },
         draggable: true,
       };
     });
+
+    const showLabels = connectedBookmarks.length <= LABEL_THRESHOLD;
 
     const rfEdges: Edge[] = filteredEdges
       .filter((e) => nodeIndex.has(e.source) && nodeIndex.has(e.target))
@@ -158,6 +206,10 @@ export default function GraphView({
         id: `e-${i}`,
         source: e.source,
         target: e.target,
+        ...(showLabels && {
+          type: "term",
+          data: { terms: e.terms, shared: e.shared },
+        }),
         style: {
           stroke: "#d4d4d8",
           strokeWidth: 1 + (e.shared / maxShared) * 2,
@@ -213,6 +265,7 @@ export default function GraphView({
         onNodeClick={onNodeClick}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onInit={(instance) => {
           rfInstance.current = instance;
         }}

@@ -100,16 +100,14 @@ function LibraryPageContent() {
     <div className="flex h-screen">
       <Sidebar activeGroupId={activeGroupId} onGroupSelect={handleGroupSelect} />
       <main className="relative flex-1 border border-zinc-200 rounded-xl m-2 overflow-hidden flex flex-col">
-        {viewMode !== "graph" && (
-          <GridSearch onSearch={setSearch} inputRef={searchRef} value={search} />
-        )}
+        <GridSearch onSearch={setSearch} inputRef={searchRef} value={search} />
 
         <div className="flex-1 overflow-hidden">
           {viewMode === "graph" ? (
             <GraphView
               bookmarks={bookmarks ?? []}
               edges={graphData?.edges ?? []}
-              isLoading={graphLoading}
+              isLoading={graphLoading || isLoading}
               onOpenReader={setActiveBookmark}
             />
           ) : (
