@@ -8,8 +8,6 @@ import {
   Link as LinkIcon,
   ExternalLink,
   Trash2,
-  Maximize2,
-  Minimize2,
   BookOpen,
   FolderPlus,
   ArrowLeft,
@@ -257,25 +255,12 @@ export default function BookmarkCard({
             <ContextMenuItem
               onClick={(e) => {
                 e.stopPropagation();
-                onToggleExpand();
-              }}
-              className="gap-2 justify-between"
-            >
-              <span className="flex items-center gap-2">
-                {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                {expanded ? "Collapse" : "Expand"}
-              </span>
-              <span className="text-[11px] text-zinc-400">Click</span>
-            </ContextMenuItem>
-            <ContextMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
                 window.open(bookmark.url, "_blank");
               }}
               className="gap-2"
             >
               <ExternalLink size={14} />
-              Open link
+              Visit link
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -325,9 +310,10 @@ export default function BookmarkCard({
                   e.preventDefault();
                   setConfirmDelete(true);
                 }}
-                className="gap-2 text-red-500 focus:text-red-500"
+                variant="destructive"
+                className="gap-2"
               >
-                <Trash2 size={14} color="currentColor" />
+                <Trash2 size={14} />
                 Delete
               </ContextMenuItem>
             )}

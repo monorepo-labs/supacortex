@@ -119,9 +119,10 @@ export default function GroupIconPicker({
               onClick={() => onIconChange(key)}
               className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors ${
                 isActive
-                  ? "bg-zinc-900 text-white"
+                  ? "text-white"
                   : "text-zinc-500 hover:bg-zinc-100"
               }`}
+              style={isActive ? { backgroundColor: color } : undefined}
             >
               <Icon className="h-3.5 w-3.5" />
             </button>

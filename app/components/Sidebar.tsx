@@ -18,8 +18,18 @@ import {
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { toast } from "sonner";
-import { useGroups, useCreateGroup, useRenameGroup, useUpdateGroup, useDeleteGroup } from "@/hooks/use-groups";
-import { useTwitterAccount, useLinkTwitter, useSyncTwitter } from "@/hooks/use-twitter";
+import {
+  useGroups,
+  useCreateGroup,
+  useRenameGroup,
+  useUpdateGroup,
+  useDeleteGroup,
+} from "@/hooks/use-groups";
+import {
+  useTwitterAccount,
+  useLinkTwitter,
+  useSyncTwitter,
+} from "@/hooks/use-twitter";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
 import UserMenu from "./UserMenu";
 
@@ -102,19 +112,26 @@ function GroupItem({
 
   return (
     <li>
-      <ContextMenu onOpenChange={(open) => { if (!open) setConfirmDelete(false); }}>
+      <ContextMenu
+        onOpenChange={(open) => {
+          if (!open) setConfirmDelete(false);
+        }}
+      >
         <ContextMenuTrigger asChild>
           <div
             onClick={() => onSelect(group.id)}
             className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
               isActive
-                ? "bg-zinc-100 text-zinc-900"
-                : "text-zinc-600 hover:bg-zinc-100"
+                ? "bg-black/6 text-zinc-900"
+                : "text-zinc-600 hover:bg-black/6"
             }`}
           >
             <Popover>
               <PopoverTrigger asChild>
-                <button className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <GroupIcon color={group.color} iconName={iconName} />
                 </button>
               </PopoverTrigger>
@@ -122,7 +139,9 @@ function GroupItem({
                 <GroupIconPicker
                   color={group.color}
                   icon={iconName}
-                  onColorChange={(color) => updateGroup({ id: group.id, color })}
+                  onColorChange={(color) =>
+                    updateGroup({ id: group.id, color })
+                  }
                   onIconChange={(icon) => updateGroup({ id: group.id, icon })}
                 />
               </PopoverContent>
@@ -144,7 +163,9 @@ function GroupItem({
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(group.id);
-                  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+                  document.dispatchEvent(
+                    new KeyboardEvent("keydown", { key: "Escape" }),
+                  );
                 }}
               >
                 Yes, delete
@@ -167,7 +188,8 @@ function GroupItem({
                 e.preventDefault();
                 setConfirmDelete(true);
               }}
-              className="gap-2 text-red-500 focus:text-red-500"
+              variant="destructive"
+              className="gap-2"
             >
               <Trash2 size={14} />
               Delete group
@@ -233,30 +255,32 @@ export default function Sidebar({
 
       {/* Groups */}
       <nav className="mt-4 flex-1 px-3">
-        <button
+        <Button
           onClick={handleAddGroup}
-          className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 mb-1 text-sm text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+          variant="ghost"
+          className="w-full justify-start text-zinc-500"
         >
           <Plus size={14} />
           New Group
-        </button>
+        </Button>
         <ul className="flex flex-col gap-0.5">
-          {/* All groups */}
-          <li>
-            <div
-              onClick={() => onGroupSelect(null)}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
-                activeGroupId === null
-                  ? "bg-zinc-100 text-zinc-900"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-400">
-                <RectangleStackIcon className="h-3 w-3 text-white" />
-              </span>
-              <span>All</span>
-            </div>
-          </li>
+          {groups && groups.length > 0 && (
+            <li>
+              <div
+                onClick={() => onGroupSelect(null)}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
+                  activeGroupId === null
+                    ? "bg-black/6 text-zinc-900"
+                    : "text-zinc-600 hover:bg-black/6"
+                }`}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-400">
+                  <RectangleStackIcon className="h-3 w-3 text-white" />
+                </span>
+                <span>All</span>
+              </div>
+            </li>
+          )}
           {groups?.map((group: Group) => (
             <GroupItem
               key={group.id}
@@ -279,7 +303,9 @@ export default function Sidebar({
                 onSuccess: (data) => {
                   toast.success(`Synced ${data.synced} bookmarks from X`);
                   if (data.rateLimited)
-                    toast.warning("Rate limited by X. Sync again later for remaining bookmarks.");
+                    toast.warning(
+                      "Rate limited by X. Sync again later for remaining bookmarks.",
+                    );
                 },
                 onError: (err) => toast.error(err.message),
               })
