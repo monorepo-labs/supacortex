@@ -6,7 +6,7 @@ import BookmarkCard from "./BookmarkCard";
 
 export type BookmarkData = {
   id: string;
-  type: "tweet" | "link" | "article" | "pdf" | "image";
+  type: "tweet" | "link" | "article" | "pdf" | "image" | "youtube";
   title: string | null;
   content: string | null;
   author: string | null;

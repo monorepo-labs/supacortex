@@ -87,6 +87,8 @@ export default function BookmarkCard({
   const isVideo = media?.type === "video" || media?.type === "animated_gif";
   const isTweet = bookmark.type === "tweet" || bookmark.type === "article";
   const isArticle = bookmark.type === "article";
+  const isYouTube = bookmark.type === "youtube";
+  const ytMedia = isYouTube ? bookmark.mediaUrls?.find((m) => m.type === "youtube") : null;
   const bookmarkGroupIds = bookmark.groupIds ?? [];
 
   const articleUrl = isArticle
@@ -138,7 +140,52 @@ export default function BookmarkCard({
                 : "border-black/6"
           } ${textSelectable ? "cursor-text select-text" : isArticle ? "cursor-default select-none" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
-          {isTweet ? (
+          {isYouTube ? (
+            <>
+              {/* Thumbnail with play button */}
+              {ytMedia && (
+                <div className="shrink-0 p-3 pb-0">
+                  <div className="relative overflow-hidden rounded-lg bg-black aspect-video">
+                    <Image
+                      src={ytMedia.url}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Title */}
+              {bookmark.title && (
+                <div className="shrink-0 px-4 pt-4 pb-1">
+                  <h3
+                    style={{ fontFamily: "var(--font-source-serif)" }}
+                    className="font-medium leading-snug text-zinc-800 line-clamp-2"
+                  >
+                    {bookmark.title}
+                  </h3>
+                </div>
+              )}
+
+              {/* Footer — YouTube icon + channel */}
+              <div className="shrink-0 flex items-center gap-2 px-4 pb-4 pt-2">
+                <svg viewBox="0 0 28 20" className="h-3.5 w-auto shrink-0">
+                  <path
+                    fill="#FF0000"
+                    d="M27.4 3.1a3.5 3.5 0 0 0-2.5-2.5C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5C28 14.7 28 10 28 10s0-4.7-.6-6.9Z"
+                  />
+                  <path fill="#FFF" d="m11.2 14.3 7.2-4.3-7.2-4.3v8.6Z" />
+                </svg>
+                {bookmark.author && (
+                  <span className="text-xs text-zinc-400 truncate">
+                    {bookmark.author}
+                  </span>
+                )}
+              </div>
+            </>
+          ) : isTweet ? (
             <>
               {/* Author — top */}
               <div className="shrink-0 flex items-center gap-2 px-4 pt-4">
@@ -169,7 +216,7 @@ export default function BookmarkCard({
               {bookmark.content && (
                 <div className={`shrink-0 px-4 pt-2 ${!media ? "pb-4" : ""}`}>
                   <p
-                    className={`break-words text-zinc-800 text-[15px] leading-normal ${media ? "line-clamp-3" : ""}`}
+                    className={`break-words text-zinc-800 text-[15px] leading-normal whitespace-pre-line ${media ? "line-clamp-3" : ""}`}
                   >
                     {media
                       ? bookmark.content

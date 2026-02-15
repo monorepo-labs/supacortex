@@ -53,6 +53,8 @@ export default function Reader({
       <div className="h-full flex flex-col">
         {isTweet ? (
           <TweetPanel bookmark={bookmark} onClose={onClose} />
+        ) : bookmark.type === "youtube" ? (
+          <YouTubePanel bookmark={bookmark} onClose={onClose} />
         ) : (
           <LinkPanel bookmark={bookmark} onClose={onClose} />
         )}
@@ -332,6 +334,82 @@ function TweetPanel({
 
           {/* Quote block */}
           {quoteBlock}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── YouTube Panel — embedded video + transcript ─────────────────────
+
+function YouTubePanel({
+  bookmark,
+  onClose,
+}: {
+  bookmark: BookmarkData;
+  onClose: () => void;
+}) {
+  const ytMedia = bookmark.mediaUrls?.find((m) => m.type === "youtube");
+  const videoId = ytMedia?.videoUrl
+    ? new URL(ytMedia.videoUrl).searchParams.get("v")
+    : null;
+
+  return (
+    <>
+      <ReaderHeader
+        bookmark={bookmark}
+        label="Watch on YouTube"
+        onClose={onClose}
+      />
+
+      <div className="flex-1 overflow-y-auto scrollbar-light">
+        {/* Video embed */}
+        {videoId && (
+          <div className="p-4 pb-0">
+            <div className="aspect-video w-full overflow-hidden rounded-lg">
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}`}
+                title={bookmark.title ?? "YouTube video"}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="px-5 pt-5 pb-12">
+          {/* Title + channel */}
+          {bookmark.title && (
+            <h1
+              style={{ fontFamily: "var(--font-source-serif)" }}
+              className="mb-2 text-xl font-medium leading-tight text-zinc-900"
+            >
+              {bookmark.title}
+            </h1>
+          )}
+          {bookmark.author && (
+            <a
+              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(bookmark.author)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mb-6 text-sm text-zinc-500 hover:text-zinc-700 transition-colors"
+            >
+              {bookmark.author}
+            </a>
+          )}
+
+          {/* Transcript */}
+          {bookmark.content && (
+            <>
+              <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Transcript
+              </h2>
+              <p className="text-[15px] leading-relaxed text-zinc-700 whitespace-pre-wrap">
+                {bookmark.content}
+              </p>
+            </>
+          )}
         </div>
       </div>
     </>

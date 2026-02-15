@@ -4,6 +4,7 @@ import { getUser } from "@/lib/get-user";
 import { createBookmark, deleteBookmark, updateBookmarkPosition, updateGridLayout, resetGridLayout } from "@/server/bookmarks/mutations";
 import { classifyUrlType } from "@/lib/ingest/url-type";
 import { scrapeContent } from "@/lib/ingest/scraper";
+import { scrapeYouTube } from "@/lib/ingest/youtube-scraper";
 
 export async function GET(req: Request) {
   const user = await getUser();
@@ -44,6 +45,40 @@ export async function POST(req: Request) {
       { status: 400 },
     );
 
+  if (type === "youtube") {
+    const yt = await scrapeYouTube(body.url);
+    if (!yt)
+      return NextResponse.json(
+        { error: "Failed to fetch YouTube video metadata. The video may be private or deleted." },
+        { status: 422 },
+      );
+
+    try {
+      const result = await createBookmark({
+        url: yt.videoUrl,
+        type: "youtube",
+        title: yt.title,
+        author: yt.author,
+        content: yt.transcript,
+        mediaUrls: [{ type: "youtube", url: yt.thumbnailUrl, videoUrl: yt.videoUrl }],
+        createdBy: user.id,
+      });
+      return NextResponse.json(result);
+    } catch (error: any) {
+      if (error?.cause?.code === "23505") {
+        return NextResponse.json(
+          { error: "This URL is already in your library" },
+          { status: 409 },
+        );
+      }
+      console.log(error);
+      return NextResponse.json(
+        { error: "Failed to create bookmark" },
+        { status: 500 },
+      );
+    }
+  }
+
   const scraped = await scrapeContent(body.url, { stripH1: true });
   if (!scraped)
     return NextResponse.json(
@@ -65,7 +100,13 @@ export async function POST(req: Request) {
       createdBy: user.id,
     });
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.cause?.code === "23505") {
+      return NextResponse.json(
+        { error: "This URL is already in your library" },
+        { status: 409 },
+      );
+    }
     console.log(error);
     return NextResponse.json(
       { error: "Failed to create bookmark" },
