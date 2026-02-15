@@ -28,6 +28,7 @@
     "react-dom": "19.2.3",
     "react-grid-layout": "^2.2.2",
     "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.3.6"
