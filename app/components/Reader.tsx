@@ -18,6 +18,7 @@ export default function Reader({
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
   const media = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
   const isVideo = media?.type === "video" || media?.type === "animated_gif";
+  const isTweet = bookmark.type === "tweet" || bookmark.type === "article";
   const [open, setOpen] = useState(false);
 
   // Trigger slide-up on mount
@@ -38,6 +39,27 @@ export default function Reader({
     setOpen(false);
     setTimeout(onClose, 300);
   };
+
+  const contentBlock = bookmark.content ? (
+    <>
+      <style>{`
+        .reader-content h1, .reader-content h2, .reader-content h3, .reader-content h4 { font-weight: 500; letter-spacing: -0.01em; }
+        .reader-content p { line-height: 1.8; }
+        .reader-content ul, .reader-content ol { margin-top: 1rem; margin-bottom: 1rem; padding-left: 1.5rem; }
+        .reader-content li { margin-top: 0.5rem; margin-bottom: 0.5rem; line-height: 1.75; }
+        .reader-content li > ul, .reader-content li > ol { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+        .reader-content img { border-radius: 0.75rem; }
+        .reader-content a { color: #52525b; text-underline-offset: 3px; }
+        .reader-content pre { background: #fafafa; font-size: 0.875rem; }
+        .reader-content blockquote { border-color: #e4e4e7; color: #71717a; }
+      `}</style>
+      <div className="prose prose-zinc prose-lg max-w-none reader-content mb-8">
+        <Markdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{bookmark.content}</Markdown>
+      </div>
+    </>
+  ) : (
+    <p className="text-zinc-400">No content available.</p>
+  );
 
   return (
     <div className="fixed inset-0 z-50">
@@ -100,20 +122,29 @@ export default function Reader({
                   />
                 )}
                 {bookmark.author && (
-                  <span className="text-sm text-zinc-500">
+                  <a
+                    href={`https://x.com/${bookmark.author}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-zinc-500 hover:text-zinc-700 transition-colors"
+                  >
                     @{bookmark.author}
-                  </span>
+                  </a>
                 )}
               </div>
             )}
+
+            {/* For tweets: content first, then media. For others: media first. */}
+            {isTweet && contentBlock}
 
             {media && (
               <div className="mb-8 overflow-hidden rounded-xl">
                 {isVideo && media.videoUrl ? (
                   <video
-                    src={media.videoUrl}
+                    src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
                     poster={media.url}
                     controls
+                    autoPlay
                     playsInline
                     className="w-full"
                   />
@@ -130,26 +161,7 @@ export default function Reader({
               </div>
             )}
 
-            {bookmark.content ? (
-              <>
-                <style>{`
-                  .reader-content h1, .reader-content h2, .reader-content h3, .reader-content h4 { font-weight: 500; letter-spacing: -0.01em; }
-                  .reader-content p { line-height: 1.8; }
-                  .reader-content ul, .reader-content ol { margin-top: 1rem; margin-bottom: 1rem; padding-left: 1.5rem; }
-                  .reader-content li { margin-top: 0.5rem; margin-bottom: 0.5rem; line-height: 1.75; }
-                  .reader-content li > ul, .reader-content li > ol { margin-top: 0.25rem; margin-bottom: 0.25rem; }
-                  .reader-content img { border-radius: 0.75rem; }
-                  .reader-content a { color: #52525b; text-underline-offset: 3px; }
-                  .reader-content pre { background: #fafafa; font-size: 0.875rem; }
-                  .reader-content blockquote { border-color: #e4e4e7; color: #71717a; }
-                `}</style>
-                <div className="prose prose-zinc prose-lg max-w-none reader-content">
-                  <Markdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{bookmark.content}</Markdown>
-                </div>
-              </>
-            ) : (
-              <p className="text-zinc-400">No content available.</p>
-            )}
+            {!isTweet && contentBlock}
           </div>
         </div>
       </div>

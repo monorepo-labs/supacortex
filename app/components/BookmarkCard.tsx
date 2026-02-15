@@ -128,16 +128,29 @@ export default function BookmarkCard({
           {media && (
             <div className="relative h-40 shrink-0 overflow-hidden">
               {isVideo && media.videoUrl ? (
-                <video
-                  src={media.videoUrl}
-                  poster={media.url}
-                  muted
-                  loop
-                  playsInline
-                  className="h-full w-full object-cover"
-                  onMouseEnter={(e) => e.currentTarget.play()}
-                  onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-                />
+                <>
+                  <video
+                    src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
+                    poster={media.url}
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.play().catch(() => {});
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.pause();
+                      e.currentTarget.currentTime = 0;
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 pointer-events-none transition-opacity duration-200 group-hover/card:opacity-0 drop-shadow-md">
+                    <svg viewBox="0 0 24 24" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="1" className="h-5 w-5">
+                      <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
+                    </svg>
+                  </div>
+                </>
               ) : (
                 <Image
                   src={media.url}
@@ -180,7 +193,23 @@ export default function BookmarkCard({
                     .reader-content pre { background: #fafafa; font-size: 0.8rem; }
                     .reader-content blockquote { border-color: #e4e4e7; color: #71717a; }
                   `}</style>
-                  <Markdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{children}</a> }}>{bookmark.content}</Markdown>
+                  <Markdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {children}
+                        </a>
+                      ),
+                    }}
+                  >
+                    {bookmark.content}
+                  </Markdown>
                 </div>
               )}
             </div>
@@ -189,7 +218,7 @@ export default function BookmarkCard({
             bookmark.type !== "link" && (
               <div className={`px-4 ${!displayTitle ? "pt-4" : ""}`}>
                 <p
-                  className={`mb-3 text-sm line-clamp-3 break-words ${displayTitle ? "text-zinc-500" : "text-zinc-800"}`}
+                  className={`mb-3 line-clamp-3 break-words ${displayTitle ? "text-zinc-500" : "text-zinc-800"}`}
                 >
                   {bookmark.content}
                 </p>
@@ -211,9 +240,15 @@ export default function BookmarkCard({
                 />
               )}
               {bookmark.author ? (
-                <span className="text-xs text-zinc-400">
+                <a
+                  href={`https://x.com/${bookmark.author}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   @{bookmark.author}
-                </span>
+                </a>
               ) : (
                 <a
                   href={bookmark.url}

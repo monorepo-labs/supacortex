@@ -3,6 +3,7 @@ import { db } from "@/services/db";
 import { bookmarks } from "@/db/schema";
 import { scrapeContent } from "@/lib/ingest/scraper";
 
+
 export class RateLimitError extends Error {
   resetAt: Date | null;
   constructor(resetAt: Date | null) {
@@ -134,7 +135,11 @@ function resolveMedia(
     result.push({ type: "avatar", url: author.profile_image_url });
   }
 
-  const keys = tweet.attachments?.media_keys ?? [];
+  // Collect media keys from attachments + article cover
+  const keys = [
+    ...(tweet.attachments?.media_keys ?? []),
+    ...(tweet.article?.cover_media?.media_key ? [tweet.article.cover_media.media_key] : []),
+  ];
   for (const key of keys) {
     const media = mediaMap.get(key);
     if (!media) continue;
@@ -155,6 +160,7 @@ function resolveMedia(
 // ── URL patterns to strip (media attachments rendered separately) ────
 
 const MEDIA_URL_RE = /https?:\/\/(x\.com|twitter\.com)\/\w+\/status\/\d+\/(photo|video)\/\d+/g;
+const STATUS_URL_RE = /https?:\/\/(x\.com|twitter\.com)\/(\w+)\/status\/\d+/g;
 
 // ── Replace t.co URLs with real URLs, strip media URLs ──────────────
 
@@ -167,8 +173,10 @@ function resolveLinks(tweet: TweetData): string {
     text = text.replace(entity.url, url);
   }
   // Strip photo/video attachment URLs (already in mediaUrls)
-  text = text.replace(MEDIA_URL_RE, "").trim();
-  return text;
+  text = text.replace(MEDIA_URL_RE, "");
+  // Strip quoted/retweeted status URLs (rendered in referenced tweet block)
+  text = text.replace(STATUS_URL_RE, "");
+  return text.trim();
 }
 
 // ── Check if tweet contains an X article link ───────────────────────
@@ -179,37 +187,6 @@ function findArticleUrl(tweet: TweetData): string | null {
     if (url.includes("x.com/i/article/")) return url;
   }
   return null;
-}
-
-// ── Extract first external (non-X) URL from tweet for enrichment ────
-
-function findExternalUrl(tweet: TweetData): string | null {
-  for (const entity of tweet.entities?.urls ?? []) {
-    const url = entity.expanded_url.replace(/^http:\/\//, "https://");
-    try {
-      const { hostname } = new URL(url);
-      if (hostname.includes("x.com") || hostname.includes("twitter.com")) continue;
-      return url;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
-// ── Enrich a tweet with scraped link content ────────────────────────
-
-async function enrichWithLink(externalUrl: string): Promise<string | null> {
-  try {
-    const scraped = await scrapeContent(externalUrl);
-    if (!scraped?.content) return null;
-    const domain = new URL(externalUrl).hostname.replace("www.", "");
-    const title = scraped.title ? `**${scraped.title}** (${domain})` : domain;
-    const snippet = scraped.content.slice(0, 500);
-    return `\n\n---\n${title}\n${snippet}`;
-  } catch {
-    return null;
-  }
 }
 
 // ── Resolve referenced tweet (retweet/quote) content ────────────────
@@ -229,10 +206,11 @@ function resolveReferencedTweet(
 
   const refAuthor = userMap.get(refTweet.author_id);
   const refUsername = refAuthor?.username ?? "unknown";
+  const refUrl = `https://x.com/${refUsername}/status/${ref.id}`;
   const refContent = resolveLinks(refTweet);
   const label = ref.type === "retweeted" ? "Retweet" : "Quote";
 
-  return `\n\n> ${label} from @${refUsername}:\n> ${refContent.replace(/\n/g, "\n> ")}`;
+  return `\n\n> ${label} from [@${refUsername}](${refUrl}):\n> ${refContent.replace(/\n/g, "\n> ")}`;
 }
 
 // ── Check if this is the first sync ─────────────────────────────────
@@ -407,14 +385,7 @@ async function insertTweets(
     tweetMap.set(t.id, t);
   }
 
-  // Pre-fetch link enrichments in parallel for all tweets in this batch
   const tweets = page.data ?? [];
-  const enrichments = await Promise.all(
-    tweets.map((tweet) => {
-      const externalUrl = findExternalUrl(tweet);
-      return externalUrl ? enrichWithLink(externalUrl) : Promise.resolve(null);
-    }),
-  );
 
   for (let i = 0; i < tweets.length; i++) {
     const tweet = tweets[i];
@@ -429,12 +400,26 @@ async function insertTweets(
     const refContent = resolveReferencedTweet(tweet, tweetMap, userMap);
     if (refContent) content += refContent;
 
-    if (enrichments[i]) content += enrichments[i];
-
     // Detect article type — from API field or URL pattern
-    const isArticle = !!tweet.article || !!findArticleUrl(tweet);
+    const articleUrl = findArticleUrl(tweet);
+    const isArticle = !!tweet.article || !!articleUrl;
     const type = isArticle ? "article" : "tweet";
-    const title = isArticle ? (tweet.article?.title ?? null) : null;
+    let title = isArticle ? (tweet.article?.title ?? null) : null;
+
+    // Scrape article content using the public URL format
+    if (isArticle && articleUrl) {
+      const articleId = articleUrl.match(/article\/(\d+)/)?.[1];
+      if (articleId) {
+        try {
+          const scraped = await scrapeContent(`https://x.com/${username}/article/${articleId}`);
+          if (scraped?.content) {
+            content = scraped.content;
+            if (scraped.title) title = scraped.title;
+          }
+        } catch { /* scrape failed, keep tweet text as content */ }
+      }
+    }
+
 
     try {
       const [inserted] = await db
