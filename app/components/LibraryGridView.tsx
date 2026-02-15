@@ -270,11 +270,9 @@ export default function LibraryGridView({
           onDragStop={(_layout) => {
             setLayout(_layout);
             lastDragTimeRef.current = Date.now();
-            if (!isFiltered) persistLayout(_layout);
           }}
           onResizeStop={(_layout) => {
             setLayout(_layout);
-            if (!isFiltered) persistLayout(_layout);
           }}
           width={gridWidth}
           gridConfig={{
