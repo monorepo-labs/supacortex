@@ -107,12 +107,12 @@ export default function GraphView({
     return map;
   }, [bookmarks]);
 
-  // Map groupId -> color
-  const groupColorMap = useMemo(() => {
-    const map = new Map<string, string>();
+  // Map groupId -> { color, name }
+  const groupInfoMap = useMemo(() => {
+    const map = new Map<string, { color: string; name: string }>();
     if (groups) {
-      for (const g of groups as { id: string; color: string }[]) {
-        map.set(g.id, g.color);
+      for (const g of groups as { id: string; color: string; name: string }[]) {
+        map.set(g.id, { color: g.color, name: g.name });
       }
     }
     return map;
@@ -182,7 +182,7 @@ export default function GraphView({
     const rfNodes: Node[] = simNodes.map((sn) => {
       const bk = bookmarkMap.get(sn.id);
       const groupIds = bk?.groupIds ?? [];
-      const groupColor = groupIds.length > 0 ? groupColorMap.get(groupIds[0]) ?? null : null;
+      const groupColors = groupIds.map((id) => groupInfoMap.get(id)).filter(Boolean) as { color: string; name: string }[];
 
       return {
         id: sn.id,
@@ -195,7 +195,7 @@ export default function GraphView({
           url: bk?.url ?? "",
           type: bk?.type ?? "link",
           connectionCount: connectionCounts.get(sn.id) ?? 0,
-          groupColor,
+          groupColors,
           mediaUrls: bk?.mediaUrls ?? null,
           isOpenInReader: openReaderIds?.has(sn.id) ?? false,
         },
@@ -225,7 +225,7 @@ export default function GraphView({
     setEdges(rfEdges);
 
     setTimeout(() => rfInstance.current?.fitView({ padding: 0.3 }), 50);
-  }, [connectedBookmarks, filteredEdges, connectionCounts, bookmarkMap, groupColorMap]);
+  }, [connectedBookmarks, filteredEdges, connectionCounts, bookmarkMap, groupInfoMap]);
 
   // Sync node selection + isOpenInReader with open reader panels
   useEffect(() => {
@@ -297,6 +297,7 @@ export default function GraphView({
         fitView
         minZoom={0.1}
         maxZoom={2}
+        panOnDrag={[0, 1]}
         proOptions={{ hideAttribution: true }}
       />
     </div>

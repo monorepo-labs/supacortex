@@ -12,13 +12,13 @@ export type GraphNodeData = {
   url: string;
   type: string;
   connectionCount: number;
-  groupColor: string | null;
+  groupColors: { color: string; name: string }[];
   mediaUrls: { type: string; url: string }[] | null;
   isOpenInReader?: boolean;
 };
 
 function GraphNodeComponent({ data, selected }: NodeProps) {
-  const { title, content, author, url, type, groupColor, mediaUrls, isOpenInReader } =
+  const { title, content, author, url, type, groupColors, mediaUrls, isOpenInReader } =
     data as unknown as GraphNodeData;
 
   const isTweet = type === "tweet" || type === "article";
@@ -46,12 +46,32 @@ function GraphNodeComponent({ data, selected }: NodeProps) {
         className="!opacity-0 !w-0 !h-0 !min-w-0 !min-h-0"
       />
       <div
-        className={`w-[200px] rounded-lg border bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden ${selected ? "ring-2 ring-black/20 border-black/20" : isOpenInReader ? "ring-2 ring-black/6 border-black/6" : ""}`}
-        style={{
-          borderColor: selected ? undefined : (groupColor ?? "#e4e4e7"),
-          borderLeftWidth: groupColor && !selected ? 3 : undefined,
-        }}
+        className={`relative w-[200px] rounded-lg border border-zinc-200 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden ${selected ? "ring-2 ring-black/20 border-black/20" : isOpenInReader ? "ring-2 ring-black/6 border-black/6" : ""}`}
       >
+        {/* Group color bars with hover target */}
+        {groupColors.length > 0 && (
+          <div className="absolute left-0 top-0 bottom-0 flex flex-col w-[3px] overflow-hidden rounded-l-lg z-10">
+            {groupColors.map((g, i) => (
+              <div
+                key={i}
+                className="flex-1"
+                style={{ backgroundColor: g.color }}
+              />
+            ))}
+          </div>
+        )}
+        {/* Wider invisible hover zone for tooltips */}
+        {groupColors.length > 0 && (
+          <div className="absolute left-0 top-0 bottom-0 flex flex-col w-4 z-20">
+            {groupColors.map((g, i) => (
+              <div key={i} className="flex-1 group/bar relative">
+                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap rounded-full bg-zinc-800 px-2 py-0.5 text-[9px] text-white shadow-sm">
+                  {g.name}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Author row */}
         {avatar && (
           <div className="flex items-center gap-1.5 px-3 pt-3">
