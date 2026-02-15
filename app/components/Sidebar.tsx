@@ -40,7 +40,7 @@ function GroupIcon({ color, iconName }: { color: string; iconName: string }) {
   const Icon = ICON_MAP[iconName] ?? ICON_MAP.hash;
   return (
     <span
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md shadow"
       style={{ backgroundColor: color }}
     >
       <Icon className="h-3 w-3 text-white" />
@@ -253,90 +253,99 @@ export default function Sidebar({
           <UserMenu />
         </div>
 
-      {/* Groups */}
-      <nav className="mt-4 flex-1 w-52 px-3">
-        <Button
-          onClick={handleAddGroup}
-          variant="ghost"
-          className="w-full justify-start text-zinc-500"
-        >
-          <Plus size={14} />
-          New Group
-        </Button>
-        <ul className="flex flex-col gap-0.5">
-          {groups && groups.length > 0 && (
-            <li>
-              <div
-                onClick={() => onGroupSelect(null)}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
-                  activeGroupId === null
-                    ? "bg-black/6 text-zinc-900"
-                    : "text-zinc-600 hover:bg-black/6"
-                }`}
-              >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-400">
-                  <RectangleStackIcon className="h-3 w-3 text-white" />
-                </span>
-                <span>All</span>
-              </div>
-            </li>
-          )}
-          {groups?.map((group: Group) => (
-            <GroupItem
-              key={group.id}
-              group={group}
-              isActive={activeGroupId === group.id}
-              onSelect={onGroupSelect}
-              onDelete={handleDeleteGroup}
-            />
-          ))}
-        </ul>
-      </nav>
+        {/* Groups */}
+        <nav className="mt-4 flex-1 w-52 px-3">
+          <Button
+            onClick={handleAddGroup}
+            variant="ghost"
+            className="w-full justify-start text-zinc-500"
+          >
+            <Plus size={14} />
+            New Group
+          </Button>
+          <ul className="flex flex-col gap-0.5">
+            {groups && groups.length > 0 && (
+              <li>
+                <div
+                  onClick={() => onGroupSelect(null)}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
+                    activeGroupId === null
+                      ? "bg-black/6 text-zinc-900"
+                      : "text-zinc-600 hover:bg-black/6"
+                  }`}
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-400">
+                    <RectangleStackIcon className="h-3 w-3 text-white" />
+                  </span>
+                  <span>All</span>
+                </div>
+              </li>
+            )}
+            {groups?.map((group: Group) => (
+              <GroupItem
+                key={group.id}
+                group={group}
+                isActive={activeGroupId === group.id}
+                onSelect={onGroupSelect}
+                onDelete={handleDeleteGroup}
+              />
+            ))}
+          </ul>
+        </nav>
 
-      {/* Bottom actions */}
-      <div className="w-52 px-3 pb-3 space-y-1">
-        {twitterAccount ? (
-          <Button
-            variant="link"
-            onClick={() =>
-              sileo.promise(
-                new Promise((resolve, reject) => {
-                  syncTwitter(undefined, {
-                    onSuccess: (data) => {
-                      resolve(data);
-                      if (data.rateLimited)
-                        sileo.warning({
-                          title: "Rate limited by X",
-                          description: "Sync again later for remaining bookmarks.",
-                        });
-                    },
-                    onError: (err) => reject(err),
-                  });
-                }),
-                {
-                  loading: { title: "Syncing bookmarks from X..." },
-                  success: (data) => ({ title: `Synced ${(data as { synced: number }).synced} bookmarks from X` }),
-                  error: (err) => ({ title: (err as Error).message || "Failed to sync bookmarks" }),
-                },
-              )
-            }
-            disabled={isSyncing}
-            className="w-full justify-start text-zinc-500 hover:text-zinc-600"
-          >
-            {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
-            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-          </Button>
-        ) : (
-          <Button
-            variant="link"
-            onClick={() => linkTwitter()}
-            className="w-full justify-between text-zinc-500 hover:text-zinc-600"
-          >
-            Connect X <XIcon className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
-    </aside>
+        {/* Bottom actions */}
+        <div className="w-52 px-3 pb-3 space-y-1">
+          {twitterAccount ? (
+            <Button
+              variant="link"
+              onClick={() =>
+                sileo.promise(
+                  new Promise((resolve, reject) => {
+                    syncTwitter(undefined, {
+                      onSuccess: (data) => {
+                        resolve(data);
+                        if (data.rateLimited)
+                          sileo.warning({
+                            title: "Rate limited by X",
+                            description:
+                              "Sync again later for remaining bookmarks.",
+                          });
+                      },
+                      onError: (err) => reject(err),
+                    });
+                  }),
+                  {
+                    loading: { title: "Syncing bookmarks from X..." },
+                    success: (data) => ({
+                      title: `Synced ${(data as { synced: number }).synced} bookmarks from X`,
+                    }),
+                    error: (err) => ({
+                      title:
+                        (err as Error).message || "Failed to sync bookmarks",
+                    }),
+                  },
+                )
+              }
+              disabled={isSyncing}
+              className="w-full justify-start text-zinc-500 hover:text-zinc-600"
+            >
+              {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
+              <RefreshCw
+                size={14}
+                className={isSyncing ? "animate-spin" : ""}
+              />
+            </Button>
+          ) : (
+            <Button
+              variant="link"
+              onClick={() => linkTwitter()}
+              className="w-full justify-between text-zinc-500 hover:text-zinc-600"
+            >
+              Connect X <XIcon className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </aside>
     </>
   );
 }
