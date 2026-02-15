@@ -105,14 +105,12 @@ function LibraryPageContent() {
             isFiltered={!!activeGroupId || deferredSearch.length >= 3}
           />
         </div>
-
-        {activeBookmark && (
-          <Reader
-            bookmark={activeBookmark}
-            onClose={() => setActiveBookmark(null)}
-          />
-        )}
       </main>
+
+      <Reader
+        bookmark={activeBookmark}
+        onClose={() => setActiveBookmark(null)}
+      />
     </div>
   );
 }

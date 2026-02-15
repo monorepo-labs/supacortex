@@ -9,6 +9,7 @@ import {
   BookOpen,
   FolderPlus,
   ArrowLeft,
+  ArrowUpRight,
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -88,7 +89,12 @@ export default function BookmarkCard({
   );
   const isVideo = media?.type === "video" || media?.type === "animated_gif";
   const isTweet = bookmark.type === "tweet" || bookmark.type === "article";
+  const isArticle = bookmark.type === "article";
   const bookmarkGroupIds = bookmark.groupIds ?? [];
+
+  const articleUrl = isArticle
+    ? bookmark.content?.match(/https?:\/\/[^\s)]+/)?.[0] ?? bookmark.url
+    : null;
 
   const toggleGroupMembership = (groupId: string) => {
     const isInGroup = bookmarkGroupIds.includes(groupId);
@@ -129,13 +135,7 @@ export default function BookmarkCard({
               onSelect?.(bookmark.id);
               return;
             }
-            if (bookmark.type === "article") {
-              const urlMatch = bookmark.content?.match(/https?:\/\/[^\s)]+/);
-              if (urlMatch) {
-                window.open(urlMatch[0], "_blank");
-                return;
-              }
-            }
+            if (bookmark.type === "article") return;
             onClick();
           }}
           className={`group/card relative flex flex-col h-full rounded-lg border bg-white/70 shadow-[0px_0.5px_0px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
@@ -234,6 +234,20 @@ export default function BookmarkCard({
                 </div>
               )}
               {!media && !bookmark.content && <div className="shrink-0 h-4" />}
+
+              {/* Article hover button — full width at bottom */}
+              {isArticle && articleUrl && (
+                <a
+                  href={articleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="shrink-0 flex items-center justify-center gap-1.5 mx-4 mb-4 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-500 opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-zinc-50 hover:text-zinc-700"
+                >
+                  Read article
+                  <ArrowUpRight size={12} />
+                </a>
+              )}
             </>
           ) : (
             <>

@@ -11,22 +11,27 @@ import BulkActions from "./BulkActions";
 import type { BookmarkData } from "./BookmarkNode";
 import { useUpdateGridLayout, useResetGridLayout } from "@/hooks/use-bookmarks";
 
-const COLS = 12;
 const ROW_HEIGHT = 30;
 const MARGIN = 24;
 const CONTAINER_PAD = 24;
-const DEFAULT_W = 3;
 const MIN_H = 3;
+const TARGET_CARD_WIDTH = 260;
 
 /** Convert pixel height to grid row units */
 function pxToH(px: number): number {
   return Math.max(MIN_H, Math.ceil((px + MARGIN) / (ROW_HEIGHT + MARGIN)));
 }
 
-/** Pixel width of a card given grid width and column span */
-function cardPxWidth(gridWidth: number, w: number): number {
-  const colPx = (gridWidth - 2 * CONTAINER_PAD - (COLS - 1) * MARGIN) / COLS;
-  return w * colPx + (w - 1) * MARGIN;
+/** How many columns fit at the target card width */
+function calcCols(gridWidth: number): number {
+  const usable = gridWidth - 2 * CONTAINER_PAD + MARGIN;
+  return Math.max(1, Math.floor(usable / (TARGET_CARD_WIDTH + MARGIN)));
+}
+
+/** Pixel width of one column card */
+function cardPxWidth(gridWidth: number, cols: number): number {
+  const colPx = (gridWidth - 2 * CONTAINER_PAD - (cols - 1) * MARGIN) / cols;
+  return colPx;
 }
 
 export default function LibraryGridView({
@@ -53,6 +58,9 @@ export default function LibraryGridView({
   const lastDragTimeRef = useRef(0);
   const selectModeRef = useRef(false);
   const [gridWidth, setGridWidth] = useState(0);
+
+  const cols = gridWidth > 0 ? calcCols(gridWidth) : 4;
+  const prevColsRef = useRef(cols);
 
   // Measure width from scroll container
   useEffect(() => {
@@ -81,32 +89,23 @@ export default function LibraryGridView({
         heights.set(id, pxToH(card.offsetHeight));
       });
 
+      const colsChanged = prevColsRef.current !== cols;
+      prevColsRef.current = cols;
+
       setLayout((prev) => {
-        const existing = new Map(prev.map((item) => [item.i, item]));
-        const perRow = Math.floor(COLS / DEFAULT_W);
+        // When cols change or filtered, ignore previous positions — re-flow everything
+        const usePrev = !colsChanged && !isFiltered;
+        const existing = usePrev ? new Map(prev.map((item) => [item.i, item])) : null;
 
         return bookmarks.map((b, i) => {
-          const prev = existing.get(b.id);
           const measuredH = heights.get(b.id) ?? 6;
-          // When filtered (search/group), ignore DB positions — use fresh flow layout
-          if (isFiltered) {
-            return {
-              i: b.id,
-              x: (i % perRow) * DEFAULT_W,
-              y: Math.floor(i / perRow) * measuredH,
-              w: DEFAULT_W,
-              h: measuredH,
-              minW: 2,
-              minH: MIN_H,
-            };
-          }
+          const ex = existing?.get(b.id);
           return {
             i: b.id,
-            x: prev?.x ?? b.gridX ?? (i % perRow) * DEFAULT_W,
-            y: prev?.y ?? b.gridY ?? Math.floor(i / perRow) * measuredH,
-            w: prev?.w ?? b.gridW ?? DEFAULT_W,
+            x: ex?.x ?? i % cols,
+            y: ex?.y ?? Math.floor(i / cols) * measuredH,
+            w: 1,
             h: measuredH,
-            minW: 2,
             minH: MIN_H,
           };
         });
@@ -114,7 +113,7 @@ export default function LibraryGridView({
 
       setMeasured(true);
     });
-  }, [bookmarks, gridWidth, isFiltered]);
+  }, [bookmarks, gridWidth, isFiltered, cols]);
 
   const bookmarkMap = useMemo(
     () => new Map(bookmarks.map((b) => [b.id, b])),
@@ -213,7 +212,7 @@ export default function LibraryGridView({
         : null;
 
   // Compute card pixel width for measuring
-  const measureWidth = gridWidth > 0 ? cardPxWidth(gridWidth, DEFAULT_W) : 300;
+  const measureWidth = gridWidth > 0 ? cardPxWidth(gridWidth, cols) : 300;
 
   const children = placeholder || !measured
     ? null
@@ -279,7 +278,7 @@ export default function LibraryGridView({
           }}
           width={gridWidth}
           gridConfig={{
-            cols: COLS,
+            cols,
             rowHeight: ROW_HEIGHT,
             margin: [24, 24] as [number, number],
             containerPadding: [24, 24] as [number, number],
