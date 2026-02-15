@@ -33,7 +33,7 @@ export const getBookmarksForUser = async (
   }
 
   const order = tsQuery
-    ? sql`ts_rank(${bookmarks.searchVector}, ${tsQuery}, 1) DESC`
+    ? sql`ts_rank_cd(${bookmarks.searchVector}, ${tsQuery}, 32) DESC`
     : desc(bookmarks.createdAt);
 
   const rows = await db
