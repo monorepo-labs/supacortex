@@ -3,9 +3,9 @@ import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/services/auth";
 import { db } from "@/services/db";
-import { account } from "@/db/schema";
+import { account, syncLogs } from "@/db/schema";
 import { getUser } from "@/lib/get-user";
-import { syncTwitterBookmarks, RateLimitError } from "@/server/twitter/sync";
+import { syncTwitterBookmarks, RateLimitError, type SyncResult } from "@/server/twitter/sync";
 
 export const maxDuration = 720;
 
@@ -41,12 +41,30 @@ export async function POST() {
       { status: 400 },
     );
 
+  const logUsage = async (result: SyncResult) => {
+    try {
+      await db.insert(syncLogs).values({
+        userId: user.id,
+        mode: result.mode,
+        tweetsTotal: result.tweetsTotal,
+        tweetsSynced: result.synced,
+        apiCalls: result.apiCalls,
+        cost: result.tweetsTotal * 0.005,
+        rateLimited: result.rateLimited,
+        durationMs: result.durationMs,
+      });
+    } catch (e) {
+      console.error("[sync] failed to log usage", e);
+    }
+  };
+
   try {
     const result = await syncTwitterBookmarks(
       user.id,
       tokenResult.accessToken,
       xAccount.accountId,
     );
+    await logUsage(result);
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof RateLimitError) {

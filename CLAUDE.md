@@ -57,28 +57,29 @@ pnpm lint        # ESLint
 - Fast — everything needs to feel instant
 - Build for one user first (no multi-tenancy concerns in MVP)
 
+## Scope
+
+Content types: **tweets and links only**. No images, videos, or other media types. Built specifically for Twitter bookmarks.
+
 ## Build Phases
 
-### Phase 1: MVP (current)
+### Phase 1: MVP (done)
 1. Frontend to read bookmarks — beautiful, minimal UI
 2. Twitter API connection — OAuth 2.0 to connect account
 3. Database — Railway Postgres + Drizzle schema for bookmarks
 4. Vercel cron — syncs Twitter bookmarks to DB
+5. Search, groups, reading modes
 
-### Phase 2: Expand content types
-- Save arbitrary links (not just tweets)
-- Add text/notes
-
-### Phase 3: Intelligence
+### Phase 2: Intelligence
 - Smart auto-categorization
 - Vector DB + RAG + BM25 hybrid search
 - Graph view (connections visualization)
 
-### Phase 4: Writing and annotation
+### Phase 3: Writing and annotation
 - Long-form notes
 - Highlights and annotations
 
-### Phase 5: API and CLI
+### Phase 4: API and CLI
 - Server with public API
 - CLI tool that uses the API
 

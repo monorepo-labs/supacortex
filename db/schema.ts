@@ -8,6 +8,7 @@ import {
   json,
   primaryKey,
   real,
+  integer,
   index,
   customType,
 } from "drizzle-orm/pg-core";
@@ -70,6 +71,21 @@ export const bookmarkGroups = pgTable(
   },
   (table) => [primaryKey({ columns: [table.bookmarkId, table.groupId] })],
 );
+
+export const syncLogs = pgTable("sync_logs", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: text()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  mode: text().notNull(), // "initial" | "incremental"
+  tweetsTotal: integer().notNull(), // tweets received from API (includes dupes)
+  tweetsSynced: integer().notNull(), // tweets actually inserted
+  apiCalls: integer().notNull(), // number of X API requests
+  cost: real().notNull(), // tweetsTotal * 0.005
+  rateLimited: boolean().default(false),
+  durationMs: integer(), // how long the sync took
+  createdAt: timestamp().defaultNow(),
+});
 
 export const bookmarksInsertSchema = createInsertSchema(bookmarks);
 export const bookmarksSelectSchema = createSelectSchema(bookmarks);

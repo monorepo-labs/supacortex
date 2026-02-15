@@ -17,9 +17,10 @@ export const scrapeContent = async (url: string) => {
   if (!jinaRes.ok) return null;
 
   const jina = await jinaRes.json();
+  const content = jina.data.content?.replace(/^# .+\n?/, "") ?? null;
   return {
     title: jina.data.title as string | null,
-    content: jina.data.content as string | null,
+    content,
     ogImage,
   };
 };

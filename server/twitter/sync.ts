@@ -248,20 +248,33 @@ async function isFirstSync(userId: string): Promise<boolean> {
 
 // ── Main sync function ──────────────────────────────────────────────
 
+export type SyncResult = {
+  synced: number;
+  rateLimited: boolean;
+  resetAt?: Date | null;
+  apiCalls: number;
+  tweetsTotal: number;
+  durationMs: number;
+  mode: "initial" | "incremental";
+};
+
 export async function syncTwitterBookmarks(
   userId: string,
   accessToken: string,
   xUserId: string,
-) {
+): Promise<SyncResult> {
   const firstSync = await isFirstSync(userId);
-  console.log(`[sync] mode=${firstSync ? "initial" : "incremental"} user=${userId}`);
+  const mode = firstSync ? "initial" : "incremental";
+  console.log(`[sync] mode=${mode} user=${userId}`);
 
+  const start = Date.now();
   const result = firstSync
     ? await initialSync(userId, accessToken, xUserId)
     : await incrementalSync(userId, accessToken, xUserId);
+  const durationMs = Date.now() - start;
 
-  console.log(`[sync] done — synced=${result.synced} rateLimited=${result.rateLimited}`);
-  return result;
+  console.log(`[sync] done — synced=${result.synced} apiCalls=${result.apiCalls} tweetsTotal=${result.tweetsTotal} rateLimited=${result.rateLimited} duration=${durationMs}ms`);
+  return { ...result, durationMs, mode };
 }
 
 // ── First sync: batches of 100, no early exit ───────────────────────
@@ -272,6 +285,8 @@ async function initialSync(
   xUserId: string,
 ) {
   let synced = 0;
+  let apiCalls = 0;
+  let tweetsTotal = 0;
   let paginationToken: string | undefined;
 
   let batch = 0;
@@ -279,7 +294,9 @@ async function initialSync(
     batch++;
     try {
       const page = await fetchBookmarksPage(xUserId, accessToken, 100, paginationToken);
+      apiCalls++;
       const count = page.data?.length ?? 0;
+      tweetsTotal += count;
       console.log(`[sync:initial] batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
       if (!page.data || count === 0) break;
 
@@ -291,13 +308,13 @@ async function initialSync(
     } catch (err) {
       if (err instanceof RateLimitError) {
         console.log(`[sync:initial] rate limited after batch=${batch} synced=${synced}`);
-        return { synced, rateLimited: true, resetAt: err.resetAt };
+        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal };
       }
       throw err;
     }
   } while (paginationToken);
 
-  return { synced, rateLimited: false };
+  return { synced, rateLimited: false, apiCalls, tweetsTotal };
 }
 
 // ── Incremental sync: probe 1, then batches of 10, exit on dup ──────
@@ -308,12 +325,17 @@ async function incrementalSync(
   xUserId: string,
 ) {
   let synced = 0;
+  let apiCalls = 0;
+  let tweetsTotal = 0;
 
   // Probe with 1 tweet to check if there's anything new
   const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
+  apiCalls++;
+  tweetsTotal += probe.data?.length ?? 0;
+
   if (!probe.data || probe.data.length === 0) {
     console.log("[sync:incremental] probe empty — nothing new");
-    return { synced, rateLimited: false };
+    return { synced, rateLimited: false, apiCalls, tweetsTotal };
   }
 
   const probeInserted = await insertTweets(probe, userId);
@@ -321,7 +343,7 @@ async function incrementalSync(
 
   if (probeInserted.synced === 0) {
     console.log("[sync:incremental] probe was duplicate — nothing new");
-    return { synced, rateLimited: false };
+    return { synced, rateLimited: false, apiCalls, tweetsTotal };
   }
 
   console.log("[sync:incremental] probe found new bookmark, fetching more...");
@@ -334,7 +356,9 @@ async function incrementalSync(
     batch++;
     try {
       const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
+      apiCalls++;
       const count = page.data?.length ?? 0;
+      tweetsTotal += count;
       console.log(`[sync:incremental] batch=${batch} received=${count}`);
       if (!page.data || count === 0) break;
 
@@ -348,13 +372,13 @@ async function incrementalSync(
     } catch (err) {
       if (err instanceof RateLimitError) {
         console.log(`[sync:incremental] rate limited after batch=${batch} synced=${synced}`);
-        return { synced, rateLimited: true, resetAt: err.resetAt };
+        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal };
       }
       throw err;
     }
   }
 
-  return { synced, rateLimited: false };
+  return { synced, rateLimited: false, apiCalls, tweetsTotal };
 }
 
 // ── Insert a page of tweets, returns count and whether a dup was hit ─
