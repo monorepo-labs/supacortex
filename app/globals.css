@@ -84,7 +84,6 @@
 
 body {
     font-family: var(--font-sans), sans-serif;
-    overflow: hidden;
 }
 
 :root {
@@ -172,6 +171,14 @@ body {
 }
 .scrollbar-light::-webkit-scrollbar-thumb:hover {
     background: #d4d4d8;
+}
+
+/* Scrollbar: hidden but still scrollable */
+.scrollbar-none {
+    scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
 }
 
 /* react-grid-layout — drag placeholder */

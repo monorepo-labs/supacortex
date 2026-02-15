@@ -16,9 +16,7 @@ export async function POST() {
   const [xAccount] = await db
     .select({ accountId: account.accountId })
     .from(account)
-    .where(
-      and(eq(account.userId, user.id), eq(account.providerId, "twitter")),
-    )
+    .where(and(eq(account.userId, user.id), eq(account.providerId, "twitter")))
     .limit(1);
 
   if (!xAccount)
@@ -35,7 +33,9 @@ export async function POST() {
 
   if (!tokenResult?.accessToken)
     return NextResponse.json(
-      { error: "Failed to get X access token. Try reconnecting your X account." },
+      {
+        error: "Failed to get X access token. Try reconnecting your X account.",
+      },
       { status: 400 },
     );
 

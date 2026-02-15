@@ -42,10 +42,11 @@ type BookmarksResponse = {
 async function fetchBookmarksPage(
   xUserId: string,
   accessToken: string,
+  maxResults: number,
   paginationToken?: string,
 ): Promise<BookmarksResponse> {
   const params = new URLSearchParams({
-    max_results: "100",
+    max_results: String(maxResults),
     "tweet.fields": "created_at,author_id,attachments",
     expansions: "author_id,attachments.media_keys",
     "user.fields": "username,name,profile_image_url",
@@ -97,58 +98,87 @@ export async function syncTwitterBookmarks(
   accessToken: string,
   xUserId: string,
 ) {
-  let paginationToken: string | undefined;
   let synced = 0;
-  let skipped = 0;
 
-  do {
-    const page = await fetchBookmarksPage(xUserId, accessToken, paginationToken);
+  // Step 1: Probe with 1 tweet to check if there's anything new
+  const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
+  if (!probe.data || probe.data.length === 0) return { synced };
 
+  const probeInserted = await insertTweets(probe, userId);
+  synced += probeInserted.synced;
+
+  // If the probe tweet was a duplicate, nothing new — stop
+  if (probeInserted.synced === 0) return { synced };
+
+  // Step 2: Fetch in batches of 10, stop when we hit a duplicate
+  let paginationToken = probe.meta?.next_token;
+
+  while (paginationToken) {
+    const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
     if (!page.data || page.data.length === 0) break;
 
-    // Build lookup maps from includes
-    const userMap = new Map<string, UserData>();
-    for (const u of page.includes?.users ?? []) {
-      userMap.set(u.id, u);
-    }
+    const result = await insertTweets(page, userId);
+    synced += result.synced;
 
-    const mediaMap = new Map<string, MediaData>();
-    for (const m of page.includes?.media ?? []) {
-      mediaMap.set(m.media_key, m);
-    }
-
-    for (const tweet of page.data) {
-      const author = userMap.get(tweet.author_id);
-      const username = author?.username ?? "unknown";
-      const url = `https://x.com/${username}/status/${tweet.id}`;
-      const mediaUrls = resolveMedia(tweet, mediaMap, author);
-
-      try {
-        const [inserted] = await db
-          .insert(bookmarks)
-          .values({
-            type: "tweet",
-            url,
-            content: tweet.text,
-            author: username,
-            mediaUrls: mediaUrls.length > 0 ? mediaUrls : null,
-            createdBy: userId,
-          })
-          .onConflictDoNothing({ target: bookmarks.url })
-          .returning({ id: bookmarks.id });
-
-        if (inserted) {
-          synced++;
-        } else {
-          skipped++;
-        }
-      } catch {
-        skipped++;
-      }
-    }
+    // Any duplicate means we've caught up — stop
+    if (result.hitDuplicate) break;
 
     paginationToken = page.meta?.next_token;
-  } while (paginationToken);
+  }
 
-  return { synced, skipped };
+  return { synced };
+}
+
+// ── Insert a page of tweets, returns count and whether a dup was hit ─
+
+async function insertTweets(
+  page: BookmarksResponse,
+  userId: string,
+) {
+  let synced = 0;
+  let hitDuplicate = false;
+
+  const userMap = new Map<string, UserData>();
+  for (const u of page.includes?.users ?? []) {
+    userMap.set(u.id, u);
+  }
+
+  const mediaMap = new Map<string, MediaData>();
+  for (const m of page.includes?.media ?? []) {
+    mediaMap.set(m.media_key, m);
+  }
+
+  for (const tweet of page.data ?? []) {
+    const author = userMap.get(tweet.author_id);
+    const username = author?.username ?? "unknown";
+    const url = `https://x.com/${username}/status/${tweet.id}`;
+    const mediaUrls = resolveMedia(tweet, mediaMap, author);
+
+    try {
+      const [inserted] = await db
+        .insert(bookmarks)
+        .values({
+          type: "tweet",
+          url,
+          content: tweet.text,
+          author: username,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : null,
+          createdBy: userId,
+        })
+        .onConflictDoNothing({ target: bookmarks.url })
+        .returning({ id: bookmarks.id });
+
+      if (inserted) {
+        synced++;
+      } else {
+        hitDuplicate = true;
+        break;
+      }
+    } catch {
+      hitDuplicate = true;
+      break;
+    }
+  }
+
+  return { synced, hitDuplicate };
 }
