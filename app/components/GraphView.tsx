@@ -227,13 +227,19 @@ export default function GraphView({
     setTimeout(() => rfInstance.current?.fitView({ padding: 0.3 }), 50);
   }, [connectedBookmarks, filteredEdges, connectionCounts, bookmarkMap, groupColorMap]);
 
-  // Patch isOpenInReader without re-running simulation
+  // Sync node selection + isOpenInReader with open reader panels
   useEffect(() => {
     setNodes((prev) =>
       prev.map((n) => {
         const open = openReaderIds?.has(n.id) ?? false;
-        if ((n.data as Record<string, unknown>).isOpenInReader === open) return n;
-        return { ...n, data: { ...n.data, isOpenInReader: open } };
+        const dataChanged = (n.data as Record<string, unknown>).isOpenInReader !== open;
+        const selectionChanged = n.selected !== open;
+        if (!dataChanged && !selectionChanged) return n;
+        return {
+          ...n,
+          selected: open,
+          data: dataChanged ? { ...n.data, isOpenInReader: open } : n.data,
+        };
       }),
     );
   }, [openReaderIds, setNodes]);
