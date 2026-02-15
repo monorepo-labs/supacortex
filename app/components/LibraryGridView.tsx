@@ -5,11 +5,10 @@ import ReactGridLayout, { verticalCompactor } from "react-grid-layout";
 import type { Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import { sileo } from "sileo";
-import { RotateCcw } from "lucide-react";
 import BookmarkCard from "./BookmarkCard";
 import BulkActions from "./BulkActions";
 import type { BookmarkData } from "./BookmarkNode";
-import { useUpdateGridLayout, useResetGridLayout } from "@/hooks/use-bookmarks";
+import { useUpdateGridLayout } from "@/hooks/use-bookmarks";
 
 const ROW_HEIGHT = 30;
 const MARGIN = 24;
@@ -52,7 +51,6 @@ export default function LibraryGridView({
   isFiltered?: boolean;
 }) {
   const { mutate: saveLayout } = useUpdateGridLayout();
-  const { mutate: resetGrid } = useResetGridLayout();
   const [layout, setLayout] = useState<Layout>([]);
   const [measured, setMeasured] = useState(false);
   const [dragEnabled, setDragEnabled] = useState(true);
@@ -173,7 +171,7 @@ export default function LibraryGridView({
         const text = sel?.toString().trim();
         if (text) {
           navigator.clipboard.writeText(text);
-          sileo.success("Copied to clipboard");
+          sileo.success({ title: "Copied to clipboard" });
           sel?.removeAllRanges();
         }
       }
@@ -311,21 +309,6 @@ export default function LibraryGridView({
         />
       )}
 
-      <button
-        onClick={() => {
-          resetGrid(undefined, {
-            onSuccess: () => {
-              setLayout([]);
-              setMeasured(false);
-              sileo.success("Grid layout reset");
-            },
-          });
-        }}
-        className="absolute bottom-4 right-4 rounded-lg p-2 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 transition-colors"
-        title="Reset grid layout"
-      >
-        <RotateCcw size={14} />
-      </button>
     </div>
   );
 }

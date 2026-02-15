@@ -1,6 +1,18 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/services/db";
 import { bookmarks } from "@/db/schema";
+import { categorizeBookmarks } from "@/lib/ingest/categorize";
+import { suggestGroups, GROUP_COLORS } from "@/lib/ingest/suggest-groups";
+import { getGroupsForUser } from "@/server/groups/queries";
+import { createGroup } from "@/server/groups/mutations";
+import { addBookmarksToGroups } from "@/server/groups/bookmark-groups";
+
+type InsertedBookmark = {
+  id: string;
+  title: string | null;
+  content: string | null;
+  type: string;
+};
 
 
 
@@ -245,6 +257,39 @@ async function isFirstSync(userId: string): Promise<boolean> {
   return !existing;
 }
 
+// ── Auto-categorize synced bookmarks ─────────────────────────────────
+
+async function autoCategorizeSync(userId: string, inserted: InsertedBookmark[]) {
+  let groups = await getGroupsForUser(userId);
+
+  // If 10+ new bookmarks, suggest new groups first
+  if (inserted.length >= 10) {
+    const existingNames = groups.map((g) => g.name);
+    const suggested = await suggestGroups(inserted, existingNames);
+
+    if (suggested.length > 0) {
+      console.log(`[sync:categorize] creating ${suggested.length} new groups: ${suggested.join(", ")}`);
+      for (let i = 0; i < suggested.length; i++) {
+        const color = GROUP_COLORS[(groups.length + i) % GROUP_COLORS.length];
+        await createGroup({ name: suggested[i], color, createdBy: userId });
+      }
+      // Refresh groups to include newly created ones
+      groups = await getGroupsForUser(userId);
+    }
+  }
+
+  if (groups.length === 0) return;
+
+  // Categorize all inserted bookmarks
+  const matches = await categorizeBookmarks(inserted, groups);
+  console.log(`[sync:categorize] matched ${matches.size}/${inserted.length} bookmarks`);
+
+  // Bulk assign — group by groupId for efficiency
+  for (const [bookmarkId, groupIds] of matches) {
+    await addBookmarksToGroups([bookmarkId], groupIds);
+  }
+}
+
 // ── Main sync function ──────────────────────────────────────────────
 
 export type SyncResult = {
@@ -270,6 +315,16 @@ export async function syncTwitterBookmarks(
   const result = firstSync
     ? await initialSync(userId, accessToken, xUserId)
     : await incrementalSync(userId, accessToken, xUserId);
+
+  // Auto-categorize newly synced bookmarks
+  if (result.insertedBookmarks.length > 0) {
+    try {
+      await autoCategorizeSync(userId, result.insertedBookmarks);
+    } catch (error) {
+      console.error("[sync:categorize] failed (non-blocking):", error);
+    }
+  }
+
   const durationMs = Date.now() - start;
 
   console.log(`[sync] done — synced=${result.synced} apiCalls=${result.apiCalls} tweetsTotal=${result.tweetsTotal} rateLimited=${result.rateLimited} duration=${durationMs}ms`);
@@ -287,6 +342,7 @@ async function initialSync(
   let tweetsTotal = 0;
   let paginationToken: string | undefined;
   const pages: BookmarksResponse[] = [];
+  const allInserted: InsertedBookmark[] = [];
 
   // Fetch all pages first (API returns newest → oldest)
   let batch = 0;
@@ -310,8 +366,9 @@ async function initialSync(
         for (const page of pages.reverse()) {
           const result = await insertTweets(page, userId, false);
           synced += result.synced;
+          allInserted.push(...result.insertedBookmarks);
         }
-        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal };
+        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
       }
       throw err;
     }
@@ -322,10 +379,11 @@ async function initialSync(
   for (let i = pages.length - 1; i >= 0; i--) {
     const result = await insertTweets(pages[i], userId, false);
     synced += result.synced;
+    allInserted.push(...result.insertedBookmarks);
     console.log(`[sync:initial] insert batch=${pages.length - i}/${pages.length} inserted=${result.synced}`);
   }
 
-  return { synced, rateLimited: false, apiCalls, tweetsTotal };
+  return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
 }
 
 // ── Incremental sync: probe 1, then batches of 10, exit on dup ──────
@@ -338,6 +396,7 @@ async function incrementalSync(
   let synced = 0;
   let apiCalls = 0;
   let tweetsTotal = 0;
+  const allInserted: InsertedBookmark[] = [];
 
   // Probe with 1 tweet to check if there's anything new
   const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
@@ -346,15 +405,16 @@ async function incrementalSync(
 
   if (!probe.data || probe.data.length === 0) {
     console.log("[sync:incremental] probe empty — nothing new");
-    return { synced, rateLimited: false, apiCalls, tweetsTotal };
+    return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
   }
 
   const probeInserted = await insertTweets(probe, userId);
   synced += probeInserted.synced;
+  allInserted.push(...probeInserted.insertedBookmarks);
 
   if (probeInserted.synced === 0) {
     console.log("[sync:incremental] probe was duplicate — nothing new");
-    return { synced, rateLimited: false, apiCalls, tweetsTotal };
+    return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
   }
 
   console.log("[sync:incremental] probe found new bookmark, fetching more...");
@@ -375,6 +435,7 @@ async function incrementalSync(
 
       const result = await insertTweets(page, userId);
       synced += result.synced;
+      allInserted.push(...result.insertedBookmarks);
       console.log(`[sync:incremental] batch=${batch} inserted=${result.synced} dupes=${result.hitDuplicate}`);
 
       if (result.hitDuplicate) break;
@@ -383,13 +444,13 @@ async function incrementalSync(
     } catch (err) {
       if (err instanceof RateLimitError) {
         console.log(`[sync:incremental] rate limited after batch=${batch} synced=${synced}`);
-        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal };
+        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
       }
       throw err;
     }
   }
 
-  return { synced, rateLimited: false, apiCalls, tweetsTotal };
+  return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
 }
 
 // ── Insert a page of tweets, returns count and whether a dup was hit ─
@@ -401,6 +462,7 @@ async function insertTweets(
 ) {
   let synced = 0;
   let hitDuplicate = false;
+  const insertedBookmarks: InsertedBookmark[] = [];
 
   const userMap = new Map<string, UserData>();
   for (const u of page.includes?.users ?? []) {
@@ -443,7 +505,6 @@ async function insertTweets(
     const type = isArticle ? "article" : "tweet";
     const title = isArticle ? (tweet.article?.title ?? null) : null;
 
-
     try {
       const [inserted] = await db
         .insert(bookmarks)
@@ -461,6 +522,7 @@ async function insertTweets(
 
       if (inserted) {
         synced++;
+        insertedBookmarks.push({ id: inserted.id, title, content, type });
       } else {
         hitDuplicate = true;
         if (stopOnDuplicate) break;
@@ -471,5 +533,5 @@ async function insertTweets(
     }
   }
 
-  return { synced, hitDuplicate };
+  return { synced, hitDuplicate, insertedBookmarks };
 }

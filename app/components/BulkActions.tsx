@@ -38,7 +38,7 @@ export default function BulkActions({
     }
     bookmarkIds.forEach((id) => {
       deleteBookmark(id, {
-        onError: () => sileo.error("Failed to delete bookmark"),
+        onError: () => sileo.error({ title: "Failed to delete bookmark" }),
       });
     });
     onClear();
@@ -69,7 +69,7 @@ export default function BulkActions({
                 key={group.id}
                 onClick={() => {
                   addToGroups({ bookmarkIds, groupIds: [group.id] });
-                  sileo.success(`Added to ${group.name}`);
+                  sileo.success({ title: `Added to ${group.name}` });
                   setPopoverOpen(false);
                 }}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100"

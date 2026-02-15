@@ -5,6 +5,24 @@ import { createBookmark, deleteBookmark, updateBookmarkPosition, updateGridLayou
 import { classifyUrlType } from "@/lib/ingest/url-type";
 import { scrapeContent } from "@/lib/ingest/scraper";
 import { scrapeYouTube } from "@/lib/ingest/youtube-scraper";
+import { categorizeBookmarks } from "@/lib/ingest/categorize";
+import { getGroupsForUser } from "@/server/groups/queries";
+import { addBookmarksToGroups } from "@/server/groups/bookmark-groups";
+
+async function autoCategorize(bookmark: { id: string; title: string | null; content: string | null; type: string }, userId: string) {
+  try {
+    const groups = await getGroupsForUser(userId);
+    if (groups.length === 0) return;
+
+    const matches = await categorizeBookmarks([bookmark], groups);
+    const groupIds = matches.get(bookmark.id);
+    if (groupIds && groupIds.length > 0) {
+      await addBookmarksToGroups([bookmark.id], groupIds);
+    }
+  } catch (error) {
+    console.error("[auto-categorize] failed (non-blocking):", error);
+  }
+}
 
 export async function GET(req: Request) {
   const user = await getUser();
@@ -63,6 +81,7 @@ export async function POST(req: Request) {
         mediaUrls: [{ type: "youtube", url: yt.thumbnailUrl, videoUrl: yt.videoUrl }],
         createdBy: user.id,
       });
+      await autoCategorize({ id: result.id, title: yt.title, content: null, type: "youtube" }, user.id);
       return NextResponse.json(result);
     } catch (error: any) {
       if (error?.cause?.code === "23505") {
@@ -99,6 +118,7 @@ export async function POST(req: Request) {
       mediaUrls,
       createdBy: user.id,
     });
+    await autoCategorize({ id: result.id, title: scraped.title, content: null, type }, user.id);
     return NextResponse.json(result);
   } catch (error: any) {
     if (error?.cause?.code === "23505") {

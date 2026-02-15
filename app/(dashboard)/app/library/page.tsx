@@ -170,9 +170,9 @@ function LibraryPageContent() {
             addBookmark({ url }, { onSuccess: resolve, onError: reject });
           }),
           {
-            loading: "Saving bookmark...",
-            success: "Bookmark saved",
-            error: (err) => err.message || "Failed to save bookmark",
+            loading: { title: "Saving bookmark..." },
+            success: { title: "Bookmark saved" },
+            error: (err) => ({ title: (err as Error).message || "Failed to save bookmark" }),
           },
         );
         return;

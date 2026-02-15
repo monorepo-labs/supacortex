@@ -404,7 +404,7 @@ export default function BookmarkCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     remove(bookmark.id, {
-                      onError: () => sileo.error("Failed to delete bookmark"),
+                      onError: () => sileo.error({ title: "Failed to delete bookmark" }),
                     });
                     document.dispatchEvent(
                       new KeyboardEvent("keydown", { key: "Escape" }),

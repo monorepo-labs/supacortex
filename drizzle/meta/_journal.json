@@ -71,6 +71,13 @@
       "when": 1771185600000,
       "tag": "0009_sync_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771200000000,
+      "tag": "0010_drop_is_auto_generated",
+      "breakpoints": true
     }
   ]
 }

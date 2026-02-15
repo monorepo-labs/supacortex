@@ -224,7 +224,7 @@ export default function Sidebar({
       onSuccess: () => {
         if (activeGroupId === id) onGroupSelect(null);
       },
-      onError: () => sileo.error("Failed to delete group"),
+      onError: () => sileo.error({ title: "Failed to delete group" }),
     });
   };
 
@@ -305,17 +305,18 @@ export default function Sidebar({
                     onSuccess: (data) => {
                       resolve(data);
                       if (data.rateLimited)
-                        sileo.warning(
-                          "Rate limited by X. Sync again later for remaining bookmarks.",
-                        );
+                        sileo.warning({
+                          title: "Rate limited by X",
+                          description: "Sync again later for remaining bookmarks.",
+                        });
                     },
                     onError: (err) => reject(err),
                   });
                 }),
                 {
-                  loading: "Syncing bookmarks from X...",
-                  success: (data) => `Synced ${data.synced} bookmarks from X`,
-                  error: (err) => err.message || "Failed to sync bookmarks",
+                  loading: { title: "Syncing bookmarks from X..." },
+                  success: (data) => ({ title: `Synced ${(data as { synced: number }).synced} bookmarks from X` }),
+                  error: (err) => ({ title: (err as Error).message || "Failed to sync bookmarks" }),
                 },
               )
             }
