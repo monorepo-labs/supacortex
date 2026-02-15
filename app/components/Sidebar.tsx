@@ -273,8 +273,11 @@ export default function Sidebar({
             variant="link"
             onClick={() =>
               syncTwitter(undefined, {
-                onSuccess: (data) =>
-                  toast.success(`Synced ${data.synced} bookmarks from X`),
+                onSuccess: (data) => {
+                  toast.success(`Synced ${data.synced} bookmarks from X`);
+                  if (data.rateLimited)
+                    toast.warning("Rate limited by X. Sync again later for remaining bookmarks.");
+                },
                 onError: (err) => toast.error(err.message),
               })
             }

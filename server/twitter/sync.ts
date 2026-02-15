@@ -1,7 +1,27 @@
+import { eq, and } from "drizzle-orm";
 import { db } from "@/services/db";
 import { bookmarks } from "@/db/schema";
 
+export class RateLimitError extends Error {
+  resetAt: Date | null;
+  constructor(resetAt: Date | null) {
+    const msg = resetAt
+      ? `X API rate limited. Try again at ${resetAt.toLocaleTimeString()}`
+      : "X API rate limited. Try again in a few minutes.";
+    super(msg);
+    this.resetAt = resetAt;
+  }
+}
+
 // ── Types matching X API v2 response ────────────────────────────────
+
+type TweetEntity = {
+  start: number;
+  end: number;
+  url: string;         // t.co URL
+  expanded_url: string; // real URL
+  display_url: string;
+};
 
 type TweetData = {
   id: string;
@@ -9,6 +29,7 @@ type TweetData = {
   author_id: string;
   created_at?: string;
   attachments?: { media_keys?: string[] };
+  entities?: { urls?: TweetEntity[] };
 };
 
 type UserData = {
@@ -47,7 +68,7 @@ async function fetchBookmarksPage(
 ): Promise<BookmarksResponse> {
   const params = new URLSearchParams({
     max_results: String(maxResults),
-    "tweet.fields": "created_at,author_id,attachments",
+    "tweet.fields": "created_at,author_id,attachments,entities",
     expansions: "author_id,attachments.media_keys",
     "user.fields": "username,name,profile_image_url",
     "media.fields": "url,preview_image_url,type",
@@ -60,6 +81,14 @@ async function fetchBookmarksPage(
   );
 
   if (!res.ok) {
+    if (res.status === 429) {
+      const limit = res.headers.get("x-rate-limit-limit");
+      const remaining = res.headers.get("x-rate-limit-remaining");
+      const reset = res.headers.get("x-rate-limit-reset");
+      const resetDate = reset ? new Date(Number(reset) * 1000) : null;
+      console.log(`X API rate limited — limit: ${limit}, remaining: ${remaining}, resets: ${resetDate?.toISOString()}`);
+      throw new RateLimitError(resetDate);
+    }
     const body = await res.text();
     throw new Error(`X API error ${res.status}: ${body}`);
   }
@@ -91,6 +120,27 @@ function resolveMedia(
   return result;
 }
 
+// ── Replace t.co URLs with real URLs ────────────────────────────────
+
+function resolveLinks(tweet: TweetData): string {
+  let text = tweet.text;
+  for (const entity of tweet.entities?.urls ?? []) {
+    text = text.replace(entity.url, entity.expanded_url);
+  }
+  return text;
+}
+
+// ── Check if this is the first sync ─────────────────────────────────
+
+async function isFirstSync(userId: string): Promise<boolean> {
+  const [existing] = await db
+    .select({ id: bookmarks.id })
+    .from(bookmarks)
+    .where(and(eq(bookmarks.type, "tweet"), eq(bookmarks.createdBy, userId)))
+    .limit(1);
+  return !existing;
+}
+
 // ── Main sync function ──────────────────────────────────────────────
 
 export async function syncTwitterBookmarks(
@@ -98,35 +148,85 @@ export async function syncTwitterBookmarks(
   accessToken: string,
   xUserId: string,
 ) {
+  const firstSync = await isFirstSync(userId);
+
+  return firstSync
+    ? initialSync(userId, accessToken, xUserId)
+    : incrementalSync(userId, accessToken, xUserId);
+}
+
+// ── First sync: batches of 100, no early exit ───────────────────────
+
+async function initialSync(
+  userId: string,
+  accessToken: string,
+  xUserId: string,
+) {
+  let synced = 0;
+  let paginationToken: string | undefined;
+
+  do {
+    try {
+      const page = await fetchBookmarksPage(xUserId, accessToken, 100, paginationToken);
+      if (!page.data || page.data.length === 0) break;
+
+      const result = await insertTweets(page, userId);
+      synced += result.synced;
+
+      paginationToken = page.meta?.next_token;
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        return { synced, rateLimited: true, resetAt: err.resetAt };
+      }
+      throw err;
+    }
+  } while (paginationToken);
+
+  return { synced, rateLimited: false };
+}
+
+// ── Incremental sync: probe 1, then batches of 10, exit on dup ──────
+
+async function incrementalSync(
+  userId: string,
+  accessToken: string,
+  xUserId: string,
+) {
   let synced = 0;
 
-  // Step 1: Probe with 1 tweet to check if there's anything new
+  // Probe with 1 tweet to check if there's anything new
   const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
-  if (!probe.data || probe.data.length === 0) return { synced };
+  if (!probe.data || probe.data.length === 0) return { synced, rateLimited: false };
 
   const probeInserted = await insertTweets(probe, userId);
   synced += probeInserted.synced;
 
-  // If the probe tweet was a duplicate, nothing new — stop
-  if (probeInserted.synced === 0) return { synced };
+  // Probe was a duplicate — nothing new
+  if (probeInserted.synced === 0) return { synced, rateLimited: false };
 
-  // Step 2: Fetch in batches of 10, stop when we hit a duplicate
+  // Fetch in batches of 10, stop on first duplicate
   let paginationToken = probe.meta?.next_token;
 
   while (paginationToken) {
-    const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
-    if (!page.data || page.data.length === 0) break;
+    try {
+      const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
+      if (!page.data || page.data.length === 0) break;
 
-    const result = await insertTweets(page, userId);
-    synced += result.synced;
+      const result = await insertTweets(page, userId);
+      synced += result.synced;
 
-    // Any duplicate means we've caught up — stop
-    if (result.hitDuplicate) break;
+      if (result.hitDuplicate) break;
 
-    paginationToken = page.meta?.next_token;
+      paginationToken = page.meta?.next_token;
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        return { synced, rateLimited: true, resetAt: err.resetAt };
+      }
+      throw err;
+    }
   }
 
-  return { synced };
+  return { synced, rateLimited: false };
 }
 
 // ── Insert a page of tweets, returns count and whether a dup was hit ─
@@ -153,6 +253,7 @@ async function insertTweets(
     const username = author?.username ?? "unknown";
     const url = `https://x.com/${username}/status/${tweet.id}`;
     const mediaUrls = resolveMedia(tweet, mediaMap, author);
+    const content = resolveLinks(tweet);
 
     try {
       const [inserted] = await db
@@ -160,7 +261,7 @@ async function insertTweets(
         .values({
           type: "tweet",
           url,
-          content: tweet.text,
+          content,
           author: username,
           mediaUrls: mediaUrls.length > 0 ? mediaUrls : null,
           createdBy: userId,

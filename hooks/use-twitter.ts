@@ -41,7 +41,7 @@ export function useSyncTwitter() {
         const body = await res.json();
         throw new Error(body.error ?? "Sync failed");
       }
-      return res.json() as Promise<{ synced: number; skipped: number }>;
+      return res.json() as Promise<{ synced: number; rateLimited: boolean }>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });

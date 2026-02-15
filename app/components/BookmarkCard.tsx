@@ -118,10 +118,10 @@ export default function BookmarkCard({
               onToggleExpand();
             }
           }}
-          className={`group/card relative flex flex-col h-full rounded-lg border bg-white/40 shadow-[0px_0.5px_0px_rgba(0,0,0,0.08),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
+          className={`group/card relative flex flex-col h-full rounded-lg border bg-white/40 shadow-[0px_0.5px_0px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
             isSelected
               ? "border-blue-500 ring-2 ring-blue-500"
-              : "border-t-zinc-100 border-x-zinc-100"
+              : "border-black/6"
           } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {/* Image */}
@@ -152,7 +152,7 @@ export default function BookmarkCard({
           {/* Content */}
           {expanded ? (
             <div
-              className={`flex-1 min-h-0 px-4 ${!displayTitle ? "pt-2" : ""} ${expandedOverflows ? "overflow-y-auto scrollbar-hover" : "overflow-hidden"}`}
+              className={`flex-1 min-h-0 px-4 ${!displayTitle ? "pt-2" : ""} ${expandedOverflows ? "overflow-y-auto overflow-x-hidden scrollbar-hide" : "overflow-hidden"}`}
               onWheel={(e) => e.stopPropagation()}
             >
               {bookmark.content && (

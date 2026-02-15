@@ -5,7 +5,7 @@ import { auth } from "@/services/auth";
 import { db } from "@/services/db";
 import { account } from "@/db/schema";
 import { getUser } from "@/lib/get-user";
-import { syncTwitterBookmarks } from "@/server/twitter/sync";
+import { syncTwitterBookmarks, RateLimitError } from "@/server/twitter/sync";
 
 export async function POST() {
   const user = await getUser();
@@ -47,6 +47,12 @@ export async function POST() {
     );
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 429 },
+      );
+    }
     console.log(error);
     return NextResponse.json(
       { error: "Failed to sync X bookmarks" },

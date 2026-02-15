@@ -153,6 +153,14 @@ body {
     background: #d4d4d8;
 }
 
+/* Scrollbar: hidden but scrollable */
+.scrollbar-hide {
+    scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
 /* Scrollbar: always visible but very light (for research grid) */
 .scrollbar-light {
     scrollbar-width: thin;

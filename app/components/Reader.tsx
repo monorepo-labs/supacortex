@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { X, ExternalLink } from "lucide-react";
 import Markdown from "react-markdown";
 import type { BookmarkData } from "./BookmarkNode";
@@ -13,6 +14,8 @@ export default function Reader({
   onClose: () => void;
 }) {
   const displayTitle = bookmark.title;
+  const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
+  const image = bookmark.mediaUrls?.find((m) => m.type !== "avatar");
   const [open, setOpen] = useState(false);
 
   // Trigger slide-up on mount
@@ -80,6 +83,39 @@ export default function Reader({
               >
                 {displayTitle}
               </h1>
+            )}
+
+            {(bookmark.author || avatar) && (
+              <div className="mb-8 flex items-center gap-2">
+                {avatar && (
+                  <Image
+                    src={avatar.url}
+                    alt=""
+                    width={24}
+                    height={24}
+                    className="rounded-full object-cover"
+                    unoptimized
+                  />
+                )}
+                {bookmark.author && (
+                  <span className="text-sm text-zinc-500">
+                    @{bookmark.author}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {image && (
+              <div className="mb-8 overflow-hidden rounded-xl">
+                <Image
+                  src={image.url}
+                  alt=""
+                  width={672}
+                  height={400}
+                  className="w-full object-cover"
+                  unoptimized
+                />
+              </div>
             )}
 
             {bookmark.content ? (

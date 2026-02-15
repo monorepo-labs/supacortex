@@ -353,8 +353,7 @@ export default function LibraryGridView({
           const bookmark = bookmarkMap.get(item.i);
           if (!bookmark) return null;
           const isExpanded = expandedIds.has(bookmark.id);
-          const expandedOverflows =
-            isExpanded && item.h >= EXPANDED_H;
+          const expandedOverflows = isExpanded;
           return (
             <div key={item.i}>
               <BookmarkCard
