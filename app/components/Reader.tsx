@@ -11,6 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useImageLightbox } from "./ImageLightbox";
 import {
   Popover,
   PopoverTrigger,
@@ -190,6 +191,12 @@ function TweetPanel({
   );
   const isVideo = media?.type === "video" || media?.type === "animated_gif";
 
+  // Collect all non-video image URLs for lightbox
+  const imageUrls: string[] = [];
+  if (media && !isVideo) imageUrls.push(media.url);
+  if (quoteMedia && !quoteMediaIsVideo) imageUrls.push(quoteMedia.url);
+  const { openAt, lightbox } = useImageLightbox(imageUrls);
+
   // Split quote/retweet from main content
   const quoteMatch = bookmark.content?.match(
     /\n\n> (Quote|Retweet) from ([\s\S]+)/,
@@ -255,8 +262,14 @@ function TweetPanel({
                     alt=""
                     width={440}
                     height={280}
-                    className="w-full object-cover"
+                    className="w-full object-cover cursor-pointer"
                     unoptimized
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const idx = imageUrls.indexOf(quoteMedia.url);
+                      if (idx !== -1) openAt(idx);
+                    }}
                   />
                 )}
               </div>
@@ -325,8 +338,12 @@ function TweetPanel({
                   alt=""
                   width={440}
                   height={300}
-                  className="w-full object-cover rounded-xl"
+                  className="w-full object-cover rounded-xl cursor-pointer"
                   unoptimized
+                  onClick={() => {
+                    const idx = imageUrls.indexOf(media.url);
+                    if (idx !== -1) openAt(idx);
+                  }}
                 />
               )}
             </div>
@@ -336,6 +353,8 @@ function TweetPanel({
           {quoteBlock}
         </div>
       </div>
+
+      {lightbox}
     </>
   );
 }
@@ -432,12 +451,38 @@ function LinkPanel({
   );
   const isVideo = media?.type === "video" || media?.type === "animated_gif";
 
+  // Collect image URLs for lightbox: featured image + markdown content images
+  const contentImages: string[] = [];
+  if (media && !isVideo) contentImages.push(media.url);
+  // Extract image URLs from markdown content
+  if (bookmark.content) {
+    const imgRegex = /!\[.*?\]\((.*?)\)/g;
+    let match;
+    while ((match = imgRegex.exec(bookmark.content)) !== null) {
+      if (match[1]) contentImages.push(match[1]);
+    }
+  }
+  const { openAt, lightbox } = useImageLightbox(contentImages);
+
   const mdComponents = {
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
       <a href={href} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     ),
+    img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
+      const src = typeof props.src === "string" ? props.src : undefined;
+      const idx = src ? contentImages.indexOf(src) : -1;
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={props.alt ?? ""}
+          className={idx !== -1 ? "cursor-pointer" : undefined}
+          onClick={idx !== -1 ? () => openAt(idx) : undefined}
+        />
+      );
+    },
   };
 
   return (
@@ -501,8 +546,12 @@ function LinkPanel({
                   alt=""
                   width={440}
                   height={280}
-                  className="w-full object-cover"
+                  className="w-full object-cover cursor-pointer"
                   unoptimized
+                  onClick={() => {
+                    const idx = contentImages.indexOf(media.url);
+                    if (idx !== -1) openAt(idx);
+                  }}
                 />
               )}
             </div>
@@ -531,6 +580,8 @@ function LinkPanel({
           )}
         </div>
       </div>
+
+      {lightbox}
     </>
   );
 }

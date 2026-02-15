@@ -33,6 +33,7 @@
     "remark-gfm": "^4.0.1",
     "sileo": "^0.0.7",
     "tailwind-merge": "^3.4.0",
+    "yet-another-react-lightbox": "^3.29.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

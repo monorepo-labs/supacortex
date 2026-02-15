@@ -189,6 +189,13 @@ body {
     display: none;
 }
 
+/* Lightbox — image styling */
+.yarl-custom .yarl__slide img {
+    border-radius: 0.5rem;
+    object-fit: contain;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
 /* react-grid-layout — drag placeholder */
 .react-grid-item.react-grid-placeholder {
     background: #d4d4d8 !important;
