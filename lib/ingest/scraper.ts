@@ -1,4 +1,4 @@
-export const scrapeContent = async (url: string) => {
+export const scrapeContent = async (url: string, { stripH1 = false } = {}) => {
   const [jinaRes, ogImage] = await Promise.all([
     fetch(`https://r.jina.ai/${url}`, {
       method: "GET",
@@ -17,7 +17,8 @@ export const scrapeContent = async (url: string) => {
   if (!jinaRes.ok) return null;
 
   const jina = await jinaRes.json();
-  const content = jina.data.content?.replace(/^# .+\n?/, "") ?? null;
+  const raw = jina.data.content as string | null;
+  const content = stripH1 ? raw?.replace(/^# .+\n?/, "") ?? null : raw;
   return {
     title: jina.data.title as string | null,
     content,

@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
 
-  const scraped = await scrapeContent(body.url);
+  const scraped = await scrapeContent(body.url, { stripH1: true });
   if (!scraped)
     return NextResponse.json(
       { error: "Failed to scrape content from URL" },
