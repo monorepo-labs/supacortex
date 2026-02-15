@@ -1,5 +1,19 @@
 "use client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { GraphData } from "@/server/bookmarks/queries";
+
+export const useGraphData = (enabled: boolean) => {
+  return useQuery<GraphData>({
+    queryKey: ["graph-data"],
+    queryFn: async () => {
+      const res = await fetch("/api/bookmarks/graph");
+      if (!res.ok) throw new Error("Failed to fetch graph data");
+      return res.json();
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+};
 
 export const useBookmarks = (search?: string, groupId?: string) => {
   return useQuery({

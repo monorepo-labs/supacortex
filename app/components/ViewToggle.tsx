@@ -1,12 +1,12 @@
 "use client";
 
-import { MousePointer2, Columns3 } from "lucide-react";
+import { MousePointer2, Columns3, Share2 } from "lucide-react";
 
-export type ViewMode = "canvas" | "vertical";
+export type ViewMode = "vertical" | "graph";
 
 const views: { key: ViewMode; icon: typeof MousePointer2 }[] = [
-  { key: "canvas", icon: MousePointer2 },
   { key: "vertical", icon: Columns3 },
+  { key: "graph", icon: Share2 },
 ];
 
 export default function ViewToggle({

@@ -5,7 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import GridSearch from "@/app/components/GridSearch";
 import LibraryGridView from "@/app/components/LibraryGridView";
-import { useBookmarks } from "@/hooks/use-bookmarks";
+import GraphView from "@/app/components/GraphView";
+import ViewToggle, { type ViewMode } from "@/app/components/ViewToggle";
+import { useBookmarks, useGraphData } from "@/hooks/use-bookmarks";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
 import Reader from "@/app/components/Reader";
 import { useCreateBookmark } from "@/hooks/use-bookmarks";
@@ -26,6 +28,8 @@ function LibraryPageContent() {
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
+  const [viewMode, setViewMode] = useState<ViewMode>("vertical");
+
   const {
     data: bookmarks,
     isLoading,
@@ -34,6 +38,8 @@ function LibraryPageContent() {
     deferredSearch.length >= 3 ? deferredSearch : "",
     activeGroupId ?? undefined,
   );
+
+  const { data: graphData, isLoading: graphLoading } = useGraphData(viewMode === "graph");
 
   const [activeBookmark, setActiveBookmark] = useState<BookmarkData | null>(
     null,
@@ -94,17 +100,30 @@ function LibraryPageContent() {
     <div className="flex h-screen">
       <Sidebar activeGroupId={activeGroupId} onGroupSelect={handleGroupSelect} />
       <main className="relative flex-1 border border-zinc-200 rounded-xl m-2 overflow-hidden flex flex-col">
-        <GridSearch onSearch={setSearch} inputRef={searchRef} value={search} />
+        {viewMode !== "graph" && (
+          <GridSearch onSearch={setSearch} inputRef={searchRef} value={search} />
+        )}
 
         <div className="flex-1 overflow-hidden">
-          <LibraryGridView
-            bookmarks={bookmarks ?? []}
-            isLoading={isLoading}
-            error={error}
-            onOpenReader={setActiveBookmark}
-            isFiltered={!!activeGroupId || deferredSearch.length >= 3}
-          />
+          {viewMode === "graph" ? (
+            <GraphView
+              bookmarks={bookmarks ?? []}
+              edges={graphData?.edges ?? []}
+              isLoading={graphLoading}
+              onOpenReader={setActiveBookmark}
+            />
+          ) : (
+            <LibraryGridView
+              bookmarks={bookmarks ?? []}
+              isLoading={isLoading}
+              error={error}
+              onOpenReader={setActiveBookmark}
+              isFiltered={!!activeGroupId || deferredSearch.length >= 3}
+            />
+          )}
         </div>
+
+        <ViewToggle mode={viewMode} onChange={setViewMode} />
       </main>
 
       <Reader
