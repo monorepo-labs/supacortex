@@ -26,7 +26,24 @@ export const useCreateGroup = () => {
       if (!res.ok) throw new Error("Failed to create group");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async (group) => {
+      await queryClient.cancelQueries({ queryKey: ["groups"] });
+      const previous = queryClient.getQueryData(["groups"]);
+      const optimisticGroup = {
+        id: `temp-${Date.now()}`,
+        ...group,
+        icon: null,
+      };
+      queryClient.setQueryData(["groups"], (old: Group[] | undefined) => [
+        ...(old ?? []),
+        optimisticGroup,
+      ]);
+      return { previous };
+    },
+    onError: (_err, _data, context) => {
+      queryClient.setQueryData(["groups"], context?.previous);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
   });

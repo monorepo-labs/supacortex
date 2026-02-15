@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { type CSSProperties, type DragEvent } from "react";
 import Image from "next/image";
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, GripVertical, FolderPlus } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -11,65 +11,50 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import AddToGroupMenu from "./AddToGroupMenu";
 import type { BookmarkData } from "./BookmarkNode";
 
 export default function Reader({
   bookmark,
   onClose,
+  style,
+  draggable,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: {
-  bookmark: BookmarkData | null;
+  bookmark: BookmarkData;
   onClose: () => void;
+  style?: CSSProperties;
+  draggable?: boolean;
+  onDragStart?: (e: DragEvent) => void;
+  onDragOver?: (e: DragEvent) => void;
+  onDrop?: (e: DragEvent) => void;
+  onDragEnd?: (e: DragEvent) => void;
 }) {
-  const [visible, setVisible] = useState(false);
-  const [rendered, setRendered] = useState<BookmarkData | null>(null);
-  const closingRef = useRef(false);
-
-  // When bookmark changes, handle enter/exit
-  useEffect(() => {
-    if (bookmark) {
-      setRendered(bookmark);
-      closingRef.current = false;
-      requestAnimationFrame(() => setVisible(true));
-    } else if (rendered && !closingRef.current) {
-      // Start closing animation
-      closingRef.current = true;
-      setVisible(false);
-      const timer = setTimeout(() => {
-        setRendered(null);
-        closingRef.current = false;
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [bookmark]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!rendered) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [rendered, onClose]);
-
-  if (!rendered) return null;
-
-  const isTweet = rendered.type === "tweet";
+  const isTweet = bookmark.type === "tweet";
 
   return (
     <div
-      className="shrink-0 border border-zinc-200 rounded-xl my-2 mr-2 overflow-hidden bg-white transition-all duration-300 ease-out"
-      style={{
-        height: "calc(100vh - 1rem)",
-        width: visible ? 480 : 0,
-        opacity: visible ? 1 : 0,
-      }}
+      className="group/reader shrink-0 border border-zinc-200 rounded-xl overflow-hidden bg-white"
+      style={style}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
     >
-      <div className="h-full w-[480px] flex flex-col">
+      <div className="h-full flex flex-col">
         {isTweet ? (
-          <TweetPanel bookmark={rendered} onClose={onClose} />
+          <TweetPanel bookmark={bookmark} onClose={onClose} />
         ) : (
-          <LinkPanel bookmark={rendered} onClose={onClose} />
+          <LinkPanel bookmark={bookmark} onClose={onClose} />
         )}
       </div>
     </div>
@@ -78,13 +63,21 @@ export default function Reader({
 
 // ── Close button with tooltip ──────────────────────────────────────
 
-function CloseButton({ onClick }: { onClick: () => void }) {
+function DragHandle() {
+  return (
+    <div className="cursor-grab active:cursor-grabbing rounded-lg p-1.5 text-zinc-300 hover:text-zinc-500 transition-colors">
+      <GripVertical size={14} />
+    </div>
+  );
+}
+
+function CloseButton({ onClose }: { onClose: () => void }) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            onClick={onClick}
+            onClick={onClose}
             className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
           >
             <X size={14} />
@@ -95,6 +88,51 @@ function CloseButton({ onClick }: { onClick: () => void }) {
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+// ── Shared reader header ──────────────────────────────────────────
+
+function ReaderHeader({
+  bookmark,
+  label,
+  onClose,
+}: {
+  bookmark: BookmarkData;
+  label: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100">
+      <div className="flex items-center gap-1">
+        <DragHandle />
+        <a
+          href={bookmark.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+        >
+          <ExternalLink size={12} />
+          {label}
+        </a>
+      </div>
+      <div className="flex items-center gap-1">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600">
+              <FolderPlus size={14} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" align="end" className="w-56 p-0">
+            <AddToGroupMenu
+              bookmarkIds={[bookmark.id]}
+              currentGroupIds={bookmark.groupIds ?? []}
+            />
+          </PopoverContent>
+        </Popover>
+        <CloseButton onClose={onClose} />
+      </div>
+    </div>
   );
 }
 
@@ -228,22 +266,10 @@ function TweetPanel({
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100">
-        <a
-          href={bookmark.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-        >
-          <ExternalLink size={12} />
-          View on X
-        </a>
-        <CloseButton onClick={onClose} />
-      </div>
+      <ReaderHeader bookmark={bookmark} label="View on X" onClose={onClose} />
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-light">
         <div className="p-5">
           {/* Author */}
           <div className="flex items-center gap-2.5 mb-3">
@@ -288,7 +314,6 @@ function TweetPanel({
                   src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
                   poster={media.url}
                   controls
-                  autoPlay
                   playsInline
                   className="w-full"
                 />
@@ -339,22 +364,14 @@ function LinkPanel({
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100">
-        <a
-          href={bookmark.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-        >
-          <ExternalLink size={12} />
-          {new URL(bookmark.url).hostname.replace("www.", "")}
-        </a>
-        <CloseButton onClick={onClose} />
-      </div>
+      <ReaderHeader
+        bookmark={bookmark}
+        label={new URL(bookmark.url).hostname.replace("www.", "")}
+        onClose={onClose}
+      />
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-light">
         <div className="px-5 pt-6 pb-12">
           {displayTitle && (
             <h1
@@ -397,7 +414,6 @@ function LinkPanel({
                   src={`/api/media?url=${encodeURIComponent(media.videoUrl)}`}
                   poster={media.url}
                   controls
-                  autoPlay
                   playsInline
                   className="w-full"
                 />

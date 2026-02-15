@@ -225,7 +225,7 @@ function ContextMenuShortcut({
     <span
       data-slot="context-menu-shortcut"
       className={cn(
-        "text-muted-foreground ml-auto text-xs tracking-widest",
+        "text-muted-foreground ml-auto rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] flex items-center gap-1",
         className
       )}
       {...props}

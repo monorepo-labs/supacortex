@@ -17,7 +17,7 @@ import {
   ContextMenuTrigger,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import {
   useGroups,
   useCreateGroup,
@@ -32,13 +32,9 @@ import {
 } from "@/hooks/use-twitter";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
 import UserMenu from "./UserMenu";
+import { randomColor, randomGroupName } from "@/lib/group-defaults";
 
 type Group = { id: string; name: string; color: string; icon?: string | null };
-
-function randomColor() {
-  const hue = Math.floor(Math.random() * 360);
-  return `hsl(${hue}, 55%, 55%)`;
-}
 
 function GroupIcon({ color, iconName }: { color: string; iconName: string }) {
   const Icon = ICON_MAP[iconName] ?? ICON_MAP.hash;
@@ -204,11 +200,14 @@ function GroupItem({
 export default function Sidebar({
   activeGroupId,
   onGroupSelect,
+  collapsed,
+  onCollapsedChange,
 }: {
   activeGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const { data: groups } = useGroups();
   const { mutate: createGroup } = useCreateGroup();
   const { mutate: deleteGroup } = useDeleteGroup();
@@ -217,7 +216,7 @@ export default function Sidebar({
   const { mutate: syncTwitter, isPending: isSyncing } = useSyncTwitter();
 
   const handleAddGroup = () => {
-    createGroup({ name: "Untitled", color: randomColor() });
+    createGroup({ name: randomGroupName(), color: randomColor() });
   };
 
   const handleDeleteGroup = (id: string) => {
@@ -225,14 +224,14 @@ export default function Sidebar({
       onSuccess: () => {
         if (activeGroupId === id) onGroupSelect(null);
       },
-      onError: () => toast.error("Failed to delete group"),
+      onError: () => sileo.error("Failed to delete group"),
     });
   };
 
   if (collapsed) {
     return (
       <button
-        onClick={() => setCollapsed(false)}
+        onClick={() => onCollapsedChange(false)}
         className="absolute left-3 top-3 z-20 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
       >
         <PanelLeft size={18} />
@@ -245,7 +244,7 @@ export default function Sidebar({
       {/* Toggle + Avatar */}
       <div className="flex items-center justify-between px-3 pt-3">
         <button
-          onClick={() => setCollapsed(true)}
+          onClick={() => onCollapsedChange(true)}
           className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
         >
           <PanelLeft size={18} />
@@ -301,13 +300,13 @@ export default function Sidebar({
             onClick={() =>
               syncTwitter(undefined, {
                 onSuccess: (data) => {
-                  toast.success(`Synced ${data.synced} bookmarks from X`);
+                  sileo.success(`Synced ${data.synced} bookmarks from X`);
                   if (data.rateLimited)
-                    toast.warning(
+                    sileo.warning(
                       "Rate limited by X. Sync again later for remaining bookmarks.",
                     );
                 },
-                onError: (err) => toast.error(err.message),
+                onError: (err) => sileo.error(err.message),
               })
             }
             disabled={isSyncing}

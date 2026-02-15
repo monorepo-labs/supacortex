@@ -6,28 +6,24 @@ import {
   Link as LinkIcon,
   ExternalLink,
   Trash2,
-  BookOpen,
+  PanelRight,
+  MousePointerClick,
   FolderPlus,
   ArrowLeft,
   ArrowUpRight,
-  Check,
 } from "lucide-react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
 import { useDeleteBookmark } from "@/hooks/use-bookmarks";
-import { useGroups } from "@/hooks/use-groups";
-import {
-  useAddBookmarksToGroups,
-  useRemoveBookmarksFromGroups,
-} from "@/hooks/use-bookmark-groups";
-import { ICON_MAP } from "./GroupIconPicker";
+import AddToGroupMenu from "./AddToGroupMenu";
 import type { BookmarkData } from "./BookmarkNode";
 
 export default function BookmarkCard({
@@ -36,8 +32,10 @@ export default function BookmarkCard({
   expandedOverflows,
   onToggleExpand,
   onClick,
+  onOpenInNewPanel,
   textSelectable,
   isSelected,
+  isOpenInReader,
   onSelect,
   className,
 }: {
@@ -46,8 +44,10 @@ export default function BookmarkCard({
   expandedOverflows?: boolean;
   onToggleExpand: () => void;
   onClick: () => void;
+  onOpenInNewPanel?: () => void;
   textSelectable?: boolean;
   isSelected?: boolean;
+  isOpenInReader?: boolean;
   onSelect?: (id: string) => void;
   className?: string;
 }) {
@@ -58,9 +58,6 @@ export default function BookmarkCard({
     "default",
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const { data: groups } = useGroups();
-  const { mutate: addToGroups } = useAddBookmarksToGroups();
-  const { mutate: removeFromGroups } = useRemoveBookmarksFromGroups();
 
   if (bookmark._optimistic) {
     return (
@@ -96,15 +93,6 @@ export default function BookmarkCard({
     ? bookmark.content?.match(/https?:\/\/[^\s)]+/)?.[0] ?? bookmark.url
     : null;
 
-  const toggleGroupMembership = (groupId: string) => {
-    const isInGroup = bookmarkGroupIds.includes(groupId);
-    if (isInGroup) {
-      removeFromGroups({ bookmarkIds: [bookmark.id], groupIds: [groupId] });
-    } else {
-      addToGroups({ bookmarkIds: [bookmark.id], groupIds: [groupId] });
-    }
-  };
-
   return (
     <ContextMenu
       onOpenChange={(open) => {
@@ -135,13 +123,19 @@ export default function BookmarkCard({
               onSelect?.(bookmark.id);
               return;
             }
+            if (e.metaKey || e.ctrlKey) {
+              onOpenInNewPanel?.();
+              return;
+            }
             if (bookmark.type === "article") return;
             onClick();
           }}
           className={`group/card relative flex flex-col h-full rounded-lg border bg-white/70 shadow-[0px_0.5px_0px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
             isSelected
               ? "border-blue-500 ring-2 ring-blue-500"
-              : "border-black/6"
+              : isOpenInReader
+                ? "border-black/6 ring-2 ring-black/6"
+                : "border-black/6"
           } ${textSelectable ? "cursor-text select-text" : isArticle ? "cursor-default select-none" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {isTweet ? (
@@ -316,19 +310,22 @@ export default function BookmarkCard({
         </div>
       </ContextMenuTrigger>
 
-      <ContextMenuContent className="w-56">
+      <ContextMenuContent className="w-64">
         {contextMode === "default" ? (
           <>
-            <ContextMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                onClick();
-              }}
-              className="gap-2"
-            >
-              <BookOpen size={14} />
-              Open in Reader
-            </ContextMenuItem>
+            {onOpenInNewPanel && !isOpenInReader && !isArticle && (
+              <ContextMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenInNewPanel();
+                }}
+                className="gap-2"
+              >
+                <PanelRight size={14} />
+                Open in New Panel
+                <ContextMenuShortcut>⌘ <MousePointerClick size={12} /></ContextMenuShortcut>
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               onClick={(e) => {
                 e.stopPropagation();
@@ -360,7 +357,7 @@ export default function BookmarkCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     remove(bookmark.id, {
-                      onError: () => toast.error("Failed to delete bookmark"),
+                      onError: () => sileo.error("Failed to delete bookmark"),
                     });
                     document.dispatchEvent(
                       new KeyboardEvent("keydown", { key: "Escape" }),
@@ -409,45 +406,10 @@ export default function BookmarkCard({
               Back
             </ContextMenuItem>
             <ContextMenuSeparator />
-            {groups?.map(
-              (group: {
-                id: string;
-                name: string;
-                color: string;
-                icon?: string | null;
-              }) => {
-                const isInGroup = bookmarkGroupIds.includes(group.id);
-                const iconName = group.icon ?? "hash";
-                const Icon = ICON_MAP[iconName] ?? ICON_MAP.hash;
-                return (
-                  <ContextMenuItem
-                    key={group.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      toggleGroupMembership(group.id);
-                    }}
-                    className="gap-2 justify-between"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
-                        style={{ backgroundColor: group.color }}
-                      >
-                        <Icon className="h-2.5 w-2.5 text-white" />
-                      </span>
-                      {group.name}
-                    </span>
-                    {isInGroup && <Check size={14} className="text-zinc-600" />}
-                  </ContextMenuItem>
-                );
-              },
-            )}
-            {(!groups || groups.length === 0) && (
-              <div className="px-2 py-1.5 text-sm text-zinc-400">
-                No groups yet
-              </div>
-            )}
+            <AddToGroupMenu
+              bookmarkIds={[bookmark.id]}
+              currentGroupIds={bookmarkGroupIds}
+            />
           </>
         )}
       </ContextMenuContent>
