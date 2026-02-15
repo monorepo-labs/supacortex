@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { PanelLeft, Plus, RefreshCw, Twitter, Trash2 } from "lucide-react";
+import { PanelLeft, Plus, RefreshCw, Trash2 } from "lucide-react";
+import XIcon from "./XIcon";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import { toast } from "sonner";
 import { useGroups, useCreateGroup, useRenameGroup, useUpdateGroup, useDeleteGroup } from "@/hooks/use-groups";
 import { useTwitterAccount, useLinkTwitter, useSyncTwitter } from "@/hooks/use-twitter";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
+import UserMenu from "./UserMenu";
 
 type Group = { id: string; name: string; color: string; icon?: string | null };
 
@@ -218,7 +220,7 @@ export default function Sidebar({
 
   return (
     <aside className="flex h-screen w-52 shrink-0 flex-col bg-background">
-      {/* Toggle */}
+      {/* Toggle + Avatar */}
       <div className="flex items-center justify-between px-3 pt-3">
         <button
           onClick={() => setCollapsed(true)}
@@ -226,6 +228,7 @@ export default function Sidebar({
         >
           <PanelLeft size={18} />
         </button>
+        <UserMenu />
       </div>
 
       {/* Groups */}
@@ -291,9 +294,9 @@ export default function Sidebar({
           <Button
             variant="link"
             onClick={() => linkTwitter()}
-            className="w-full justify-start text-zinc-500 hover:text-zinc-600"
+            className="w-full justify-between text-zinc-500 hover:text-zinc-600"
           >
-            Connect X <Twitter size={14} />
+            Connect X <XIcon className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
