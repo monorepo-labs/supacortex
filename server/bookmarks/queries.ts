@@ -101,32 +101,24 @@ export const getBookmarksForUser = async (
     : desc(bookmarks.createdAt);
 
   const rows = await db
-    .select()
+    .select({
+      id: bookmarks.id,
+      type: bookmarks.type,
+      title: bookmarks.title,
+      url: bookmarks.url,
+      content: bookmarks.content,
+      author: bookmarks.author,
+      mediaUrls: bookmarks.mediaUrls,
+      isRead: bookmarks.isRead,
+      createdAt: bookmarks.createdAt,
+      createdBy: bookmarks.createdBy,
+      groupIds: sql<string[]>`coalesce(array_agg(${bookmarkGroups.groupId}) filter (where ${bookmarkGroups.groupId} is not null), '{}')`,
+    })
     .from(bookmarks)
+    .leftJoin(bookmarkGroups, eq(bookmarks.id, bookmarkGroups.bookmarkId))
     .where(and(...conditions))
+    .groupBy(bookmarks.id)
     .orderBy(order);
 
-  // Fetch groupIds for all returned bookmarks
-  const bookmarkIds = rows.map((r) => r.id);
-  let groupMap = new Map<string, string[]>();
-  if (bookmarkIds.length > 0) {
-    const groupRows = await db
-      .select({
-        bookmarkId: bookmarkGroups.bookmarkId,
-        groupId: bookmarkGroups.groupId,
-      })
-      .from(bookmarkGroups)
-      .where(inArray(bookmarkGroups.bookmarkId, bookmarkIds));
-
-    for (const row of groupRows) {
-      const existing = groupMap.get(row.bookmarkId) ?? [];
-      existing.push(row.groupId);
-      groupMap.set(row.bookmarkId, existing);
-    }
-  }
-
-  return rows.map((row) => ({
-    ...row,
-    groupIds: groupMap.get(row.id) ?? [],
-  }));
+  return rows;
 };

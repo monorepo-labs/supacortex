@@ -45,7 +45,10 @@ export const bookmarks = pgTable(
     createdBy: text().notNull(),
     searchVector: tsvector(),
   },
-  (table) => [index("bookmarks_search_idx").using("gin", table.searchVector)],
+  (table) => [
+    index("bookmarks_search_idx").using("gin", table.searchVector),
+    index("bookmarks_created_by_idx").on(table.createdBy),
+  ],
 );
 
 export const groups = pgTable("groups", {
