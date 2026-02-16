@@ -5,85 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1770830685891,
-      "tag": "0000_kind_abomination",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1770878889542,
-      "tag": "0001_past_ultimatum",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1770978241299,
-      "tag": "0002_high_hardball",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1770983089942,
-      "tag": "0003_tough_khan",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1770986828437,
-      "tag": "0004_heavy_darkstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1771055155353,
-      "tag": "0005_curvy_infant_terrible",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1771055200000,
-      "tag": "0006_search_vector_trigger",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1771058119976,
-      "tag": "0007_lucky_shen",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1771099260000,
-      "tag": "0008_rename_tags_to_groups",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1771185600000,
-      "tag": "0009_sync_logs",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1771200000000,
-      "tag": "0010_drop_is_auto_generated",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1771286400000,
-      "tag": "0011_add_bookmarks_created_by_index",
+      "when": 1771239147309,
+      "tag": "0000_first_swarm",
       "breakpoints": true
     }
   ]

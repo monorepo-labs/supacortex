@@ -32,7 +32,8 @@ export const bookmarks = pgTable(
     url: text().unique().notNull(),
     content: text(),
     author: text(),
-    mediaUrls: json().$type<{ type: string; url: string; videoUrl?: string }[]>(),
+    mediaUrls:
+      json().$type<{ type: string; url: string; videoUrl?: string }[]>(),
     isRead: boolean().default(false),
     positionX: real().default(0),
     positionY: real().default(0),
@@ -89,6 +90,18 @@ export const syncLogs = pgTable("sync_logs", {
   createdAt: timestamp().defaultNow(),
 });
 
+export const apiKeys = pgTable("api_keys", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: text()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text().notNull().default("New Api Key"),
+  keyPrefix: text().notNull(),
+  keyHash: text().notNull(),
+  lastUsedAt: timestamp(),
+  createdAt: timestamp().defaultNow().notNull(),
+});
+
 export const bookmarksInsertSchema = createInsertSchema(bookmarks);
 export const bookmarksSelectSchema = createSelectSchema(bookmarks);
 export const groupsInsertSchema = createInsertSchema(groups);
@@ -108,6 +121,8 @@ export const user = pgTable("user", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+export const userSelectSchema = createSelectSchema(user);
 
 export const session = pgTable(
   "session",

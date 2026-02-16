@@ -42,7 +42,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased`}
       >
-        <Toaster position="top-center" />
+        <div style={{ position: "relative", zIndex: 9999 }}>
+          <Toaster position="top-center" />
+        </div>
         <Providers>{children}</Providers>
       </body>
     </html>

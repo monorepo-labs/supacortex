@@ -32,6 +32,20 @@ export function useLinkTwitter() {
   });
 }
 
+export function useUnlinkTwitter() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await authClient.unlinkAccount({
+        providerId: "twitter",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["twitter-account"] });
+    },
+  });
+}
+
 export function useSyncTwitter() {
   const queryClient = useQueryClient();
   return useMutation({

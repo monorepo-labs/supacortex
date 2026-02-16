@@ -1,1 +1,0 @@
-ALTER TABLE "bookmarks" DROP COLUMN "ai_title";

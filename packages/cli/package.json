@@ -1,0 +1,19 @@
+{
+  "name": "@supacortex/cli",
+  "version": "0.1.0",
+  "bin": {
+    "scx": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup src/index.ts --format esm"
+  },
+  "dependencies": {
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5"
+  }
+}
