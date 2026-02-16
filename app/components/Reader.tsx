@@ -41,23 +41,26 @@ export default function Reader({
 }) {
   const isTweet = bookmark.type === "tweet";
 
+  const dragProps = {
+    draggable,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+  };
+
   return (
     <div
       className="group/reader shrink-0 border border-zinc-200 rounded-xl overflow-hidden bg-white"
       style={style}
-      draggable={draggable}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
     >
       <div className="h-full flex flex-col">
         {isTweet ? (
-          <TweetPanel bookmark={bookmark} onClose={onClose} />
+          <TweetPanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
         ) : bookmark.type === "youtube" ? (
-          <YouTubePanel bookmark={bookmark} onClose={onClose} />
+          <YouTubePanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
         ) : (
-          <LinkPanel bookmark={bookmark} onClose={onClose} />
+          <LinkPanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
         )}
       </div>
     </div>
@@ -66,9 +69,24 @@ export default function Reader({
 
 // ── Close button with tooltip ──────────────────────────────────────
 
-function DragHandle() {
+type DragProps = {
+  draggable?: boolean;
+  onDragStart?: (e: DragEvent) => void;
+  onDragOver?: (e: DragEvent) => void;
+  onDrop?: (e: DragEvent) => void;
+  onDragEnd?: (e: DragEvent) => void;
+};
+
+function DragHandle({ dragProps }: { dragProps?: DragProps }) {
   return (
-    <div className="cursor-grab active:cursor-grabbing rounded-lg p-1.5 text-zinc-300 hover:text-zinc-500 transition-colors">
+    <div
+      className="cursor-grab active:cursor-grabbing rounded-lg p-1.5 text-zinc-300 hover:text-zinc-500 transition-colors"
+      draggable={dragProps?.draggable}
+      onDragStart={dragProps?.onDragStart}
+      onDragOver={dragProps?.onDragOver}
+      onDrop={dragProps?.onDrop}
+      onDragEnd={dragProps?.onDragEnd}
+    >
       <GripVertical size={14} />
     </div>
   );
@@ -100,15 +118,17 @@ function ReaderHeader({
   bookmark,
   label,
   onClose,
+  dragProps,
 }: {
   bookmark: BookmarkData;
   label: string;
   onClose: () => void;
+  dragProps?: DragProps;
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100">
       <div className="flex items-center gap-1">
-        <DragHandle />
+        <DragHandle dragProps={dragProps} />
         <a
           href={bookmark.url}
           target="_blank"
@@ -139,12 +159,30 @@ function ReaderHeader({
   );
 }
 
+// ── Decode HTML entities in plain text ───────────────────────────────
+
+const ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&apos;": "'",
+  "&nbsp;": " ",
+};
+
+const ENTITY_RE = /&(?:amp|lt|gt|quot|apos|nbsp|#39);/g;
+
+function decodeEntities(text: string): string {
+  return text.replace(ENTITY_RE, (match) => ENTITIES[match] ?? match);
+}
+
 // ── Linkify plain-text URLs in tweet content ───────────────────────
 
 const URL_RE = /(https?:\/\/[^\s)]+)/g;
 
 function Linkified({ text }: { text: string }) {
-  const parts = text.split(URL_RE);
+  const parts = decodeEntities(text).split(URL_RE);
   return (
     <>
       {parts.map((part, i) =>
@@ -171,9 +209,11 @@ function Linkified({ text }: { text: string }) {
 function TweetPanel({
   bookmark,
   onClose,
+  dragProps,
 }: {
   bookmark: BookmarkData;
   onClose: () => void;
+  dragProps?: DragProps;
 }) {
   const isQuoteType = (t: string) => t.startsWith("quote_");
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
@@ -281,7 +321,7 @@ function TweetPanel({
 
   return (
     <>
-      <ReaderHeader bookmark={bookmark} label="View on X" onClose={onClose} />
+      <ReaderHeader bookmark={bookmark} label="View on X" onClose={onClose} dragProps={dragProps} />
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto scrollbar-light">
@@ -364,9 +404,11 @@ function TweetPanel({
 function YouTubePanel({
   bookmark,
   onClose,
+  dragProps,
 }: {
   bookmark: BookmarkData;
   onClose: () => void;
+  dragProps?: DragProps;
 }) {
   const ytMedia = bookmark.mediaUrls?.find((m) => m.type === "youtube");
   const videoId = ytMedia?.videoUrl
@@ -379,6 +421,7 @@ function YouTubePanel({
         bookmark={bookmark}
         label="Watch on YouTube"
         onClose={onClose}
+        dragProps={dragProps}
       />
 
       <div className="flex-1 overflow-y-auto scrollbar-light">
@@ -440,9 +483,11 @@ function YouTubePanel({
 function LinkPanel({
   bookmark,
   onClose,
+  dragProps,
 }: {
   bookmark: BookmarkData;
   onClose: () => void;
+  dragProps?: DragProps;
 }) {
   const displayTitle = bookmark.title;
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
@@ -491,6 +536,7 @@ function LinkPanel({
         bookmark={bookmark}
         label={new URL(bookmark.url).hostname.replace("www.", "")}
         onClose={onClose}
+        dragProps={dragProps}
       />
 
       {/* Scrollable content */}
