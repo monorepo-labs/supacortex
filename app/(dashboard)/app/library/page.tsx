@@ -52,36 +52,29 @@ function LibraryPageContent() {
   );
 
   const [openReaders, setOpenReaders] = useState<BookmarkData[]>([]);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const userToggledSidebarRef = useRef(false);
+  const [userCollapsedOverride, setUserCollapsedOverride] = useState<
+    boolean | null
+  >(null);
   const searchRef = useRef<HTMLInputElement>(null!);
 
   const { mutate: addBookmark } = useCreateBookmark();
+
+  const autoCollapsed = openReaders.length >= 2;
+  const sidebarCollapsed = userCollapsedOverride ?? autoCollapsed;
 
   const openReaderIds = useMemo(
     () => new Set(openReaders.map((r) => r.id)),
     [openReaders],
   );
 
-  // Auto-collapse sidebar when 2+ readers, restore when <2
-  useEffect(() => {
-    if (userToggledSidebarRef.current) return;
-    if (openReaders.length >= 2) {
-      setSidebarCollapsed(true);
-    } else {
-      setSidebarCollapsed(false);
-    }
-  }, [openReaders.length]);
-
   const handleSidebarCollapsedChange = useCallback((collapsed: boolean) => {
-    userToggledSidebarRef.current = true;
-    setSidebarCollapsed(collapsed);
+    setUserCollapsedOverride(collapsed);
   }, []);
 
-  // Reset user toggle when all readers close
+  // Reset user override when all readers close
   useEffect(() => {
     if (openReaders.length === 0) {
-      userToggledSidebarRef.current = false;
+      setUserCollapsedOverride(null);
     }
   }, [openReaders.length]);
 
