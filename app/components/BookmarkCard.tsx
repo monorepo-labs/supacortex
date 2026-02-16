@@ -381,7 +381,7 @@ export default function BookmarkCard({
               className="gap-2"
             >
               <ExternalLink size={14} />
-              Visit link
+              {bookmark.type === "tweet" ? "View on Twitter" : bookmark.type === "youtube" ? "View on YouTube" : bookmark.type === "article" ? "Read article" : "Visit link"}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem

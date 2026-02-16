@@ -141,6 +141,14 @@ export default function GraphView({
     return bookmarks.filter((b) => connectedIds.has(b.id));
   }, [bookmarks, filteredEdges]);
 
+  // Track connected bookmark IDs to detect structural changes
+  const connectedIds = useMemo(
+    () => connectedBookmarks.map((b) => b.id).join(","),
+    [connectedBookmarks],
+  );
+  const prevConnectedIds = useRef(connectedIds);
+
+  // Full layout rebuild only when the set of connected bookmarks changes
   useEffect(() => {
     if (connectedBookmarks.length === 0) {
       setNodes([]);
@@ -227,8 +235,32 @@ export default function GraphView({
     setNodes(rfNodes);
     setEdges(rfEdges);
 
-    setTimeout(() => rfInstance.current?.fitView({ padding: 0.3 }), 50);
+    if (prevConnectedIds.current !== connectedIds) {
+      setTimeout(() => rfInstance.current?.fitView({ padding: 0.3 }), 50);
+      prevConnectedIds.current = connectedIds;
+    }
   }, [connectedBookmarks, filteredEdges, connectionCounts, bookmarkMap, groupInfoMap]);
+
+  // Update node data in place when bookmark data changes (without re-layout)
+  useEffect(() => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        const bk = bookmarkMap.get(n.id);
+        if (!bk) return n;
+        const groupIds = bk.groupIds ?? [];
+        const groupColors = groupIds.map((id) => groupInfoMap.get(id)).filter(Boolean) as { color: string; name: string }[];
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            groupColors,
+            groupIds,
+            isOpenInReader: openReaderIds?.has(n.id) ?? false,
+          },
+        };
+      }),
+    );
+  }, [bookmarkMap, groupInfoMap, openReaderIds, setNodes]);
 
   // Sync node selection + isOpenInReader with open reader panels
   useEffect(() => {

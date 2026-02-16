@@ -186,7 +186,7 @@ function GraphNodeComponent({ data, selected }: NodeProps) {
                 className="gap-2"
               >
                 <ExternalLink size={14} />
-                Visit link
+                {type === "tweet" ? "View on Twitter" : type === "youtube" ? "View on YouTube" : type === "article" ? "Read article" : "Visit link"}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
