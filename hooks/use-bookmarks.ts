@@ -140,7 +140,7 @@ export const useCreateBookmark = () => {
       };
       queries.forEach(([key, data]) => {
         if (data) {
-          queryClient.setQueryData(key, [...data, placeholder]);
+          queryClient.setQueryData(key, [placeholder, ...data]);
         }
       });
       return { queries };

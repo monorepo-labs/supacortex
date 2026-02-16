@@ -198,6 +198,9 @@ export default function GraphView({
           groupColors,
           mediaUrls: bk?.mediaUrls ?? null,
           isOpenInReader: openReaderIds?.has(sn.id) ?? false,
+          bookmarkId: sn.id,
+          groupIds: bk?.groupIds ?? [],
+          onOpenInNewPanel: bk && onOpenInNewPanel ? () => onOpenInNewPanel(bk) : undefined,
         },
         draggable: true,
       };
