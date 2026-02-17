@@ -34,8 +34,8 @@ export async function GET(req: Request) {
   const groupId = searchParams.get("group") || undefined;
 
   try {
-    const result = await getBookmarksForUser(user.id, search, groupId);
-    return NextResponse.json(result);
+    const { data } = await getBookmarksForUser(user.id, search, groupId);
+    return NextResponse.json(data);
   } catch (error) {
     console.log(error);
     return NextResponse.json(

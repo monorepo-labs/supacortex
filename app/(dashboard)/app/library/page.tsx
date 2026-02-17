@@ -16,6 +16,7 @@ import LibraryGridView from "@/app/components/LibraryGridView";
 import GraphView from "@/app/components/GraphView";
 import ViewToggle, { type ViewMode } from "@/app/components/ViewToggle";
 import { useBookmarks, useGraphData } from "@/hooks/use-bookmarks";
+import { useQueryClient } from "@tanstack/react-query";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
 import ReadersContainer from "@/app/components/ReadersContainer";
 import { useCreateBookmark } from "@/hooks/use-bookmarks";
@@ -58,6 +59,18 @@ function LibraryPageContent() {
   const searchRef = useRef<HTMLInputElement>(null!);
 
   const { mutate: addBookmark } = useCreateBookmark();
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] }),
+      queryClient.invalidateQueries({ queryKey: ["groups"] }),
+    ]).then(() => {
+      setIsRefreshing(false);
+    });
+  }, [queryClient]);
 
   const autoCollapsed = openReaders.length >= 2;
   const sidebarCollapsed = userCollapsedOverride ?? autoCollapsed;
@@ -188,7 +201,7 @@ function LibraryPageContent() {
         onCollapsedChange={handleSidebarCollapsedChange}
       />
       <main className="relative flex-1 border border-zinc-200 rounded-xl m-2 overflow-hidden flex flex-col">
-        <GridSearch onSearch={setSearch} inputRef={searchRef} value={search} />
+        <GridSearch onSearch={setSearch} onRefresh={handleRefresh} inputRef={searchRef} value={search} isRefreshing={isRefreshing} />
 
         <div className="flex-1 overflow-hidden">
           {viewMode === "graph" ? (
