@@ -349,7 +349,7 @@ async function initialSync(
   do {
     batch++;
     try {
-      const page = await fetchBookmarksPage(xUserId, accessToken, 100, paginationToken);
+      const page = await fetchBookmarksPage(xUserId, accessToken, 80, paginationToken);
       apiCalls++;
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
