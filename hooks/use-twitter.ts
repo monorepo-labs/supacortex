@@ -3,6 +3,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 
+function formatResetTime(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const isToday = date.toDateString() === now.toDateString();
+  return isToday ? time : `${time} tomorrow`;
+}
+
 export function useTwitterAccount() {
   return useQuery({
     queryKey: ["twitter-account"],
@@ -64,6 +72,9 @@ export function useSyncTwitter() {
       const res = await fetch("/api/twitter/sync", { method: "POST" });
       if (!res.ok) {
         const body = await res.json();
+        if (res.status === 429 && body.rateLimitResetsAt) {
+          throw new Error(`Rate limited by X. Try again at ${formatResetTime(body.rateLimitResetsAt)}`);
+        }
         throw new Error(body.error ?? "Sync failed");
       }
       return res.json() as Promise<SyncResponse>;
