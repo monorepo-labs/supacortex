@@ -108,9 +108,12 @@ async function fetchBookmarksPage(
 
   if (!res.ok) {
     if (res.status === 429) {
+      const limit = res.headers.get("x-rate-limit-limit");
+      const remaining = res.headers.get("x-rate-limit-remaining");
       const reset = res.headers.get("x-rate-limit-reset");
+      const body = await res.text();
       const resetDate = reset ? new Date(Number(reset) * 1000) : null;
-      console.log(`X API rate limited — resets: ${resetDate?.toISOString()}`);
+      console.log(`X API 429 — limit: ${limit}, remaining: ${remaining}, resets: ${resetDate?.toISOString()}, body: ${body}`);
       throw new RateLimitError(resetDate);
     }
     const body = await res.text();
