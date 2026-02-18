@@ -223,13 +223,14 @@ export default function Sidebar({
     : null;
 
   // Auto-trigger sync when X account is freshly connected (no sync history)
-  const autoSyncTriggered = useRef(false);
-  useEffect(() => {
-    if (twitterAccount && syncStatus?.status === "none" && !isSyncing && !autoSyncTriggered.current) {
-      autoSyncTriggered.current = true;
-      syncTwitter();
-    }
-  }, [twitterAccount, syncStatus?.status, isSyncing, syncTwitter]);
+  // TODO: Re-enable once rate limit issue is resolved
+  // const autoSyncTriggered = useRef(false);
+  // useEffect(() => {
+  //   if (twitterAccount && syncStatus?.status === "none" && !isSyncing && !autoSyncTriggered.current) {
+  //     autoSyncTriggered.current = true;
+  //     syncTwitter();
+  //   }
+  // }, [twitterAccount, syncStatus?.status, isSyncing, syncTwitter]);
 
   const handleAddGroup = () => {
     createGroup({ name: randomGroupName(), color: randomColor() });
