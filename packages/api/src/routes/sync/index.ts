@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getXAccessToken } from "@/server/twitter/access-token";
-import { syncTwitterBookmarks, SyncInProgressError } from "@/server/twitter/sync";
+import { syncTwitterBookmarks, SyncInProgressError, RateLimitError } from "@/server/twitter/sync";
 import { autoCategorizeSync } from "@/server/twitter/categorize";
 import { getInterruptedSync } from "@/server/twitter/resume";
 import { db } from "@/services/db";
@@ -45,6 +45,12 @@ sync.post("/", async (c) => {
   } catch (err) {
     if (err instanceof SyncInProgressError) {
       return c.json({ error: err.message }, 409);
+    }
+    if (err instanceof RateLimitError) {
+      return c.json({
+        error: err.message,
+        rateLimitResetsAt: err.resetAt?.toISOString() ?? null,
+      }, 429);
     }
     console.error("[sync] error:", err);
     return c.json({ error: "Failed to sync X bookmarks" }, 500);

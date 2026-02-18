@@ -386,8 +386,8 @@ async function initialSync(
   do {
     batch++;
     try {
-      const page = await fetchBookmarksPage(xUserId, accessToken, 80, paginationToken);
       apiCalls++;
+      const page = await fetchBookmarksPage(xUserId, accessToken, 80, paginationToken);
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
       console.log(`[sync:initial] batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
@@ -411,6 +411,9 @@ async function initialSync(
     } catch (err) {
       if (err instanceof RateLimitError) {
         console.log(`[sync:initial] rate limited after batch=${batch}, saved ${synced} bookmarks so far`);
+        // If rate limited on first request (no data yet), bubble up the error
+        // so the caller returns 429 — there's nothing to resume from
+        if (batch === 1 && !paginationToken) throw err;
         return {
           synced,
           status: "interrupted",
@@ -446,8 +449,8 @@ async function incrementalSync(
 
   // If not resuming, do the probe
   if (!resumeToken) {
-    const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
     apiCalls++;
+    const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
     tweetsTotal += probe.data?.length ?? 0;
 
     if (!probe.data || probe.data.length === 0) {
@@ -472,8 +475,8 @@ async function incrementalSync(
   while (paginationToken) {
     batch++;
     try {
-      const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
       apiCalls++;
+      const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
       console.log(`[sync:incremental] batch=${batch} received=${count}`);
