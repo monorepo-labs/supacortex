@@ -26,17 +26,17 @@ export const registerBookmarksCommand = (program: Command) => {
         return;
       }
 
-      const { data, total } = result;
+      const { data } = result;
       for (const b of data) {
         const label = b.type === "tweet" ? b.content : b.title;
         const truncated =
           label && label.length > 80 ? label.slice(0, 80) + "..." : label;
         console.log(`  ${truncated || "Untitled"}`);
         console.log(`  ${b.url}`);
-        console.log(`  @${b.author || "unknown"} · ${b.type}`);
+        console.log(`  ${b.author ? `@${b.author} · ` : ""}${b.type}`);
         console.log();
       }
-      console.log(`Showing ${data.length} of ${total} bookmarks`);
+      console.log(`Showing ${data.length} of ${result.meta?.total ?? data.length} bookmarks`);
     });
 
   bookmarks
