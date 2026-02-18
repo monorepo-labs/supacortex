@@ -1,11 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/services/db";
-import { bookmarks } from "@/db/schema";
-import { categorizeBookmarks } from "@/lib/ingest/categorize";
-import { suggestGroups, GROUP_COLORS } from "@/lib/ingest/suggest-groups";
-import { getGroupsForUser } from "@/server/groups/queries";
-import { createGroup } from "@/server/groups/mutations";
-import { addBookmarksToGroups } from "@/server/groups/bookmark-groups";
+import { bookmarks, syncLogs } from "@/db/schema";
 
 type InsertedBookmark = {
   id: string;
@@ -13,8 +8,6 @@ type InsertedBookmark = {
   content: string | null;
   type: string;
 };
-
-
 
 export class RateLimitError extends Error {
   resetAt: Date | null;
@@ -24,6 +17,12 @@ export class RateLimitError extends Error {
       : "X API rate limited. Try again in a few minutes.";
     super(msg);
     this.resetAt = resetAt;
+  }
+}
+
+export class SyncInProgressError extends Error {
+  constructor() {
+    super("A sync is already in progress for this user.");
   }
 }
 
@@ -112,11 +111,9 @@ async function fetchBookmarksPage(
 
   if (!res.ok) {
     if (res.status === 429) {
-      const limit = res.headers.get("x-rate-limit-limit");
-      const remaining = res.headers.get("x-rate-limit-remaining");
       const reset = res.headers.get("x-rate-limit-reset");
       const resetDate = reset ? new Date(Number(reset) * 1000) : null;
-      console.log(`X API rate limited — limit: ${limit}, remaining: ${remaining}, resets: ${resetDate?.toISOString()}`);
+      console.log(`X API rate limited — resets: ${resetDate?.toISOString()}`);
       throw new RateLimitError(resetDate);
     }
     const body = await res.text();
@@ -147,7 +144,6 @@ function resolveMedia(
     result.push({ type: "avatar", url: author.profile_image_url });
   }
 
-  // Collect media keys from attachments + article cover
   const keys = [
     ...(tweet.attachments?.media_keys ?? []),
     ...(tweet.article?.cover_media?.media_key ? [tweet.article.cover_media.media_key] : []),
@@ -177,16 +173,13 @@ const STATUS_URL_RE = /https?:\/\/(x\.com|twitter\.com)\/(\w+)\/status\/\d+/g;
 // ── Replace t.co URLs with real URLs, strip media URLs ──────────────
 
 function resolveLinks(tweet: TweetData): string {
-  // Use note_tweet for long tweets (280+ chars), fallback to text
   let text = tweet.note_tweet?.text ?? tweet.text;
   const entities = tweet.note_tweet?.entities?.urls ?? tweet.entities?.urls ?? [];
   for (const entity of entities) {
     const url = entity.expanded_url.replace(/^http:\/\//, "https://");
     text = text.replace(entity.url, url);
   }
-  // Strip photo/video attachment URLs (already in mediaUrls)
   text = text.replace(MEDIA_URL_RE, "");
-  // Strip quoted/retweeted status URLs (rendered in referenced tweet block)
   text = text.replace(STATUS_URL_RE, "");
   return text.trim();
 }
@@ -223,7 +216,6 @@ function resolveReferencedTweet(
   const refContent = resolveLinks(refTweet);
   const label = ref.type === "retweeted" ? "Retweet" : "Quote";
 
-  // Resolve quote tweet media with "quote_" prefix types
   const media: { type: string; url: string; videoUrl?: string }[] = [];
   if (refAuthor?.profile_image_url) {
     media.push({ type: "quote_avatar", url: refAuthor.profile_image_url });
@@ -257,94 +249,139 @@ async function isFirstSync(userId: string): Promise<boolean> {
   return !existing;
 }
 
-// ── Auto-categorize synced bookmarks ─────────────────────────────────
+// ── Concurrency guard ───────────────────────────────────────────────
 
-async function autoCategorizeSync(userId: string, inserted: InsertedBookmark[]) {
-  let groups = await getGroupsForUser(userId);
-
-  // If 10+ new bookmarks, suggest new groups first
-  if (inserted.length >= 10) {
-    const existingNames = groups.map((g) => g.name);
-    const suggested = await suggestGroups(inserted, existingNames);
-
-    if (suggested.length > 0) {
-      console.log(`[sync:categorize] creating ${suggested.length} new groups: ${suggested.join(", ")}`);
-      for (let i = 0; i < suggested.length; i++) {
-        const color = GROUP_COLORS[(groups.length + i) % GROUP_COLORS.length];
-        await createGroup({ name: suggested[i], color, createdBy: userId });
-      }
-      // Refresh groups to include newly created ones
-      groups = await getGroupsForUser(userId);
-    }
-  }
-
-  if (groups.length === 0) return;
-
-  // Categorize all inserted bookmarks
-  const matches = await categorizeBookmarks(inserted, groups);
-  console.log(`[sync:categorize] matched ${matches.size}/${inserted.length} bookmarks`);
-
-  // Bulk assign — group by groupId for efficiency
-  for (const [bookmarkId, groupIds] of matches) {
-    await addBookmarksToGroups([bookmarkId], groupIds);
-  }
+async function hasInProgressSync(userId: string): Promise<boolean> {
+  const [existing] = await db
+    .select({ id: syncLogs.id })
+    .from(syncLogs)
+    .where(and(eq(syncLogs.userId, userId), eq(syncLogs.status, "in_progress")))
+    .limit(1);
+  return !!existing;
 }
 
 // ── Main sync function ──────────────────────────────────────────────
 
 export type SyncResult = {
   synced: number;
-  rateLimited: boolean;
-  resetAt?: Date | null;
+  status: "completed" | "interrupted";
+  rateLimitResetsAt?: Date | null;
   apiCalls: number;
   tweetsTotal: number;
   durationMs: number;
   mode: "initial" | "incremental";
+  syncLogId: string;
+  insertedBookmarks: InsertedBookmark[];
 };
 
 export async function syncTwitterBookmarks(
   userId: string,
   accessToken: string,
   xUserId: string,
+  options?: {
+    resumeToken?: string;
+    syncLogId?: string;
+  },
 ): Promise<SyncResult> {
-  const firstSync = await isFirstSync(userId);
-  const mode = firstSync ? "initial" : "incremental";
-  console.log(`[sync] mode=${mode} user=${userId}`);
-
-  const start = Date.now();
-  const result = firstSync
-    ? await initialSync(userId, accessToken, xUserId)
-    : await incrementalSync(userId, accessToken, xUserId);
-
-  // Auto-categorize newly synced bookmarks
-  if (result.insertedBookmarks.length > 0) {
-    try {
-      await autoCategorizeSync(userId, result.insertedBookmarks);
-    } catch (error) {
-      console.error("[sync:categorize] failed (non-blocking):", error);
-    }
+  // Concurrency guard — skip if resuming (we already have an in-progress log)
+  if (!options?.syncLogId && await hasInProgressSync(userId)) {
+    throw new SyncInProgressError();
   }
 
-  const durationMs = Date.now() - start;
+  const isResume = !!options?.resumeToken;
+  const firstSync = isResume ? false : await isFirstSync(userId);
+  const mode = firstSync ? "initial" : "incremental";
+  console.log(`[sync] mode=${mode} user=${userId} resume=${isResume}`);
 
-  console.log(`[sync] done — synced=${result.synced} apiCalls=${result.apiCalls} tweetsTotal=${result.tweetsTotal} rateLimited=${result.rateLimited} duration=${durationMs}ms`);
-  return { ...result, durationMs, mode };
+  const start = Date.now();
+
+  // Create or reuse syncLog
+  let syncLogId: string;
+  if (options?.syncLogId) {
+    syncLogId = options.syncLogId;
+  } else {
+    const [log] = await db.insert(syncLogs).values({
+      userId,
+      mode,
+      status: "in_progress",
+      tweetsTotal: 0,
+      tweetsSynced: 0,
+      apiCalls: 0,
+      cost: 0,
+    }).returning({ id: syncLogs.id });
+    syncLogId = log.id;
+  }
+
+  try {
+    const result = firstSync
+      ? await initialSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken)
+      : await incrementalSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken);
+
+    const durationMs = Date.now() - start;
+
+    // Update syncLog with final status
+    await db.update(syncLogs).set({
+      status: result.status,
+      tweetsTotal: result.tweetsTotal,
+      tweetsSynced: result.synced,
+      apiCalls: result.apiCalls,
+      cost: result.tweetsTotal * 0.005,
+      rateLimited: result.status === "interrupted",
+      paginationToken: result.paginationToken ?? null,
+      rateLimitResetsAt: result.rateLimitResetsAt ?? null,
+      durationMs,
+    }).where(eq(syncLogs.id, syncLogId));
+
+    console.log(`[sync] done — synced=${result.synced} apiCalls=${result.apiCalls} status=${result.status} duration=${durationMs}ms`);
+
+    return {
+      synced: result.synced,
+      status: result.status,
+      rateLimitResetsAt: result.rateLimitResetsAt,
+      apiCalls: result.apiCalls,
+      tweetsTotal: result.tweetsTotal,
+      durationMs,
+      mode,
+      syncLogId,
+      insertedBookmarks: result.insertedBookmarks,
+    };
+  } catch (err) {
+    // On unexpected error, mark syncLog as completed (not in_progress forever)
+    await db.update(syncLogs).set({
+      status: "completed",
+      durationMs: Date.now() - start,
+    }).where(eq(syncLogs.id, syncLogId));
+    throw err;
+  }
 }
 
-// ── First sync: batches of 100, no early exit ───────────────────────
+// ── Internal result type ────────────────────────────────────────────
+
+type InternalSyncResult = {
+  synced: number;
+  status: "completed" | "interrupted";
+  paginationToken?: string;
+  rateLimitResetsAt?: Date | null;
+  apiCalls: number;
+  tweetsTotal: number;
+  insertedBookmarks: InsertedBookmark[];
+};
+
+// ── Initial sync: save each page immediately ─────────────────────────
 
 async function initialSync(
   userId: string,
   accessToken: string,
   xUserId: string,
-) {
+  syncLogId: string,
+  resumeToken?: string,
+): Promise<InternalSyncResult> {
   let apiCalls = 0;
   let tweetsTotal = 0;
-  let paginationToken: string | undefined;
-  const pages: BookmarksResponse[] = [];
+  let synced = 0;
+  let paginationToken: string | undefined = resumeToken;
   const allInserted: InsertedBookmark[] = [];
 
-  // Fetch all pages first (API returns newest → oldest)
   let batch = 0;
   do {
     batch++;
@@ -353,37 +390,42 @@ async function initialSync(
       apiCalls++;
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
-      console.log(`[sync:initial] fetch batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
+      console.log(`[sync:initial] batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
       if (!page.data || count === 0) break;
 
-      pages.push(page);
+      // Save immediately — nothing lost if rate limited on next page
+      const result = await insertTweets(page, userId, false);
+      synced += result.synced;
+      allInserted.push(...result.insertedBookmarks);
+      console.log(`[sync:initial] batch=${batch} inserted=${result.synced}`);
+
+      // Update syncLog progress after each page
+      await db.update(syncLogs).set({
+        tweetsTotal,
+        tweetsSynced: synced,
+        apiCalls,
+        cost: tweetsTotal * 0.005,
+      }).where(eq(syncLogs.id, syncLogId));
+
       paginationToken = page.meta?.next_token;
     } catch (err) {
       if (err instanceof RateLimitError) {
-        console.log(`[sync:initial] rate limited after batch=${batch}, inserting ${pages.length} pages collected so far`);
-        // Insert what we have so far, oldest first
-        let synced = 0;
-        for (const page of pages.reverse()) {
-          const result = await insertTweets(page, userId, false);
-          synced += result.synced;
-          allInserted.push(...result.insertedBookmarks);
-        }
-        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+        console.log(`[sync:initial] rate limited after batch=${batch}, saved ${synced} bookmarks so far`);
+        return {
+          synced,
+          status: "interrupted",
+          paginationToken,
+          rateLimitResetsAt: err.resetAt,
+          apiCalls,
+          tweetsTotal,
+          insertedBookmarks: allInserted,
+        };
       }
       throw err;
     }
   } while (paginationToken);
 
-  // Insert in reverse order so oldest tweets get earliest createdAt
-  let synced = 0;
-  for (let i = pages.length - 1; i >= 0; i--) {
-    const result = await insertTweets(pages[i], userId, false);
-    synced += result.synced;
-    allInserted.push(...result.insertedBookmarks);
-    console.log(`[sync:initial] insert batch=${pages.length - i}/${pages.length} inserted=${result.synced}`);
-  }
-
-  return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+  return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
 }
 
 // ── Incremental sync: probe 1, then batches of 10, exit on dup ──────
@@ -392,37 +434,41 @@ async function incrementalSync(
   userId: string,
   accessToken: string,
   xUserId: string,
-) {
+  syncLogId: string,
+  resumeToken?: string,
+): Promise<InternalSyncResult> {
   let synced = 0;
   let apiCalls = 0;
   let tweetsTotal = 0;
   const allInserted: InsertedBookmark[] = [];
 
-  // Probe with 1 tweet to check if there's anything new
-  const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
-  apiCalls++;
-  tweetsTotal += probe.data?.length ?? 0;
+  let paginationToken: string | undefined = resumeToken;
 
-  if (!probe.data || probe.data.length === 0) {
-    console.log("[sync:incremental] probe empty — nothing new");
-    return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+  // If not resuming, do the probe
+  if (!resumeToken) {
+    const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
+    apiCalls++;
+    tweetsTotal += probe.data?.length ?? 0;
+
+    if (!probe.data || probe.data.length === 0) {
+      console.log("[sync:incremental] probe empty — nothing new");
+      return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+    }
+
+    const probeInserted = await insertTweets(probe, userId);
+    synced += probeInserted.synced;
+    allInserted.push(...probeInserted.insertedBookmarks);
+
+    if (probeInserted.synced === 0) {
+      console.log("[sync:incremental] probe was duplicate — nothing new");
+      return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+    }
+
+    console.log("[sync:incremental] probe found new bookmark, fetching more...");
+    paginationToken = probe.meta?.next_token;
   }
 
-  const probeInserted = await insertTweets(probe, userId);
-  synced += probeInserted.synced;
-  allInserted.push(...probeInserted.insertedBookmarks);
-
-  if (probeInserted.synced === 0) {
-    console.log("[sync:incremental] probe was duplicate — nothing new");
-    return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
-  }
-
-  console.log("[sync:incremental] probe found new bookmark, fetching more...");
-
-  // Fetch in batches of 10, stop on first duplicate
-  let paginationToken = probe.meta?.next_token;
   let batch = 0;
-
   while (paginationToken) {
     batch++;
     try {
@@ -438,19 +484,35 @@ async function incrementalSync(
       allInserted.push(...result.insertedBookmarks);
       console.log(`[sync:incremental] batch=${batch} inserted=${result.synced} dupes=${result.hitDuplicate}`);
 
+      // Update syncLog progress
+      await db.update(syncLogs).set({
+        tweetsTotal,
+        tweetsSynced: synced,
+        apiCalls,
+        cost: tweetsTotal * 0.005,
+      }).where(eq(syncLogs.id, syncLogId));
+
       if (result.hitDuplicate) break;
 
       paginationToken = page.meta?.next_token;
     } catch (err) {
       if (err instanceof RateLimitError) {
         console.log(`[sync:incremental] rate limited after batch=${batch} synced=${synced}`);
-        return { synced, rateLimited: true, resetAt: err.resetAt, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+        return {
+          synced,
+          status: "interrupted",
+          paginationToken,
+          rateLimitResetsAt: err.resetAt,
+          apiCalls,
+          tweetsTotal,
+          insertedBookmarks: allInserted,
+        };
       }
       throw err;
     }
   }
 
-  return { synced, rateLimited: false, apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+  return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
 }
 
 // ── Insert a page of tweets, returns count and whether a dup was hit ─
@@ -474,7 +536,6 @@ async function insertTweets(
     mediaMap.set(m.media_key, m);
   }
 
-  // Referenced tweets from includes (retweets, quotes)
   const tweetMap = new Map<string, TweetData>();
   for (const t of page.includes?.tweets ?? []) {
     tweetMap.set(t.id, t);
@@ -490,7 +551,6 @@ async function insertTweets(
     const url = `https://x.com/${username}/status/${tweet.id}`;
     const mediaUrls = resolveMedia(tweet, mediaMap, author);
 
-    // Build content: resolved links + referenced tweet + enrichment
     let content = resolveLinks(tweet);
 
     const ref = resolveReferencedTweet(tweet, tweetMap, userMap, mediaMap);
@@ -499,11 +559,13 @@ async function insertTweets(
       mediaUrls.push(...ref.media);
     }
 
-    // Detect article type — from API field or URL pattern
     const articleUrl = findArticleUrl(tweet);
     const isArticle = !!tweet.article || !!articleUrl;
     const type = isArticle ? "article" : "tweet";
     const title = isArticle ? (tweet.article?.title ?? null) : null;
+
+    // Parse tweetCreatedAt from X API created_at field
+    const tweetCreatedAt = tweet.created_at ? new Date(tweet.created_at) : null;
 
     try {
       const [inserted] = await db
@@ -515,6 +577,7 @@ async function insertTweets(
           content,
           author: username,
           mediaUrls: mediaUrls.length > 0 ? mediaUrls : null,
+          tweetCreatedAt,
           createdBy: userId,
         })
         .onConflictDoNothing({ target: bookmarks.url })

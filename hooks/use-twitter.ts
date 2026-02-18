@@ -46,6 +46,17 @@ export function useUnlinkTwitter() {
   });
 }
 
+type SyncResponse = {
+  synced: number;
+  status: "completed" | "interrupted";
+  rateLimitResetsAt: string | null;
+  apiCalls: number;
+  tweetsTotal: number;
+  durationMs: number;
+  mode: string;
+  syncLogId: string;
+};
+
 export function useSyncTwitter() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -55,11 +66,39 @@ export function useSyncTwitter() {
         const body = await res.json();
         throw new Error(body.error ?? "Sync failed");
       }
-      return res.json() as Promise<{ synced: number; rateLimited: boolean }>;
+      return res.json() as Promise<SyncResponse>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["sync-status"] });
+    },
+  });
+}
+
+type SyncStatus = {
+  status: "none" | "in_progress" | "completed" | "interrupted";
+  rateLimitResetsAt?: string | null;
+  syncLogId?: string;
+  tweetsSynced?: number;
+  tweetsTotal?: number;
+  createdAt?: string | null;
+};
+
+export function useSyncStatus(enabled = true) {
+  return useQuery({
+    queryKey: ["sync-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/twitter/sync/status");
+      if (!res.ok) throw new Error("Failed to fetch sync status");
+      return res.json() as Promise<SyncStatus>;
+    },
+    enabled,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      // Poll every 30s when interrupted (waiting for cron resume)
+      if (status === "interrupted") return 30_000;
+      return false;
     },
   });
 }

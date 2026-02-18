@@ -94,8 +94,8 @@ bookmarks.post("/", async (c) => {
       createdBy: userId,
     });
     return c.json(result, 201);
-  } catch (error: any) {
-    if (error?.cause?.code === "23505")
+  } catch (error: unknown) {
+    if (error instanceof Error && (error as Error & { cause?: { code?: string } }).cause?.code === "23505")
       return c.json({ error: "This URL is already in your library" }, 409);
     console.error(error);
     return c.json({ error: "Failed to create bookmark" }, 500);

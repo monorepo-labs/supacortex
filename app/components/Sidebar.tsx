@@ -29,6 +29,7 @@ import {
   useTwitterAccount,
   useLinkTwitter,
   useSyncTwitter,
+  useSyncStatus,
 } from "@/hooks/use-twitter";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
 import UserMenu from "./UserMenu";
@@ -214,6 +215,12 @@ export default function Sidebar({
   const { data: twitterAccount } = useTwitterAccount();
   const { mutate: linkTwitter } = useLinkTwitter();
   const { mutate: syncTwitter, isPending: isSyncing } = useSyncTwitter();
+  const { data: syncStatus } = useSyncStatus(!!twitterAccount);
+
+  const isInterrupted = syncStatus?.status === "interrupted";
+  const resumeTime = syncStatus?.rateLimitResetsAt
+    ? new Date(syncStatus.rateLimitResetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
 
   const handleAddGroup = () => {
     createGroup({ name: randomGroupName(), color: randomColor() });
@@ -296,45 +303,54 @@ export default function Sidebar({
         {/* Bottom actions */}
         <div className="w-52 px-3 pb-3 space-y-1">
           {twitterAccount ? (
-            <Button
-              variant="link"
-              onClick={() =>
-                sileo.promise(
-                  new Promise((resolve, reject) => {
-                    syncTwitter(undefined, {
-                      onSuccess: (data) => {
-                        resolve(data);
-                        if (data.rateLimited)
-                          sileo.warning({
-                            title: "Rate limited by X",
-                            description:
-                              "Sync again later for remaining bookmarks.",
-                          });
-                      },
-                      onError: (err) => reject(err),
-                    });
-                  }),
-                  {
-                    loading: { title: "Syncing bookmarks from X..." },
-                    success: (data) => ({
-                      title: `Synced ${(data as { synced: number }).synced} bookmarks from X`,
+            isInterrupted ? (
+              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-500">
+                <RefreshCw size={12} className="animate-spin shrink-0" />
+                <span>
+                  Syncing... {resumeTime ? `next batch at ${resumeTime}` : "resuming soon"}
+                </span>
+              </div>
+            ) : (
+              <Button
+                variant="link"
+                onClick={() =>
+                  sileo.promise(
+                    new Promise((resolve, reject) => {
+                      syncTwitter(undefined, {
+                        onSuccess: (data) => {
+                          resolve(data);
+                          if (data.status === "interrupted")
+                            sileo.warning({
+                              title: "Rate limited by X",
+                              description:
+                                "Remaining bookmarks will sync automatically.",
+                            });
+                        },
+                        onError: (err) => reject(err),
+                      });
                     }),
-                    error: (err) => ({
-                      title:
-                        (err as Error).message || "Failed to sync bookmarks",
-                    }),
-                  },
-                )
-              }
-              disabled={isSyncing}
-              className="w-full justify-start text-zinc-500 hover:text-zinc-600"
-            >
-              {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
-              <RefreshCw
-                size={14}
-                className={isSyncing ? "animate-spin" : ""}
-              />
-            </Button>
+                    {
+                      loading: { title: "Syncing bookmarks from X..." },
+                      success: (data) => ({
+                        title: `Synced ${(data as { synced: number }).synced} bookmarks from X`,
+                      }),
+                      error: (err) => ({
+                        title:
+                          (err as Error).message || "Failed to sync bookmarks",
+                      }),
+                    },
+                  )
+                }
+                disabled={isSyncing}
+                className="w-full justify-start text-zinc-500 hover:text-zinc-600"
+              >
+                {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
+                <RefreshCw
+                  size={14}
+                  className={isSyncing ? "animate-spin" : ""}
+                />
+              </Button>
+            )
           ) : (
             <Button
               variant="link"

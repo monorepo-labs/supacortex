@@ -41,7 +41,7 @@ groups.delete("/:id", async (c) => {
   const groupId = c.req.param("id");
 
   const allGroups = await getGroupsForUser(userId);
-  const exists = allGroups.find((g: any) => g.id === groupId);
+  const exists = allGroups.find((g) => g.id === groupId);
   if (!exists) return c.json({ error: "Group not found" }, 404);
 
   try {

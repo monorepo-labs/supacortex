@@ -42,6 +42,7 @@ export const bookmarks = pgTable(
     gridW: real(),
     gridH: real(),
     gridExpanded: boolean().default(false),
+    tweetCreatedAt: timestamp(),
     createdAt: timestamp().defaultNow(),
     createdBy: text().notNull(),
     searchVector: tsvector(),
@@ -81,11 +82,14 @@ export const syncLogs = pgTable("sync_logs", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   mode: text().notNull(), // "initial" | "incremental"
+  status: text().default("completed"), // "in_progress" | "completed" | "interrupted"
   tweetsTotal: integer().notNull(), // tweets received from API (includes dupes)
   tweetsSynced: integer().notNull(), // tweets actually inserted
   apiCalls: integer().notNull(), // number of X API requests
   cost: real().notNull(), // tweetsTotal * 0.005
   rateLimited: boolean().default(false),
+  paginationToken: text(), // X API next_token for resuming interrupted syncs
+  rateLimitResetsAt: timestamp(), // when the rate limit resets
   durationMs: integer(), // how long the sync took
   createdAt: timestamp().defaultNow(),
 });
