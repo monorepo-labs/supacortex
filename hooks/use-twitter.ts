@@ -88,10 +88,14 @@ type SyncStatus = {
 export function useSyncStatus(enabled = true) {
   return useQuery({
     queryKey: ["sync-status"],
-    queryFn: async () => {
-      const res = await fetch("/api/twitter/sync/status");
-      if (!res.ok) throw new Error("Failed to fetch sync status");
-      return res.json() as Promise<SyncStatus>;
+    queryFn: async (): Promise<SyncStatus> => {
+      try {
+        const res = await fetch("/api/twitter/sync/status");
+        if (!res.ok) return { status: "none" };
+        return await res.json();
+      } catch {
+        return { status: "none" };
+      }
     },
     enabled,
     refetchInterval: (query) => {
