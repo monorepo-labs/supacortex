@@ -13,11 +13,18 @@ export class RateLimitError extends Error {
   resetAt: Date | null;
   constructor(resetAt: Date | null) {
     const msg = resetAt
-      ? `X API rate limited. Try again at ${resetAt.toLocaleTimeString()}`
-      : "X API rate limited. Try again in a few minutes.";
+      ? `Rate limited by X. Try again at ${formatResetTime(resetAt)}`
+      : "Rate limited by X. Try again in a few minutes.";
     super(msg);
     this.resetAt = resetAt;
   }
+}
+
+function formatResetTime(date: Date): string {
+  const now = new Date();
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const isToday = date.toDateString() === now.toDateString();
+  return isToday ? time : `${time} tomorrow`;
 }
 
 export class SyncInProgressError extends Error {
