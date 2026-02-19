@@ -18,6 +18,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import AddToGroupMenu from "./AddToGroupMenu";
+import NotesPopover from "./NotesPopover";
 import type { BookmarkData } from "./BookmarkNode";
 
 export default function Reader({
@@ -153,6 +154,7 @@ function ReaderHeader({
             />
           </PopoverContent>
         </Popover>
+        <NotesPopover bookmark={bookmark} />
         <CloseButton onClose={onClose} />
       </div>
     </div>
