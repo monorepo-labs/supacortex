@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export default function VerifyPage() {
+  return (
+    <Suspense>
+      <VerifyForm />
+    </Suspense>
+  );
+}
+
+function VerifyForm() {
   const searchParams = useSearchParams();
   const [code, setCode] = useState(searchParams.get("code") ?? "");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
