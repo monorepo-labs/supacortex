@@ -22,10 +22,10 @@ export async function autoCategorizeSync(userId: string, inserted: InsertedBookm
     const suggested = await suggestGroups(inserted, existingNames);
 
     if (suggested.length > 0) {
-      console.log(`[sync:categorize] creating ${suggested.length} new groups: ${suggested.join(", ")}`);
+      console.log(`[sync:categorize] creating ${suggested.length} new groups: ${suggested.map((g) => `${g.name} (${g.icon})`).join(", ")}`);
       for (let i = 0; i < suggested.length; i++) {
         const color = GROUP_COLORS[(groups.length + i) % GROUP_COLORS.length];
-        await createGroup({ name: suggested[i], color, createdBy: userId });
+        await createGroup({ name: suggested[i].name, color, icon: suggested[i].icon, createdBy: userId });
       }
       groups = await getGroupsForUser(userId);
     }
