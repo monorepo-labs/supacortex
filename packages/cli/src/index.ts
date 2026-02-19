@@ -30,7 +30,7 @@ registerWhoamiCommand(program);
 registerBookmarksCommand(program);
 registerGroupsCommand(program);
 registerSyncCommand(program);
-registerUpdateCommand(program);
+registerUpdateCommand(program, pkg.version);
 
 checkForUpdates(pkg.version);
 program.parse();

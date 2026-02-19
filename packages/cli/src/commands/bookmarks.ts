@@ -13,9 +13,9 @@ export const registerBookmarksCommand = (program: Command) => {
     .description("List all bookmarks")
     .action(async (option) => {
       const searchParams = new URLSearchParams();
-      for (const [key, value] of Object.entries(option)) {
-        if (value && key !== "json") searchParams.append(key, value as string);
-      }
+      if (option.limit) searchParams.append("limit", String(parseInt(option.limit, 10)));
+      if (option.offset) searchParams.append("offset", String(parseInt(option.offset, 10)));
+      if (option.search) searchParams.append("search", option.search);
       const result = await apiRequest(
         `bookmarks?${searchParams.toString()}`,
         "GET",

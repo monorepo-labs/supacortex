@@ -3,12 +3,12 @@ import { execSync } from "node:child_process";
 
 const NPM_REGISTRY_URL = "https://registry.npmjs.org/@supacortex/cli/latest";
 
-export const registerUpdateCommand = (program: Command) => {
+export const registerUpdateCommand = (program: Command, version: string) => {
   program
     .command("update")
     .description("Update Supacortex CLI to the latest version")
     .action(async () => {
-      const currentVersion = program.version();
+      const currentVersion = version;
       console.log(`Current version: ${currentVersion}`);
       console.log("Checking for updates...");
       console.log();

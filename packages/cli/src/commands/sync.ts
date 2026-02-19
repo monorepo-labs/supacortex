@@ -25,14 +25,17 @@ export const registerSyncCommand = (program: Command) => {
 
       const result = await apiRequest("sync", "POST", sinceYear ? { sinceYear } : undefined);
 
-      if (result.synced === 0) {
+      if (!result.synced) {
         console.log("Already up to date.");
       } else {
         console.log(`Synced ${result.synced} new bookmarks.`);
       }
 
       if (result.status === "interrupted") {
-        console.log(`Rate limited. Resets at ${new Date(result.rateLimitResetsAt).toLocaleString()}`);
+        const resetMsg = result.rateLimitResetsAt
+          ? ` Resets at ${new Date(result.rateLimitResetsAt).toLocaleString()}`
+          : "";
+        console.log(`Rate limited.${resetMsg}`);
       }
     });
 
