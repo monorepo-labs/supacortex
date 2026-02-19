@@ -15,4 +15,5 @@ export const queryClient = new QueryClient({
 
 export const persister = createSyncStoragePersister({
   storage: typeof window !== "undefined" ? window.localStorage : undefined,
+  key: "supacortex-cache",
 });

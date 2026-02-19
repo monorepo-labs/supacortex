@@ -10,5 +10,7 @@ export function useSession() {
       const { data } = await authClient.getSession();
       return data;
     },
+    staleTime: 0,
+    gcTime: 0,
   });
 }

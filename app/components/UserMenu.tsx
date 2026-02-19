@@ -28,6 +28,7 @@ import {
   useDeleteApiKey,
 } from "@/hooks/use-api-keys";
 import { authClient } from "@/lib/auth-client";
+import { queryClient } from "@/services/tanstack";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { sileo } from "sileo";
@@ -65,6 +66,8 @@ export default function UserMenu() {
 
   const handleLogout = async () => {
     await authClient.signOut();
+    queryClient.clear();
+    localStorage.removeItem("supacortex-cache");
     router.push("/login");
   };
 

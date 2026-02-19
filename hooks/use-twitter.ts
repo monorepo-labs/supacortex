@@ -21,6 +21,8 @@ export function useTwitterAccount() {
       );
       return twitter ?? null;
     },
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -109,6 +111,8 @@ export function useSyncStatus(enabled = true) {
       }
     },
     enabled,
+    staleTime: 0,
+    gcTime: 0,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       // Poll every 30s when interrupted (waiting for cron resume)
