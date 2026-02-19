@@ -1,6 +1,7 @@
 {
   "name": "@supacortex/cli",
   "version": "0.1.0",
+  "type": "module",
   "bin": {
     "scx": "./dist/index.js"
   },
