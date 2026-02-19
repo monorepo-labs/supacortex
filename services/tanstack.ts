@@ -1,6 +1,9 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 
+// Bump this when response shapes change to bust the persisted cache
+export const CACHE_VERSION = "2";
+
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 

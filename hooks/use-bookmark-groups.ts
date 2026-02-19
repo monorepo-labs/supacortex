@@ -1,7 +1,8 @@
 "use client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 
 type BookmarkData = { id: string; groupIds: string[]; [key: string]: unknown };
+type BookmarkPage = { data: BookmarkData[]; total: number };
 
 export const useAddBookmarksToGroups = () => {
   const queryClient = useQueryClient();
@@ -17,17 +18,20 @@ export const useAddBookmarksToGroups = () => {
     },
     onMutate: async ({ bookmarkIds, groupIds }) => {
       await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
-      const queries = queryClient.getQueriesData<BookmarkData[]>({ queryKey: ["bookmarks"] });
+      const queries = queryClient.getQueriesData<InfiniteData<BookmarkPage>>({ queryKey: ["bookmarks"] });
       queries.forEach(([key, data]) => {
         if (!data) return;
-        queryClient.setQueryData(
-          key,
-          data.map((b) =>
-            bookmarkIds.includes(b.id)
-              ? { ...b, groupIds: [...new Set([...b.groupIds, ...groupIds])] }
-              : b,
-          ),
-        );
+        queryClient.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            data: page.data.map((b) =>
+              bookmarkIds.includes(b.id)
+                ? { ...b, groupIds: [...new Set([...b.groupIds, ...groupIds])] }
+                : b,
+            ),
+          })),
+        });
       });
       return { queries };
     },
@@ -56,17 +60,20 @@ export const useRemoveBookmarksFromGroups = () => {
     },
     onMutate: async ({ bookmarkIds, groupIds }) => {
       await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
-      const queries = queryClient.getQueriesData<BookmarkData[]>({ queryKey: ["bookmarks"] });
+      const queries = queryClient.getQueriesData<InfiniteData<BookmarkPage>>({ queryKey: ["bookmarks"] });
       queries.forEach(([key, data]) => {
         if (!data) return;
-        queryClient.setQueryData(
-          key,
-          data.map((b) =>
-            bookmarkIds.includes(b.id)
-              ? { ...b, groupIds: b.groupIds.filter((id: string) => !groupIds.includes(id)) }
-              : b,
-          ),
-        );
+        queryClient.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            data: page.data.map((b) =>
+              bookmarkIds.includes(b.id)
+                ? { ...b, groupIds: b.groupIds.filter((id: string) => !groupIds.includes(id)) }
+                : b,
+            ),
+          })),
+        });
       });
       return { queries };
     },

@@ -26,6 +26,17 @@ import { useDeleteBookmark } from "@/hooks/use-bookmarks";
 import AddToGroupMenu from "./AddToGroupMenu";
 import type { BookmarkData } from "./BookmarkNode";
 
+function formatDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function BookmarkCard({
   bookmark,
   expanded,
@@ -210,6 +221,11 @@ export default function BookmarkCard({
                     @{bookmark.author}
                   </a>
                 )}
+                {formatDate(bookmark.tweetCreatedAt) && (
+                  <span className="text-xs text-zinc-400">
+                    · {formatDate(bookmark.tweetCreatedAt)}
+                  </span>
+                )}
               </div>
 
               {/* Content */}
@@ -346,6 +362,11 @@ export default function BookmarkCard({
                         {new URL(bookmark.url).hostname.replace("www.", "")}
                       </span>
                     </a>
+                  )}
+                  {formatDate(bookmark.createdAt) && (
+                    <span className="text-xs text-zinc-400">
+                      · {formatDate(bookmark.createdAt)}
+                    </span>
                   )}
                 </div>
                 {bookmark.isRead && (

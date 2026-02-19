@@ -1,13 +1,13 @@
 "use client";
 
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { queryClient, persister } from "@/services/tanstack";
+import { queryClient, persister, CACHE_VERSION } from "@/services/tanstack";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister, maxAge: 7 * 24 * 60 * 60 * 1000 }}
+      persistOptions={{ persister, maxAge: 7 * 24 * 60 * 60 * 1000, buster: CACHE_VERSION }}
     >
       {children}
     </PersistQueryClientProvider>

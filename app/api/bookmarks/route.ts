@@ -32,10 +32,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || undefined;
   const groupId = searchParams.get("group") || undefined;
+  const limit = searchParams.has("limit") ? Number(searchParams.get("limit")) : undefined;
+  const offset = searchParams.has("offset") ? Number(searchParams.get("offset")) : undefined;
 
   try {
-    const { data } = await getBookmarksForUser(user.id, search, groupId);
-    return NextResponse.json(data);
+    const { data, total } = await getBookmarksForUser(user.id, search, groupId, limit, offset);
+    return NextResponse.json({ data, total });
   } catch (error) {
     console.log(error);
     return NextResponse.json(

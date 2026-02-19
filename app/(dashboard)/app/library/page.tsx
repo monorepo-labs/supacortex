@@ -43,6 +43,9 @@ function LibraryPageContent() {
     data: bookmarks,
     isLoading,
     error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useBookmarks(
     deferredSearch.length >= 3 ? deferredSearch : "",
     activeGroupId ?? undefined,
@@ -222,6 +225,9 @@ function LibraryPageContent() {
               onOpenInNewPanel={handleOpenInNewPanel}
               openReaderIds={openReaderIds}
               isFiltered={!!activeGroupId || deferredSearch.length >= 3}
+              fetchNextPage={fetchNextPage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
             />
           )}
         </div>

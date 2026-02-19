@@ -1,6 +1,17 @@
 "use client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import type { GraphData } from "@/server/bookmarks/queries";
+import type { BookmarkData } from "@/app/components/BookmarkNode";
+
+const PAGE_SIZE = 50;
+
+type BookmarkPage = { data: BookmarkData[]; total: number };
 
 export const useGraphData = (enabled: boolean) => {
   return useQuery<GraphData>({
@@ -16,17 +27,38 @@ export const useGraphData = (enabled: boolean) => {
 };
 
 export const useBookmarks = (search?: string, groupId?: string) => {
-  return useQuery({
+  const query = useInfiniteQuery<BookmarkPage>({
     queryKey: ["bookmarks", search, groupId],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (groupId) params.set("group", groupId);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(pageParam));
       const res = await fetch(`/api/bookmarks?${params}`);
       if (!res.ok) throw new Error("Failed to fetch bookmarks");
       return res.json();
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage?.data || !Array.isArray(lastPage.data)) return undefined;
+      const loaded = allPages.reduce((n, p) => n + (p.data?.length ?? 0), 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
   });
+
+  const bookmarks = query.data?.pages.flatMap((p) => p.data ?? []) ?? [];
+  const total = query.data?.pages[0]?.total ?? 0;
+
+  return {
+    data: bookmarks,
+    total,
+    isLoading: query.isLoading,
+    error: query.error,
+    fetchNextPage: query.fetchNextPage,
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+  };
 };
 
 export const useUpdateBookmarkPosition = () => {
@@ -89,11 +121,17 @@ export const useDeleteBookmark = () => {
     },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
-      const queries = queryClient.getQueriesData<{ id: string }[]>({ queryKey: ["bookmarks"] });
+      const queries = queryClient.getQueriesData<InfiniteData<BookmarkPage>>({ queryKey: ["bookmarks"] });
       queries.forEach(([key, data]) => {
-        if (data) {
-          queryClient.setQueryData(key, data.filter((b) => b.id !== id));
-        }
+        if (!data) return;
+        queryClient.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            data: page.data.filter((b) => b.id !== id),
+            total: page.total - 1,
+          })),
+        });
       });
       return { queries };
     },
@@ -122,7 +160,7 @@ export const useCreateBookmark = () => {
     },
     onMutate: async (bookmark) => {
       await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
-      const queries = queryClient.getQueriesData<Record<string, unknown>[]>({ queryKey: ["bookmarks"] });
+      const queries = queryClient.getQueriesData<InfiniteData<BookmarkPage>>({ queryKey: ["bookmarks"] });
       const placeholder = {
         id: `temp-${Date.now()}`,
         type: "link",
@@ -139,9 +177,15 @@ export const useCreateBookmark = () => {
         _optimistic: true,
       };
       queries.forEach(([key, data]) => {
-        if (data) {
-          queryClient.setQueryData(key, [placeholder, ...data]);
-        }
+        if (!data || data.pages.length === 0) return;
+        queryClient.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page, i) =>
+            i === 0
+              ? { ...page, data: [placeholder, ...page.data], total: page.total + 1 }
+              : { ...page, total: page.total + 1 },
+          ),
+        });
       });
       return { queries };
     },

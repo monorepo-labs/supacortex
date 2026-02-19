@@ -41,6 +41,9 @@ export default function LibraryGridView({
   onOpenInNewPanel,
   openReaderIds,
   isFiltered,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
 }: {
   bookmarks: BookmarkData[];
   isLoading: boolean;
@@ -49,6 +52,9 @@ export default function LibraryGridView({
   onOpenInNewPanel?: (bookmark: BookmarkData) => void;
   openReaderIds?: Set<string>;
   isFiltered?: boolean;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 }) {
   const { mutate: saveLayout } = useUpdateGridLayout();
   const [layout, setLayout] = useState<Layout>([]);
@@ -57,6 +63,7 @@ export default function LibraryGridView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const lastDragTimeRef = useRef(0);
   const selectModeRef = useRef(false);
   const [gridWidth, setGridWidth] = useState(0);
@@ -99,13 +106,26 @@ export default function LibraryGridView({
         const usePrev = !colsChanged && !isFiltered;
         const existing = usePrev ? new Map(prev.map((item) => [item.i, item])) : null;
 
+        // Track the max Y so new items from next pages go below existing ones
+        let maxY = 0;
+        if (existing) {
+          existing.forEach((item) => {
+            maxY = Math.max(maxY, item.y + item.h);
+          });
+        }
+
         return bookmarks.map((b, i) => {
           const measuredH = heights.get(b.id) ?? 6;
           const ex = existing?.get(b.id);
+          if (ex) {
+            return { ...ex, h: measuredH, minH: MIN_H };
+          }
+          // New item — place below existing content, respecting array order among new items
+          const newIndex = existing ? i - existing.size : i;
           return {
             i: b.id,
-            x: ex?.x ?? i % cols,
-            y: ex?.y ?? Math.floor(i / cols) * measuredH,
+            x: newIndex % cols,
+            y: maxY + Math.floor(newIndex / cols) * measuredH,
             w: 1,
             h: measuredH,
             minH: MIN_H,
@@ -205,6 +225,23 @@ export default function LibraryGridView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // Infinite scroll — load more when sentinel is visible
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    const root = scrollRef.current;
+    if (!sentinel || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage?.();
+        }
+      },
+      { root, rootMargin: "200px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   const placeholder = error
     ? "Failed to load bookmarks."
     : isLoading && bookmarks.length === 0
@@ -302,13 +339,20 @@ export default function LibraryGridView({
         </ReactGridLayout>
       ) : null}
 
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-1" />
+      {isFetchingNextPage && (
+        <div className="flex justify-center py-6">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+        </div>
+      )}
+
       {selectedIds.size > 0 && (
         <BulkActions
           selectedIds={selectedIds}
           onClear={() => setSelectedIds(new Set())}
         />
       )}
-
     </div>
   );
 }

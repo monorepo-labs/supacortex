@@ -20,6 +20,7 @@ export type BookmarkData = {
   gridW: number | null;
   gridH: number | null;
   gridExpanded: boolean | null;
+  tweetCreatedAt: string | null;
   createdAt: string | null;
   groupIds: string[];
   _optimistic?: boolean;

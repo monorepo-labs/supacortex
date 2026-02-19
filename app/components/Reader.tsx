@@ -206,6 +206,17 @@ function Linkified({ text }: { text: string }) {
 
 // ── Tweet Panel — embedded tweet style ─────────────────────────────
 
+function formatDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function TweetPanel({
   bookmark,
   onClose,
@@ -340,16 +351,23 @@ function TweetPanel({
             ) : (
               <div className="h-10 w-10 rounded-full bg-zinc-200" />
             )}
-            {bookmark.author && (
-              <a
-                href={`https://x.com/${bookmark.author}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[15px] font-semibold text-zinc-900 hover:text-zinc-500 transition-colors"
-              >
-                @{bookmark.author}
-              </a>
-            )}
+            <div>
+              {bookmark.author && (
+                <a
+                  href={`https://x.com/${bookmark.author}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[15px] font-semibold text-zinc-900 hover:text-zinc-500 transition-colors"
+                >
+                  @{bookmark.author}
+                </a>
+              )}
+              {formatDate(bookmark.tweetCreatedAt) && (
+                <p className="text-xs text-zinc-400">
+                  {formatDate(bookmark.tweetCreatedAt)}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Tweet content */}

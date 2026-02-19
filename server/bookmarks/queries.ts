@@ -100,7 +100,7 @@ export const getBookmarksForUser = async (
 
   const order = tsQuery
     ? sql`ts_rank_cd(${bookmarks.searchVector}, ${tsQuery}, 32) DESC`
-    : desc(bookmarks.createdAt);
+    : desc(sql`coalesce(${bookmarks.tweetCreatedAt}, ${bookmarks.createdAt})`);
 
   const [{ count }] = await db
     .select({ count: sql<number>`count(distinct ${bookmarks.id})` })
@@ -118,6 +118,7 @@ export const getBookmarksForUser = async (
       author: bookmarks.author,
       mediaUrls: bookmarks.mediaUrls,
       isRead: bookmarks.isRead,
+      tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
       createdBy: bookmarks.createdBy,
       groupIds: sql<
@@ -149,6 +150,7 @@ export const getBookmarkById = async (bookmarkId: string, userId: string) => {
       content: bookmarks.content,
       author: bookmarks.author,
       isRead: bookmarks.isRead,
+      tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
     })
     .from(bookmarks)
@@ -187,7 +189,7 @@ export const getBookmarksForAPI = async (
 
   const order = tsQuery
     ? sql`ts_rank_cd(${bookmarks.searchVector}, ${tsQuery}, 32) DESC`
-    : desc(bookmarks.createdAt);
+    : desc(sql`coalesce(${bookmarks.tweetCreatedAt}, ${bookmarks.createdAt})`);
 
   const [{ count }] = await db
     .select({ count: sql<number>`count(distinct ${bookmarks.id})` })
@@ -204,6 +206,7 @@ export const getBookmarksForAPI = async (
       content: bookmarks.content,
       author: bookmarks.author,
       isRead: bookmarks.isRead,
+      tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
       groupIds: sql<
         string[]
