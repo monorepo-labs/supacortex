@@ -24,14 +24,21 @@ export async function POST() {
   }
 
   // Proxy to Hono server
-  const res = await fetch(`${API_URL}/v1/sync`, {
-    method: "POST",
-    headers: {
-      "X-Internal-Token": INTERNAL_API_SECRET ?? "",
-      "X-User-Id": user.id,
-    },
-  });
+  try {
+    const res = await fetch(`${API_URL}/v1/sync`, {
+      method: "POST",
+      headers: {
+        "X-Internal-Token": INTERNAL_API_SECRET ?? "",
+        "X-User-Id": user.id,
+      },
+    });
 
-  const body = await res.json();
-  return NextResponse.json(body, { status: res.status });
+    const body = await res.json();
+    return NextResponse.json(body, { status: res.status });
+  } catch {
+    return NextResponse.json(
+      { error: "Sync service unavailable" },
+      { status: 503 },
+    );
+  }
 }

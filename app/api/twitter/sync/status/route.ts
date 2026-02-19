@@ -9,13 +9,17 @@ export async function GET() {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const res = await fetch(`${API_URL}/v1/sync/status`, {
-    headers: {
-      "X-Internal-Token": INTERNAL_API_SECRET ?? "",
-      "X-User-Id": user.id,
-    },
-  });
+  try {
+    const res = await fetch(`${API_URL}/v1/sync/status`, {
+      headers: {
+        "X-Internal-Token": INTERNAL_API_SECRET ?? "",
+        "X-User-Id": user.id,
+      },
+    });
 
-  const body = await res.json();
-  return NextResponse.json(body, { status: res.status });
+    const body = await res.json();
+    return NextResponse.json(body, { status: res.status });
+  } catch {
+    return NextResponse.json({ status: "none" });
+  }
 }
