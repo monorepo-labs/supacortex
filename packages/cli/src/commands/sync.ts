@@ -15,8 +15,8 @@ export const registerSyncCommand = (program: Command) => {
       if (opts.since) {
         sinceYear = parseInt(opts.since, 10);
         const currentYear = new Date().getFullYear();
-        if (isNaN(sinceYear) || sinceYear < 2006 || sinceYear > currentYear) {
-          console.error(`Invalid year. Must be between 2006 and ${currentYear}.`);
+        if (isNaN(sinceYear) || sinceYear < 2010 || sinceYear > currentYear) {
+          console.error(`Invalid year. Must be between 2010 and ${currentYear}.`);
           process.exit(1);
         }
       }

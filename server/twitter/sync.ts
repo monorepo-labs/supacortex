@@ -290,48 +290,37 @@ export async function syncTwitterBookmarks(
   xUserId: string,
   options?: {
     resumeToken?: string;
-    syncLogId?: string;
+    resumeMode?: "initial" | "incremental";
     sinceYear?: number;
   },
 ): Promise<SyncResult> {
-  // Concurrency guard — skip if resuming (we already have an in-progress log)
-  if (!options?.syncLogId && await hasInProgressSync(userId)) {
+  // Concurrency guard
+  if (await hasInProgressSync(userId)) {
     throw new SyncInProgressError();
   }
 
   const isResume = !!options?.resumeToken;
-  const firstSync = isResume ? false : await isFirstSync(userId);
+  const firstSync = isResume
+    ? options.resumeMode === "initial"
+    : await isFirstSync(userId);
   const mode = firstSync ? "initial" : "incremental";
-  console.log(`[sync] mode=${mode} user=${userId} resume=${isResume}`);
+  const sinceYear = options?.sinceYear;
+  console.log(`[sync] mode=${mode} user=${userId} resume=${isResume} sinceYear=${sinceYear ?? "all"}`);
 
   const start = Date.now();
 
-  // Create or reuse syncLog
-  let syncLogId: string;
-  let sinceYear = options?.sinceYear;
-  if (options?.syncLogId) {
-    syncLogId = options.syncLogId;
-    // When resuming, read sinceYear from the existing log
-    if (sinceYear === undefined) {
-      const [existing] = await db
-        .select({ sinceYear: syncLogs.sinceYear })
-        .from(syncLogs)
-        .where(eq(syncLogs.id, syncLogId));
-      sinceYear = existing?.sinceYear ?? undefined;
-    }
-  } else {
-    const [log] = await db.insert(syncLogs).values({
-      userId,
-      mode,
-      status: "in_progress",
-      tweetsTotal: 0,
-      tweetsSynced: 0,
-      apiCalls: 0,
-      cost: 0,
-      sinceYear: sinceYear ?? null,
-    }).returning({ id: syncLogs.id });
-    syncLogId = log.id;
-  }
+  // Create syncLog
+  const [log] = await db.insert(syncLogs).values({
+    userId,
+    mode,
+    status: "in_progress",
+    tweetsTotal: 0,
+    tweetsSynced: 0,
+    apiCalls: 0,
+    cost: 0,
+    sinceYear: sinceYear ?? null,
+  }).returning({ id: syncLogs.id });
+  const syncLogId = log.id;
 
   const cutoffDate = sinceYear
     ? new Date(`${sinceYear}-01-01T00:00:00Z`)

@@ -26,7 +26,14 @@ sync.post("/", async (c) => {
   let sinceYear: number | undefined;
   try {
     const body = await c.req.json();
-    if (body?.sinceYear != null) sinceYear = Number(body.sinceYear);
+    if (body?.sinceYear != null) {
+      const year = Number(body.sinceYear);
+      const currentYear = new Date().getFullYear();
+      if (!Number.isInteger(year) || year < 2010 || year > currentYear) {
+        return c.json({ error: `sinceYear must be between 2010 and ${currentYear}` }, 400);
+      }
+      sinceYear = year;
+    }
   } catch {
     // No body or invalid JSON — sinceYear stays undefined
   }

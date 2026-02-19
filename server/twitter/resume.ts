@@ -76,6 +76,7 @@ export async function resumeSync(userId: string) {
 
   return syncTwitterBookmarks(userId, token.accessToken, token.xUserId, {
     resumeToken: interrupted.paginationToken,
+    resumeMode: interrupted.mode as "initial" | "incremental",
     sinceYear: interrupted.sinceYear ?? undefined,
   });
 }
