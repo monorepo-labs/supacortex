@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getXAccessToken } from "@/server/twitter/access-token";
-import { syncTwitterBookmarks, SyncInProgressError, RateLimitError } from "@/server/twitter/sync";
+import { syncTwitterBookmarks, SyncInProgressError, RateLimitError, CreditsDepletedError } from "@/server/twitter/sync";
 import { autoCategorizeSync } from "@/server/twitter/categorize";
 import { getInterruptedSync } from "@/server/twitter/resume";
 import { db } from "@/services/db";

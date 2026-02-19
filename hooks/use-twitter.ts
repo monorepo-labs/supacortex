@@ -86,6 +86,12 @@ export function useSyncTwitter() {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       queryClient.invalidateQueries({ queryKey: ["sync-status"] });
     },
+    onError: () => {
+      // Sync may have saved bookmarks before failing — refresh UI
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["sync-status"] });
+    },
   });
 }
 

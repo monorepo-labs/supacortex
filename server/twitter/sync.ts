@@ -17,6 +17,12 @@ export class RateLimitError extends Error {
   }
 }
 
+export class CreditsDepletedError extends Error {
+  constructor() {
+    super("X API credits depleted. Add credits in your X Developer Portal.");
+  }
+}
+
 export class SyncInProgressError extends Error {
   constructor() {
     super("A sync is already in progress for this user.");
@@ -115,6 +121,10 @@ async function fetchBookmarksPage(
       const resetDate = reset ? new Date(Number(reset) * 1000) : null;
       console.log(`X API 429 — limit: ${limit}, remaining: ${remaining}, resets: ${resetDate?.toISOString()}, body: ${body}`);
       throw new RateLimitError(resetDate);
+    }
+    if (res.status === 402) {
+      console.log(`X API 402 — credits depleted`);
+      throw new CreditsDepletedError();
     }
     const body = await res.text();
     throw new Error(`X API error ${res.status}: ${body}`);
@@ -424,6 +434,10 @@ async function initialSync(
           insertedBookmarks: allInserted,
         };
       }
+      if (err instanceof CreditsDepletedError) {
+        console.log(`[sync:initial] credits depleted after batch=${batch}, saved ${synced} bookmarks`);
+        return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+      }
       throw err;
     }
   } while (paginationToken);
@@ -510,6 +524,10 @@ async function incrementalSync(
           tweetsTotal,
           insertedBookmarks: allInserted,
         };
+      }
+      if (err instanceof CreditsDepletedError) {
+        console.log(`[sync:incremental] credits depleted after batch=${batch}, saved ${synced} bookmarks`);
+        return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
       }
       throw err;
     }
