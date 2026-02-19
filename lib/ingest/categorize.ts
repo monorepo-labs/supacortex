@@ -17,7 +17,7 @@ type GroupInput = {
  * Sends all bookmarks in one call. Returns a map of bookmarkId → matched groupIds.
  * For tweets, passes title + content. For everything else, title only.
  */
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 100;
 
 export async function categorizeBookmarks(
   bookmarks: BookmarkInput[],
