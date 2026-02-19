@@ -23,7 +23,7 @@ export default function ViewToggle({
       <div className="relative flex rounded-lg bg-zinc-200/60 p-[2px] transition-transform duration-200 ease-out scale-100 group-hover/toggle:scale-125 origin-top">
         {/* Sliding indicator */}
         <div
-          className="absolute top-[2px] bottom-[2px] rounded-[8px] bg-white shadow-sm transition-all duration-200 ease-in-out"
+          className="absolute top-[2px] bottom-[2px] rounded-[8px] bg-white shadow-card transition-all duration-200 ease-in-out"
           style={{
             width: `calc((100% - 4px) / ${views.length})`,
             transform: `translateX(calc(${activeIndex} * 100%))`,

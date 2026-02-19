@@ -22,7 +22,7 @@ export default function TypeFilter({
           onClick={() => onChange(t.value)}
           className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
             value === t.value
-              ? "bg-zinc-900 text-white"
+              ? "bg-zinc-200 text-zinc-500"
               : "text-zinc-400 hover:text-zinc-600"
           }`}
         >

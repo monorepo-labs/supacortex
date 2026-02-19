@@ -42,10 +42,10 @@ function GroupIcon({ color, iconName }: { color: string; iconName: string }) {
   const Icon = ICON_MAP[iconName] ?? ICON_MAP.hash;
   return (
     <span
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md shadow"
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md shadow-card"
       style={{ backgroundColor: color }}
     >
-      <Icon className="h-3 w-3 text-white" />
+      <Icon className="h-2.5 w-2.5 text-white" />
     </span>
   );
 }
@@ -118,11 +118,11 @@ function GroupItem({
       >
         <ContextMenuTrigger asChild>
           <div
-            onClick={() => { if (!pickerOpen) onSelect(group.id); }}
+            onClick={() => {
+              if (!pickerOpen) onSelect(group.id);
+            }}
             className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
-              isActive
-                ? "bg-black/6 text-zinc-900"
-                : "text-zinc-600 hover:bg-black/6"
+              isActive ? " text-zinc-900" : "text-zinc-400 hover:text-zinc-900"
             }`}
           >
             <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
@@ -226,7 +226,10 @@ export default function Sidebar({
 
   const isInterrupted = syncStatus?.status === "interrupted";
   const resumeTime = syncStatus?.rateLimitResetsAt
-    ? new Date(syncStatus.rateLimitResetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? new Date(syncStatus.rateLimitResetsAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : null;
 
   // Auto-trigger sync when X account is freshly connected (no sync history)
@@ -248,8 +251,7 @@ export default function Sidebar({
             if (data.status === "interrupted")
               sileo.warning({
                 title: "Rate limited by X",
-                description:
-                  "Remaining bookmarks will sync automatically.",
+                description: "Remaining bookmarks will sync automatically.",
               });
           },
           onError: (err) => reject(err),
@@ -261,8 +263,7 @@ export default function Sidebar({
           title: `Synced ${(data as { synced: number }).synced} bookmarks from X`,
         }),
         error: (err) => ({
-          title:
-            (err as Error).message || "Failed to sync bookmarks",
+          title: (err as Error).message || "Failed to sync bookmarks",
         }),
       },
     );
@@ -339,12 +340,12 @@ export default function Sidebar({
                   onClick={() => onGroupSelect(null)}
                   className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
                     activeGroupId === null
-                      ? "bg-black/6 text-zinc-900"
-                      : "text-zinc-600 hover:bg-black/6"
+                      ? " text-zinc-900"
+                      : "text-zinc-400 hover:text-zinc-900"
                   }`}
                 >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-400">
-                    <RectangleStackIcon className="h-3 w-3 text-white" />
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-400">
+                    <RectangleStackIcon className="h-2.5 w-2.5 text-white" />
                   </span>
                   <span>All</span>
                 </div>
@@ -369,7 +370,8 @@ export default function Sidebar({
               <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-500">
                 <RefreshCw size={12} className="animate-spin shrink-0" />
                 <span>
-                  Syncing... {resumeTime ? `next batch at ${resumeTime}` : "resuming soon"}
+                  Syncing...{" "}
+                  {resumeTime ? `next batch at ${resumeTime}` : "resuming soon"}
                 </span>
               </div>
             ) : (

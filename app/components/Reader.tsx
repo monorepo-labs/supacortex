@@ -51,7 +51,7 @@ export default function Reader({
 
   return (
     <div
-      className="group/reader shrink-0 border border-zinc-200 rounded-xl overflow-hidden bg-white"
+      className="group/reader shrink-0 shadow-card rounded-xl overflow-hidden bg-white"
       style={style}
     >
       <div className="h-full flex flex-col">

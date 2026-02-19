@@ -73,7 +73,7 @@ export default function BookmarkCard({
   if (bookmark._optimistic) {
     return (
       <div
-        className={`rounded-xl border border-zinc-100 bg-white/80 shadow-[0px_0.5px_1px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] h-full ${className ?? ""}`}
+        className={`rounded-xl bg-white/80 shadow-card h-full ${className ?? ""}`}
       >
         <div className="p-4 space-y-3">
           <div className="h-4 w-3/4 rounded bg-zinc-100 animate-pulse" />
@@ -99,11 +99,13 @@ export default function BookmarkCard({
   const isTweet = bookmark.type === "tweet" || bookmark.type === "article";
   const isArticle = bookmark.type === "article";
   const isYouTube = bookmark.type === "youtube";
-  const ytMedia = isYouTube ? bookmark.mediaUrls?.find((m) => m.type === "youtube") : null;
+  const ytMedia = isYouTube
+    ? bookmark.mediaUrls?.find((m) => m.type === "youtube")
+    : null;
   const bookmarkGroupIds = bookmark.groupIds ?? [];
 
   const articleUrl = isArticle
-    ? bookmark.content?.match(/https?:\/\/[^\s)]+/)?.[0] ?? bookmark.url
+    ? (bookmark.content?.match(/https?:\/\/[^\s)]+/)?.[0] ?? bookmark.url)
     : null;
 
   return (
@@ -143,12 +145,12 @@ export default function BookmarkCard({
             if (bookmark.type === "article") return;
             onClick();
           }}
-          className={`group/card relative flex flex-col h-full rounded-lg border bg-white/70 shadow-[0px_0.5px_0px_rgba(0,0,0,0.12),0px_8px_10px_rgba(0,0,0,0.06)] overflow-hidden ${
+          className={`group/card relative flex flex-col h-full rounded-lg bg-white/70 shadow-card overflow-hidden ${
             isSelected
-              ? "border-blue-500 ring-2 ring-blue-500"
+              ? "outline-2 outline-blue-600/50"
               : isOpenInReader
-                ? "border-black/6 ring-2 ring-black/6"
-                : "border-black/6"
+                ? "outline-1 outline-black/20"
+                : ""
           } ${textSelectable ? "cursor-text select-text" : isArticle ? "cursor-default select-none" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {isYouTube ? (
@@ -257,7 +259,13 @@ export default function BookmarkCard({
                     />
                     {isVideo && (
                       <div className="absolute bottom-2 left-2 pointer-events-none drop-shadow-md">
-                        <svg viewBox="0 0 24 24" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="1" className="h-5 w-5">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="white"
+                          stroke="rgba(0,0,0,0.3)"
+                          strokeWidth="1"
+                          className="h-5 w-5"
+                        >
                           <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
                         </svg>
                       </div>
@@ -295,7 +303,13 @@ export default function BookmarkCard({
                   />
                   {isVideo && (
                     <div className="absolute bottom-2 left-2 pointer-events-none drop-shadow-md">
-                      <svg viewBox="0 0 24 24" fill="white" stroke="rgba(0,0,0,0.3)" strokeWidth="1" className="h-5 w-5">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="white"
+                        stroke="rgba(0,0,0,0.3)"
+                        strokeWidth="1"
+                        className="h-5 w-5"
+                      >
                         <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 0 0 0-1.69L9.54 5.98A.998.998 0 0 0 8 6.82z" />
                       </svg>
                     </div>
@@ -391,7 +405,9 @@ export default function BookmarkCard({
               >
                 <PanelRight size={14} />
                 Open in New Panel
-                <ContextMenuShortcut>⌘ <MousePointerClick size={12} /></ContextMenuShortcut>
+                <ContextMenuShortcut>
+                  ⌘ <MousePointerClick size={12} />
+                </ContextMenuShortcut>
               </ContextMenuItem>
             )}
             <ContextMenuItem
@@ -402,7 +418,13 @@ export default function BookmarkCard({
               className="gap-2"
             >
               <ExternalLink size={14} />
-              {bookmark.type === "tweet" ? "View on Twitter" : bookmark.type === "youtube" ? "View on YouTube" : bookmark.type === "article" ? "Read article" : "Visit link"}
+              {bookmark.type === "tweet"
+                ? "View on Twitter"
+                : bookmark.type === "youtube"
+                  ? "View on YouTube"
+                  : bookmark.type === "article"
+                    ? "Read article"
+                    : "Visit link"}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -425,7 +447,8 @@ export default function BookmarkCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     remove(bookmark.id, {
-                      onError: () => sileo.error({ title: "Failed to delete bookmark" }),
+                      onError: () =>
+                        sileo.error({ title: "Failed to delete bookmark" }),
                     });
                     document.dispatchEvent(
                       new KeyboardEvent("keydown", { key: "Escape" }),

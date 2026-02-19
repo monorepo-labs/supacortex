@@ -187,7 +187,9 @@ function LibraryPageContent() {
           {
             loading: { title: "Saving bookmark..." },
             success: { title: "Bookmark saved" },
-            error: (err) => ({ title: (err as Error).message || "Failed to save bookmark" }),
+            error: (err) => ({
+              title: (err as Error).message || "Failed to save bookmark",
+            }),
           },
         );
         return;
@@ -209,8 +211,14 @@ function LibraryPageContent() {
         collapsed={sidebarCollapsed}
         onCollapsedChange={handleSidebarCollapsedChange}
       />
-      <main className="relative flex-1 border border-zinc-200 rounded-xl m-2 overflow-hidden flex flex-col">
-        <GridSearch onSearch={setSearch} onRefresh={handleRefresh} inputRef={searchRef} value={search} isRefreshing={isRefreshing} />
+      <main className="relative flex-1 shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
+        <GridSearch
+          onSearch={setSearch}
+          onRefresh={handleRefresh}
+          inputRef={searchRef}
+          value={search}
+          isRefreshing={isRefreshing}
+        />
         <TypeFilter value={typeFilter} onChange={setTypeFilter} />
 
         <div className="flex-1 overflow-hidden">
@@ -231,7 +239,9 @@ function LibraryPageContent() {
               onOpenReader={handleOpenReader}
               onOpenInNewPanel={handleOpenInNewPanel}
               openReaderIds={openReaderIds}
-              isFiltered={!!activeGroupId || deferredSearch.length >= 3 || !!typeFilter}
+              isFiltered={
+                !!activeGroupId || deferredSearch.length >= 3 || !!typeFilter
+              }
               fetchNextPage={fetchNextPage}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}

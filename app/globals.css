@@ -196,6 +196,23 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
+/* Card shadows */
+@utility shadow-card {
+    box-shadow:
+        0 12px 12px -3px #0000000a,
+        0 6px 6px -3px #00000005,
+        0 3px 3px -1.5px #00000005,
+        0 1px 1px -0.5px #00000008,
+        0 0 0 1px #0000000a;
+}
+@utility shadow-card-soft {
+    box-shadow:
+        0px 12px 24px -3px rgba(0, 0, 0, 0.08),
+        0px 6px 6px -3px rgba(0, 0, 0, 0.04),
+        0px 3px 3px -1.5px rgba(0, 0, 0, 0.04),
+        0px 1px 1px -0.5px rgba(0, 0, 0, 0.03);
+}
+
 /* react-grid-layout — drag placeholder */
 .react-grid-item.react-grid-placeholder {
     background: #d4d4d8 !important;
