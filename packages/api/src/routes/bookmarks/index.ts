@@ -17,6 +17,7 @@ bookmarks.get("/", async (c) => {
   const groupId = c.req.query("group");
   const limit = parseInt(c.req.query("limit") ?? "100");
   const offset = parseInt(c.req.query("offset") ?? "0");
+  const type = c.req.query("type");
 
   try {
     const { data, total } = await getBookmarksForAPI(
@@ -25,6 +26,7 @@ bookmarks.get("/", async (c) => {
       groupId,
       limit,
       offset,
+      type,
     );
     return c.json({ data, meta: { total, limit, offset } });
   } catch (error) {

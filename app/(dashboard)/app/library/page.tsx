@@ -12,6 +12,7 @@ import {
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import GridSearch from "@/app/components/GridSearch";
+import TypeFilter from "@/app/components/TypeFilter";
 import LibraryGridView from "@/app/components/LibraryGridView";
 import GraphView from "@/app/components/GraphView";
 import ViewToggle, { type ViewMode } from "@/app/components/ViewToggle";
@@ -38,6 +39,7 @@ function LibraryPageContent() {
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [viewMode, setViewMode] = useState<ViewMode>("vertical");
+  const [typeFilter, setTypeFilter] = useState("");
 
   const {
     data: bookmarks,
@@ -49,10 +51,13 @@ function LibraryPageContent() {
   } = useBookmarks(
     deferredSearch.length >= 3 ? deferredSearch : "",
     activeGroupId ?? undefined,
+    typeFilter || undefined,
+    viewMode !== "graph",
   );
 
   const { data: graphData, isLoading: graphLoading } = useGraphData(
     viewMode === "graph",
+    typeFilter || undefined,
   );
 
   const [openReaders, setOpenReaders] = useState<BookmarkData[]>([]);
@@ -70,6 +75,7 @@ function LibraryPageContent() {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] }),
       queryClient.invalidateQueries({ queryKey: ["groups"] }),
+      queryClient.invalidateQueries({ queryKey: ["graph-data"] }),
     ]).then(() => {
       setIsRefreshing(false);
     });
@@ -205,13 +211,14 @@ function LibraryPageContent() {
       />
       <main className="relative flex-1 border border-zinc-200 rounded-xl m-2 overflow-hidden flex flex-col">
         <GridSearch onSearch={setSearch} onRefresh={handleRefresh} inputRef={searchRef} value={search} isRefreshing={isRefreshing} />
+        <TypeFilter value={typeFilter} onChange={setTypeFilter} />
 
         <div className="flex-1 overflow-hidden">
           {viewMode === "graph" ? (
             <GraphView
-              bookmarks={bookmarks ?? []}
+              bookmarks={(graphData?.nodes ?? []) as unknown as BookmarkData[]}
               edges={graphData?.edges ?? []}
-              isLoading={graphLoading || isLoading}
+              isLoading={graphLoading}
               onOpenReader={handleOpenReader}
               onOpenInNewPanel={handleOpenInNewPanel}
               openReaderIds={openReaderIds}
@@ -224,7 +231,7 @@ function LibraryPageContent() {
               onOpenReader={handleOpenReader}
               onOpenInNewPanel={handleOpenInNewPanel}
               openReaderIds={openReaderIds}
-              isFiltered={!!activeGroupId || deferredSearch.length >= 3}
+              isFiltered={!!activeGroupId || deferredSearch.length >= 3 || !!typeFilter}
               fetchNextPage={fetchNextPage}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}

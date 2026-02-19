@@ -34,9 +34,10 @@ export async function GET(req: Request) {
   const groupId = searchParams.get("group") || undefined;
   const limit = searchParams.has("limit") ? Number(searchParams.get("limit")) : undefined;
   const offset = searchParams.has("offset") ? Number(searchParams.get("offset")) : undefined;
+  const type = searchParams.get("type") || undefined;
 
   try {
-    const { data, total } = await getBookmarksForUser(user.id, search, groupId, limit, offset);
+    const { data, total } = await getBookmarksForUser(user.id, search, groupId, limit, offset, type);
     return NextResponse.json({ data, total });
   } catch (error) {
     console.log(error);
