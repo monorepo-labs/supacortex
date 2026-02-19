@@ -6,10 +6,10 @@ export const registerBookmarksCommand = (program: Command) => {
 
   bookmarks
     .command("list")
-    .option("--limit <number>", "Max results", "20")
-    .option("--offset <number>", "Skip results")
-    .option("--search <string>", "Search bookmarks")
-    .option("--json", "Output raw JSON")
+    .option("-l, --limit <number>", "Max results", "20")
+    .option("-o, --offset <number>", "Skip results")
+    .option("-s, --search <string>", "Search bookmarks")
+    .option("-j, --json", "Output raw JSON")
     .description("List all bookmarks")
     .action(async (option) => {
       const searchParams = new URLSearchParams();
@@ -43,7 +43,7 @@ export const registerBookmarksCommand = (program: Command) => {
     .command("add")
     .description("Add a new bookmark")
     .argument("<url>", "URL to bookmark")
-    .option("--json", "Output raw JSON")
+    .option("-j, --json", "Output raw JSON")
     .action(async (url, option) => {
       const result = await apiRequest("bookmarks", "POST", { url });
       if (option.json) {
@@ -57,7 +57,7 @@ export const registerBookmarksCommand = (program: Command) => {
     .command("delete")
     .description("Delete a bookmark")
     .argument("<id>", "Bookmark ID to delete")
-    .option("--json", "Output raw JSON")
+    .option("-j, --json", "Output raw JSON")
     .action(async (id, option) => {
       const result = await apiRequest(`bookmarks/${id}`, "DELETE");
       if (option.json) {

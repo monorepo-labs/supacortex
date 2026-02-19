@@ -7,7 +7,7 @@ export const registerGroupsCommand = (program: Command) => {
   groups
     .command("list")
     .description("List all groups")
-    .option("--json", "Output raw JSON")
+    .option("-j, --json", "Output raw JSON")
     .action(async (option) => {
       const result = await apiRequest("groups", "GET");
 
@@ -28,7 +28,7 @@ export const registerGroupsCommand = (program: Command) => {
     .command("create")
     .description("Create a new group")
     .argument("<name>", "Group name")
-    .option("--json", "Output raw JSON")
+    .option("-j, --json", "Output raw JSON")
     .action(async (name, option) => {
       const result = await apiRequest("groups", "POST", { name });
       if (option.json) {
@@ -42,7 +42,7 @@ export const registerGroupsCommand = (program: Command) => {
     .command("delete")
     .description("Delete a group")
     .argument("<id>", "Group ID to delete")
-    .option("--json", "Output raw JSON")
+    .option("-j, --json", "Output raw JSON")
     .action(async (id, option) => {
       const result = await apiRequest(`groups/${id}`, "DELETE");
       if (option.json) {

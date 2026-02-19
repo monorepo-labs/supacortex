@@ -24,3 +24,8 @@ export const setConfig = (updates: Config): void => {
   const data = { ...existing, ...updates };
   writeFileSync(configPath, JSON.stringify(data, null, 2));
 };
+
+export const writeConfig = (config: Config): void => {
+  mkdirSync(configDir, { recursive: true });
+  writeFileSync(configPath, JSON.stringify(config, null, 2));
+};
