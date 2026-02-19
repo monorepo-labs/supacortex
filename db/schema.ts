@@ -106,6 +106,16 @@ export const apiKeys = pgTable("api_keys", {
   createdAt: timestamp().defaultNow().notNull(),
 });
 
+export const deviceCodes = pgTable("device_codes", {
+  id: uuid().primaryKey().defaultRandom(),
+  deviceCode: text().notNull().unique(),
+  userCode: text().notNull().unique(),
+  apiKey: text(),
+  status: text().notNull().default("pending"), // pending | approved | expired
+  expiresAt: timestamp().notNull(),
+  createdAt: timestamp().defaultNow().notNull(),
+});
+
 export const bookmarksInsertSchema = createInsertSchema(bookmarks);
 export const bookmarksSelectSchema = createSelectSchema(bookmarks);
 export const groupsInsertSchema = createInsertSchema(groups);

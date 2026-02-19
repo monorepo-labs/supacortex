@@ -15,6 +15,13 @@
       "when": 1771410732602,
       "tag": "0001_tiresome_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771432173937,
+      "tag": "0002_overrated_ikaris",
+      "breakpoints": true
     }
   ]
 }

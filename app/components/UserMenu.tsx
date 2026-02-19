@@ -10,6 +10,7 @@ import {
   Key,
   User,
   Puzzle,
+  RefreshCw,
 } from "lucide-react";
 import XIcon from "./XIcon";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ export default function UserMenu() {
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const router = useRouter();
 
-  const { data: apiKeys } = useApiKeys();
+  const { data: apiKeys, refetch: refetchApiKeys, isFetching: isFetchingApiKeys } = useApiKeys();
   const { mutate: createKey } = useCreateApiKey();
   const { mutate: deleteKey } = useDeleteApiKey();
   const [newKeyName, setNewKeyName] = useState("");
@@ -223,9 +224,19 @@ export default function UserMenu() {
 
               {activeTab === "api-keys" && (
                 <div>
-                      <p className="text-sm font-medium text-zinc-900 mb-0.5">
-                        API Keys
-                      </p>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <p className="text-sm font-medium text-zinc-900">
+                          API Keys
+                        </p>
+                        <button
+                          onClick={() => refetchApiKeys()}
+                          disabled={isFetchingApiKeys}
+                          className="text-zinc-400 hover:text-zinc-600 transition-colors p-1 rounded-md hover:bg-zinc-100 disabled:opacity-50"
+                          title="Refresh"
+                        >
+                          <RefreshCw size={13} className={isFetchingApiKeys ? "animate-spin" : ""} />
+                        </button>
+                      </div>
                       <p className="text-xs text-zinc-400 mb-4">
                         Keys for the Supacortex API and CLI.
                       </p>

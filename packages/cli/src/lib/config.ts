@@ -6,7 +6,7 @@ const homeDir = os.homedir();
 const configDir = path.join(homeDir, ".supacortex");
 const configPath = path.join(configDir, "config.json");
 
-type Config = { endpoint?: string; apiKey?: string };
+type Config = { endpoint?: string; appUrl?: string; apiKey?: string };
 
 export const getConfig = (): Config => {
   try {
