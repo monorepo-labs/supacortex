@@ -291,6 +291,7 @@ export async function syncTwitterBookmarks(
   options?: {
     resumeToken?: string;
     syncLogId?: string;
+    sinceYear?: number;
   },
 ): Promise<SyncResult> {
   // Concurrency guard — skip if resuming (we already have an in-progress log)
@@ -307,8 +308,17 @@ export async function syncTwitterBookmarks(
 
   // Create or reuse syncLog
   let syncLogId: string;
+  let sinceYear = options?.sinceYear;
   if (options?.syncLogId) {
     syncLogId = options.syncLogId;
+    // When resuming, read sinceYear from the existing log
+    if (sinceYear === undefined) {
+      const [existing] = await db
+        .select({ sinceYear: syncLogs.sinceYear })
+        .from(syncLogs)
+        .where(eq(syncLogs.id, syncLogId));
+      sinceYear = existing?.sinceYear ?? undefined;
+    }
   } else {
     const [log] = await db.insert(syncLogs).values({
       userId,
@@ -318,13 +328,18 @@ export async function syncTwitterBookmarks(
       tweetsSynced: 0,
       apiCalls: 0,
       cost: 0,
+      sinceYear: sinceYear ?? null,
     }).returning({ id: syncLogs.id });
     syncLogId = log.id;
   }
 
+  const cutoffDate = sinceYear
+    ? new Date(`${sinceYear}-01-01T00:00:00Z`)
+    : undefined;
+
   try {
     const result = firstSync
-      ? await initialSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken)
+      ? await initialSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken, cutoffDate)
       : await incrementalSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken);
 
     const durationMs = Date.now() - start;
@@ -385,6 +400,7 @@ async function initialSync(
   xUserId: string,
   syncLogId: string,
   resumeToken?: string,
+  cutoffDate?: Date,
 ): Promise<InternalSyncResult> {
   let apiCalls = 0;
   let tweetsTotal = 0;
@@ -404,10 +420,10 @@ async function initialSync(
       if (!page.data || count === 0) break;
 
       // Save immediately — nothing lost if rate limited on next page
-      const result = await insertTweets(page, userId, false);
+      const result = await insertTweets(page, userId, false, cutoffDate);
       synced += result.synced;
       allInserted.push(...result.insertedBookmarks);
-      console.log(`[sync:initial] batch=${batch} inserted=${result.synced}`);
+      console.log(`[sync:initial] batch=${batch} inserted=${result.synced} hitCutoff=${result.hitCutoff}`);
 
       // Update syncLog progress after each page
       await db.update(syncLogs).set({
@@ -416,6 +432,12 @@ async function initialSync(
         apiCalls,
         cost: tweetsTotal * 0.005,
       }).where(eq(syncLogs.id, syncLogId));
+
+      // Stop if every tweet in the batch was older than the cutoff
+      if (result.hitCutoff) {
+        console.log(`[sync:initial] cutoff reached at batch=${batch}, stopping pagination`);
+        break;
+      }
 
       paginationToken = page.meta?.next_token;
     } catch (err) {
@@ -542,9 +564,11 @@ async function insertTweets(
   page: BookmarksResponse,
   userId: string,
   stopOnDuplicate = true,
+  cutoffDate?: Date,
 ) {
   let synced = 0;
   let hitDuplicate = false;
+  let skippedByCutoff = 0;
   const insertedBookmarks: InsertedBookmark[] = [];
 
   const userMap = new Map<string, UserData>();
@@ -588,6 +612,12 @@ async function insertTweets(
     // Parse tweetCreatedAt from X API created_at field
     const tweetCreatedAt = tweet.created_at ? new Date(tweet.created_at) : null;
 
+    // Skip tweets older than the cutoff date
+    if (cutoffDate && tweetCreatedAt && tweetCreatedAt < cutoffDate) {
+      skippedByCutoff++;
+      continue;
+    }
+
     try {
       const [inserted] = await db
         .insert(bookmarks)
@@ -617,5 +647,8 @@ async function insertTweets(
     }
   }
 
-  return { synced, hitDuplicate, insertedBookmarks };
+  // hitCutoff = true when every tweet in the batch was older than cutoff
+  const totalTweets = page.data?.length ?? 0;
+  const hitCutoff = cutoffDate ? skippedByCutoff === totalTweets && totalTweets > 0 : false;
+  return { synced, hitDuplicate, hitCutoff, insertedBookmarks };
 }

@@ -88,6 +88,7 @@ export const syncLogs = pgTable("sync_logs", {
   apiCalls: integer().notNull(), // number of X API requests
   cost: real().notNull(), // tweetsTotal * 0.005
   rateLimited: boolean().default(false),
+  sinceYear: integer(), // cutoff year — null = "All time"
   paginationToken: text(), // X API next_token for resuming interrupted syncs
   rateLimitResetsAt: timestamp(), // when the rate limit resets
   durationMs: integer(), // how long the sync took

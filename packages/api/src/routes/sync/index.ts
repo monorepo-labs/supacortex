@@ -22,8 +22,17 @@ sync.post("/", async (c) => {
     );
   }
 
+  // Parse optional sinceYear from request body
+  let sinceYear: number | undefined;
   try {
-    const result = await syncTwitterBookmarks(userId, token.accessToken, token.xUserId);
+    const body = await c.req.json();
+    if (body?.sinceYear != null) sinceYear = Number(body.sinceYear);
+  } catch {
+    // No body or invalid JSON — sinceYear stays undefined
+  }
+
+  try {
+    const result = await syncTwitterBookmarks(userId, token.accessToken, token.xUserId, sinceYear ? { sinceYear } : undefined);
 
     // Fire-and-forget categorization if sync completed (not interrupted)
     if (result.status === "completed" && result.insertedBookmarks.length > 0) {
