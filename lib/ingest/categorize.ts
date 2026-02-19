@@ -17,6 +17,8 @@ type GroupInput = {
  * Sends all bookmarks in one call. Returns a map of bookmarkId → matched groupIds.
  * For tweets, passes title + content. For everything else, title only.
  */
+const BATCH_SIZE = 50;
+
 export async function categorizeBookmarks(
   bookmarks: BookmarkInput[],
   groups: GroupInput[],
@@ -24,14 +26,6 @@ export async function categorizeBookmarks(
   const result = new Map<string, string[]>();
 
   if (bookmarks.length === 0 || groups.length === 0) return result;
-
-  // Build the bookmark descriptions for the prompt
-  const bookmarkDescriptions = bookmarks.map((b) => {
-    const text = b.type === "tweet"
-      ? b.content ?? ""
-      : b.title ?? "";
-    return `[${b.id}]: ${text || "(no description)"}`;
-  }).join("\n");
 
   const groupNames = groups.map((g) => g.name).join(", ");
 
@@ -41,7 +35,20 @@ export async function categorizeBookmarks(
     nameToId.set(g.name.toLowerCase(), g.id);
   }
 
-  const prompt = `You are a bookmark categorizer. Given bookmarks and a list of groups, assign each bookmark to the groups it belongs to.
+  // Process in batches to avoid LLM output truncation
+  for (let i = 0; i < bookmarks.length; i += BATCH_SIZE) {
+    const batch = bookmarks.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(bookmarks.length / BATCH_SIZE);
+
+    const bookmarkDescriptions = batch.map((b) => {
+      const text = b.type === "tweet"
+        ? b.content ?? ""
+        : b.title ?? "";
+      return `[${b.id}]: ${text || "(no description)"}`;
+    }).join("\n");
+
+    const prompt = `You are a bookmark categorizer. Given bookmarks and a list of groups, assign each bookmark to the groups it belongs to.
 
 Groups: ${groupNames}
 
@@ -59,38 +66,41 @@ Return a JSON object where keys are bookmark IDs and values are arrays of group 
 
 If a bookmark doesn't match any group, include it with an empty array.`;
 
-  try {
-    const completion = await openRouter.chat.send({
-      chatGenerationParams: {
-        models: [
-          "x-ai/grok-4.1-fast",
-          "moonshotai/kimi-k2.5",
-          "google/gemini-3-flash-preview",
-        ],
-        messages: [{ role: "user", content: prompt }],
-        stream: false,
-      },
-    });
+    try {
+      console.log(`[categorize] batch ${batchNum}/${totalBatches} (${batch.length} bookmarks)`);
 
-    const raw = String(completion.choices?.[0]?.message?.content ?? "");
+      const completion = await openRouter.chat.send({
+        chatGenerationParams: {
+          models: [
+            "x-ai/grok-4.1-fast",
+            "moonshotai/kimi-k2.5",
+            "google/gemini-3-flash-preview",
+          ],
+          messages: [{ role: "user", content: prompt }],
+          stream: false,
+        },
+      });
 
-    // Parse the JSON response (strip markdown fences if present)
-    const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned) as Record<string, string[]>;
+      const raw = String(completion.choices?.[0]?.message?.content ?? "");
 
-    // Map group names back to group IDs
-    for (const [bookmarkId, groupNames] of Object.entries(parsed)) {
-      const groupIds: string[] = [];
-      for (const name of groupNames) {
-        const id = nameToId.get(name.toLowerCase());
-        if (id) groupIds.push(id);
+      // Parse the JSON response (strip markdown fences if present)
+      const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned) as Record<string, string[]>;
+
+      // Map group names back to group IDs
+      for (const [bookmarkId, groupNames] of Object.entries(parsed)) {
+        const groupIds: string[] = [];
+        for (const name of groupNames) {
+          const id = nameToId.get(name.toLowerCase());
+          if (id) groupIds.push(id);
+        }
+        if (groupIds.length > 0) {
+          result.set(bookmarkId, groupIds);
+        }
       }
-      if (groupIds.length > 0) {
-        result.set(bookmarkId, groupIds);
-      }
+    } catch (error) {
+      console.error(`[categorize] batch ${batchNum} failed:`, error);
     }
-  } catch (error) {
-    console.error("[categorize] failed:", error);
   }
 
   return result;
