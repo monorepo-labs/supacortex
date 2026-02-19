@@ -1,9 +1,15 @@
 import { openRouter } from "@/services/open-router";
+import { ICON_KEYS } from "@/config/icon-keys";
 
 type BookmarkInput = {
   title: string | null;
   content: string | null;
   type: string;
+};
+
+export type SuggestedGroup = {
+  name: string;
+  icon: string;
 };
 
 // Colors to cycle through for auto-created groups
@@ -20,6 +26,8 @@ export const GROUP_COLORS = [
   "#84cc16", // lime
 ];
 
+const VALID_ICONS: Set<string> = new Set(ICON_KEYS);
+
 /**
  * Suggest new group names based on a batch of bookmarks.
  * Only suggests groups when 3+ bookmarks share a common topic.
@@ -27,7 +35,7 @@ export const GROUP_COLORS = [
 export async function suggestGroups(
   bookmarks: BookmarkInput[],
   existingGroups: string[],
-): Promise<string[]> {
+): Promise<SuggestedGroup[]> {
   if (bookmarks.length < 10) return [];
 
   const descriptions = bookmarks.map((b, i) => {
@@ -48,16 +56,20 @@ ${existingList}
 Bookmarks:
 ${descriptions}
 
+Available icon keys (pick the most fitting one per group):
+${ICON_KEYS.join(", ")}
+
 Rules:
 - Group names must be 1-2 words max, like "AI", "Web Dev", "Startups", "Design"
 - Do NOT duplicate existing groups or suggest very similar names
 - Be conservative — only suggest a group if it represents a clear, recurring interest worth organizing
 - 3 bookmarks sharing a vague theme is NOT enough. The topic should feel like a distinct category the user actively follows
 - Most batches need 0-2 new groups. Don't over-categorize
+- Pick an icon that best represents each group's topic from the available keys
 - Return ONLY valid JSON, no markdown fences
 - If no good groups can be formed, return an empty array
 
-Return a JSON array of group name strings: ["Group Name", ...]`;
+Return a JSON array of objects: [{"name": "AI", "icon": "cpu"}, ...]`;
 
   try {
     const completion = await openRouter.chat.send({
@@ -74,15 +86,23 @@ Return a JSON array of group name strings: ["Group Name", ...]`;
 
     const raw = String(completion.choices?.[0]?.message?.content ?? "");
     const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned) as string[];
+    const parsed = JSON.parse(cleaned) as SuggestedGroup[];
 
     if (!Array.isArray(parsed)) return [];
 
     // Filter out any that match existing groups (case-insensitive)
     const existingLower = new Set(existingGroups.map((g) => g.toLowerCase()));
-    return parsed.filter(
-      (name) => typeof name === "string" && !existingLower.has(name.toLowerCase()),
-    );
+    return parsed
+      .filter(
+        (item) =>
+          typeof item === "object" &&
+          typeof item.name === "string" &&
+          !existingLower.has(item.name.toLowerCase()),
+      )
+      .map((item) => ({
+        name: item.name,
+        icon: VALID_ICONS.has(item.icon) ? item.icon : "hash",
+      }));
   } catch (error) {
     console.error("[suggest-groups] failed:", error);
     return [];

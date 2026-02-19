@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 export const createGroup = async (group: {
   name: string;
   color: string;
+  icon?: string;
   createdBy: string;
 }) => {
   const [result] = await db.insert(groups).values(group).returning();
