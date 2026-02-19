@@ -20,7 +20,7 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Supercortex",
+  title: "Supacortex",
   description: "Your knowledge workspace",
 };
 

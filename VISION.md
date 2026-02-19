@@ -1,4 +1,4 @@
-# Supercortex
+# Supacortex
 
 A knowledge workspace where everything you consume and think gets connected automatically.
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Supercortex — a personal knowledge workspace for bookmarking, reading, writing, and discovering connections across saved content.
+Supacortex — a personal knowledge workspace for bookmarking, reading, writing, and discovering connections across saved content.
 
 ## Stack
 

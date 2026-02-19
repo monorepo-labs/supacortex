@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Terms of Service — Supercortex" };
+export const metadata = { title: "Terms of Service — Supacortex" };
 
 export default function TermsPage() {
   return (
@@ -24,7 +24,7 @@ export default function TermsPage() {
         <section>
           <h2 className="font-medium text-zinc-900">1. Acceptance of Terms</h2>
           <p>
-            By accessing or using Supercortex (&quot;the Service&quot;), you
+            By accessing or using Supacortex (&quot;the Service&quot;), you
             agree to be bound by these Terms of Service. If you do not agree,
             do not use the Service.
           </p>
@@ -33,7 +33,7 @@ export default function TermsPage() {
         <section>
           <h2 className="font-medium text-zinc-900">2. Description of Service</h2>
           <p>
-            Supercortex is a personal knowledge workspace that allows users to
+            Supacortex is a personal knowledge workspace that allows users to
             save bookmarks, sync content from third-party platforms (including
             X/Twitter), and organize saved content. The Service is provided
             &quot;as is&quot; and may change without notice.
@@ -52,7 +52,7 @@ export default function TermsPage() {
         <section>
           <h2 className="font-medium text-zinc-900">4. User Content</h2>
           <p>
-            Content you save to Supercortex remains yours. We do not claim
+            Content you save to Supacortex remains yours. We do not claim
             ownership of your bookmarks, notes, or any other content you store.
             Content synced from third-party platforms is subject to those
             platforms&apos; terms of service.

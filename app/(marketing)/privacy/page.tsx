@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Privacy Policy — Supercortex" };
+export const metadata = { title: "Privacy Policy — Supacortex" };
 
 export default function PrivacyPage() {
   return (

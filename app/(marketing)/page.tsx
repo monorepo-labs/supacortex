@@ -1,48 +1,59 @@
 import Link from "next/link";
-import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 pt-32 pb-20">
-      <div className="max-w-lg text-center">
-        <h1
-          className="text-4xl font-semibold tracking-tight text-zinc-900"
-          style={{ fontFamily: "var(--font-source-serif)" }}
-        >
-          Supercortex
-        </h1>
-        <p className="mt-3 text-lg text-zinc-500">
-          A personal knowledge workspace. Save bookmarks, sync from X, and
-          rediscover what matters.
+    <div className="flex min-h-screen flex-col items-center justify-center px-6 py-20">
+      <div className="max-w-2xl text-center">
+        {/* Name + Beta Badge */}
+        <div className="relative inline-block">
+          <h1 className="font-serif text-5xl font-semibold tracking-tight text-zinc-900">
+            Supacortex
+          </h1>
+          <Badge
+            variant="outline"
+            className="absolute -top-3 -right-14 text-[10px] tracking-wide uppercase text-zinc-400"
+          >
+            Beta
+          </Badge>
+        </div>
+
+        {/* Tagline */}
+        <p className="mt-6 text-lg leading-relaxed text-zinc-400">
+          Your second brain, built for the age of AI agents.
         </p>
-        <Link
-          href="/login"
-          className="mt-8 inline-block rounded-lg bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
-        >
-          Get Started
-        </Link>
+
+        {/* Three Pillars */}
+        <div className="mt-16 grid grid-cols-3 divide-x divide-zinc-300/60 text-center">
+          <div className="px-8">
+            <p className="text-[15px] font-medium text-zinc-900">Capture</p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Bookmarks, links, memory
+            </p>
+          </div>
+          <div className="px-8">
+            <p className="text-[15px] font-medium text-zinc-900">Rediscover</p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Search, group, rediscover
+            </p>
+          </div>
+          <div className="px-8">
+            <p className="text-[15px] font-medium text-zinc-900">Connect</p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              CLI, API
+            </p>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="mt-16">
+          <Button size="lg" asChild>
+            <Link href="/login">Get Started</Link>
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-16 w-full max-w-4xl overflow-hidden rounded-xl border border-zinc-200 shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
-        <Image
-          src="/hero.webp"
-          alt="Supercortex — bookmark grid with categories, search, and reader view"
-          width={2852}
-          height={1618}
-          className="w-full h-auto"
-          priority
-        />
-      </div>
-
-      <footer className="mt-auto pt-16 flex gap-4 text-xs text-zinc-400">
-        <Link href="/terms" className="hover:text-zinc-600 transition-colors">
-          Terms of Service
-        </Link>
-        <span>&middot;</span>
-        <Link href="/privacy" className="hover:text-zinc-600 transition-colors">
-          Privacy Policy
-        </Link>
-      </footer>
     </div>
   );
 }
