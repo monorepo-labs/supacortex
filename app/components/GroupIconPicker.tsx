@@ -1,24 +1,122 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { CheckIcon, MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import {
-  HashtagIcon, BookmarkIcon, StarIcon, HeartIcon, FolderIcon,
-  CodeBracketIcon, MusicalNoteIcon, SwatchIcon, LightBulbIcon, BoltIcon,
-  GlobeAltIcon, FireIcon, CameraIcon, GiftIcon,
-  RocketLaunchIcon, ShieldCheckIcon, TagIcon,
-  BookOpenIcon, BriefcaseIcon, FilmIcon, MapPinIcon,
-  PencilSquareIcon, FaceSmileIcon, SunIcon, TrophyIcon, UsersIcon,
-  HomeIcon, BellIcon, LockClosedIcon, LockOpenIcon, EyeIcon, ClockIcon,
-  CalendarIcon, CloudIcon, ArrowDownTrayIcon, ArrowUpTrayIcon,
-  LinkIcon, EnvelopeIcon, PhoneIcon, ChatBubbleLeftIcon,
-  PaperAirplaneIcon, Cog6ToothIcon, TrashIcon, PencilIcon,
-  RectangleStackIcon, Squares2X2Icon, CommandLineIcon, CircleStackIcon,
-  CpuChipIcon, WifiIcon, Battery100Icon, ComputerDesktopIcon,
-  DevicePhoneMobileIcon, PrinterIcon, MicrophoneIcon, SpeakerWaveIcon,
-  PlayIcon, PauseIcon, ForwardIcon, ArrowPathIcon, RadioIcon,
-  SparklesIcon, CubeIcon, KeyIcon, FlagIcon, NewspaperIcon,
-  HandThumbUpIcon, PhotoIcon, PuzzlePieceIcon,
+  AcademicCapIcon,
+  AdjustmentsHorizontalIcon,
+  ArchiveBoxIcon,
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  ArrowTrendingUpIcon,
+  ArrowUpTrayIcon,
+  AtSymbolIcon,
+  BanknotesIcon,
+  BeakerIcon,
+  BellIcon,
+  BoltIcon,
+  BookmarkIcon,
+  BookOpenIcon,
+  BriefcaseIcon,
+  BugAntIcon,
+  BuildingLibraryIcon,
+  BuildingStorefrontIcon,
+  CakeIcon,
+  CalculatorIcon,
+  CalendarIcon,
+  CameraIcon,
+  ChartBarIcon,
+  ChartPieIcon,
+  ChatBubbleLeftIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  CircleStackIcon,
+  ClipboardIcon,
+  ClockIcon,
+  CloudIcon,
+  CodeBracketIcon,
+  Cog6ToothIcon,
+  CommandLineIcon,
+  ComputerDesktopIcon,
+  CpuChipIcon,
+  CreditCardIcon,
+  CubeIcon,
+  CurrencyDollarIcon,
+  DevicePhoneMobileIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  EyeIcon,
+  FaceSmileIcon,
+  FilmIcon,
+  FingerPrintIcon,
+  FireIcon,
+  FlagIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  GiftIcon,
+  GlobeAltIcon,
+  HandThumbUpIcon,
+  HashtagIcon,
+  HeartIcon,
+  HomeIcon,
+  InboxIcon,
+  KeyIcon,
+  LanguageIcon,
+  LightBulbIcon,
+  LinkIcon,
+  ListBulletIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+  MagnifyingGlassIcon,
+  MapIcon,
+  MapPinIcon,
+  MegaphoneIcon,
+  MicrophoneIcon,
+  MoonIcon,
+  MusicalNoteIcon,
+  NewspaperIcon,
+  PaintBrushIcon,
+  PaperAirplaneIcon,
+  PaperClipIcon,
+  PencilIcon,
+  PencilSquareIcon,
+  PhoneIcon,
+  PhotoIcon,
+  PlayIcon,
+  PlusCircleIcon,
+  PrinterIcon,
+  PuzzlePieceIcon,
+  QrCodeIcon,
+  RadioIcon,
+  RectangleStackIcon,
+  RocketLaunchIcon,
+  RssIcon,
+  ScaleIcon,
+  ServerIcon,
+  ShareIcon,
+  ShieldCheckIcon,
+  ShoppingCartIcon,
+  SignalIcon,
+  SparklesIcon,
+  SpeakerWaveIcon,
+  Squares2X2Icon,
+  StarIcon,
+  SunIcon,
+  SwatchIcon,
+  TableCellsIcon,
+  TagIcon,
+  TrashIcon,
+  TrophyIcon,
+  TvIcon,
+  UserCircleIcon,
+  UserGroupIcon,
+  UserIcon,
+  UsersIcon,
+  VideoCameraIcon,
+  WalletIcon,
+  WifiIcon,
+  WrenchIcon,
+  XCircleIcon,
 } from "@heroicons/react/20/solid";
 import type { ComponentType, SVGProps } from "react";
 
@@ -34,32 +132,150 @@ const COLORS = [
 ];
 
 export const ICON_MAP: Record<string, HeroIcon> = {
-  hash: HashtagIcon, bookmark: BookmarkIcon, star: StarIcon, heart: HeartIcon,
-  folder: FolderIcon, code: CodeBracketIcon, music: MusicalNoteIcon,
-  palette: SwatchIcon, lightbulb: LightBulbIcon, zap: BoltIcon,
-  globe: GlobeAltIcon, flame: FireIcon, camera: CameraIcon,
-  gift: GiftIcon, rocket: RocketLaunchIcon,
-  shield: ShieldCheckIcon, tag: TagIcon, book: BookOpenIcon,
-  briefcase: BriefcaseIcon, film: FilmIcon,
-  "map-pin": MapPinIcon, pencil: PencilSquareIcon, smile: FaceSmileIcon,
-  sun: SunIcon, trophy: TrophyIcon, users: UsersIcon, home: HomeIcon,
-  bell: BellIcon, lock: LockClosedIcon, unlock: LockOpenIcon, eye: EyeIcon,
-  clock: ClockIcon, calendar: CalendarIcon, cloud: CloudIcon,
-  download: ArrowDownTrayIcon, upload: ArrowUpTrayIcon, link: LinkIcon,
-  mail: EnvelopeIcon, phone: PhoneIcon, chat: ChatBubbleLeftIcon,
-  send: PaperAirplaneIcon, settings: Cog6ToothIcon, trash: TrashIcon,
-  edit: PencilIcon, layers: RectangleStackIcon, grid: Squares2X2Icon,
-  terminal: CommandLineIcon, database: CircleStackIcon, cpu: CpuChipIcon,
-  wifi: WifiIcon, battery: Battery100Icon, monitor: ComputerDesktopIcon,
-  phone2: DevicePhoneMobileIcon, printer: PrinterIcon, mic: MicrophoneIcon,
-  volume: SpeakerWaveIcon, play: PlayIcon, pause: PauseIcon,
-  forward: ForwardIcon, refresh: ArrowPathIcon, radio: RadioIcon,
-  sparkles: SparklesIcon, cube: CubeIcon, key: KeyIcon, flag: FlagIcon,
-  newspaper: NewspaperIcon, like: HandThumbUpIcon, photo: PhotoIcon,
+  // General
+  hash: HashtagIcon,
+  star: StarIcon,
+  heart: HeartIcon,
+  sparkles: SparklesIcon,
+  zap: BoltIcon,
+  flame: FireIcon,
+  lightbulb: LightBulbIcon,
+  sun: SunIcon,
+  moon: MoonIcon,
+  flag: FlagIcon,
+  trophy: TrophyIcon,
+  gift: GiftIcon,
+  cake: CakeIcon,
+  smile: FaceSmileIcon,
+  like: HandThumbUpIcon,
+  check: CheckCircleIcon,
+  warning: ExclamationTriangleIcon,
+  "x-circle": XCircleIcon,
+
+  // Content & media
+  bookmark: BookmarkIcon,
+  book: BookOpenIcon,
+  newspaper: NewspaperIcon,
+  "document-text": DocumentTextIcon,
+  photo: PhotoIcon,
+  camera: CameraIcon,
+  film: FilmIcon,
+  "video-camera": VideoCameraIcon,
+  music: MusicalNoteIcon,
+  play: PlayIcon,
+  mic: MicrophoneIcon,
+  volume: SpeakerWaveIcon,
+  radio: RadioIcon,
+  tv: TvIcon,
+  rss: RssIcon,
+
+  // Communication
+  mail: EnvelopeIcon,
+  chat: ChatBubbleLeftIcon,
+  send: PaperAirplaneIcon,
+  phone: PhoneIcon,
+  megaphone: MegaphoneIcon,
+  bell: BellIcon,
+  inbox: InboxIcon,
+  "at-symbol": AtSymbolIcon,
+
+  // Navigation & actions
+  search: MagnifyingGlassIcon,
+  link: LinkIcon,
+  share: ShareIcon,
+  download: ArrowDownTrayIcon,
+  upload: ArrowUpTrayIcon,
+  refresh: ArrowPathIcon,
+  "trending-up": ArrowTrendingUpIcon,
+  "plus-circle": PlusCircleIcon,
+  "list-bullet": ListBulletIcon,
+
+  // Organization
+  folder: FolderIcon,
+  "folder-open": FolderOpenIcon,
+  archive: ArchiveBoxIcon,
+  tag: TagIcon,
+  clipboard: ClipboardIcon,
+  layers: RectangleStackIcon,
+  grid: Squares2X2Icon,
+  "table-cells": TableCellsIcon,
+
+  // People
+  user: UserIcon,
+  "user-circle": UserCircleIcon,
+  "user-group": UserGroupIcon,
+  users: UsersIcon,
+
+  // Places & objects
+  home: HomeIcon,
+  "map-pin": MapPinIcon,
+  map: MapIcon,
+  globe: GlobeAltIcon,
+  "building-library": BuildingLibraryIcon,
+  "building-storefront": BuildingStorefrontIcon,
+
+  // Work & business
+  briefcase: BriefcaseIcon,
+  "academic-cap": AcademicCapIcon,
+  banknotes: BanknotesIcon,
+  wallet: WalletIcon,
+  "credit-card": CreditCardIcon,
+  "currency-dollar": CurrencyDollarIcon,
+  "shopping-cart": ShoppingCartIcon,
+  "chart-bar": ChartBarIcon,
+  "chart-pie": ChartPieIcon,
+  scale: ScaleIcon,
+  calculator: CalculatorIcon,
+
+  // Tools & editing
+  pencil: PencilSquareIcon,
+  edit: PencilIcon,
+  "paint-brush": PaintBrushIcon,
+  palette: SwatchIcon,
+  wrench: WrenchIcon,
+  settings: Cog6ToothIcon,
+  adjustments: AdjustmentsHorizontalIcon,
+  trash: TrashIcon,
+  printer: PrinterIcon,
+  "paper-clip": PaperClipIcon,
+  "qr-code": QrCodeIcon,
+
+  // Tech & dev
+  code: CodeBracketIcon,
+  terminal: CommandLineIcon,
+  database: CircleStackIcon,
+  server: ServerIcon,
+  cpu: CpuChipIcon,
+  cube: CubeIcon,
+  "bug-ant": BugAntIcon,
+  beaker: BeakerIcon,
   puzzle: PuzzlePieceIcon,
+
+  // Devices & connectivity
+  monitor: ComputerDesktopIcon,
+  phone2: DevicePhoneMobileIcon,
+  wifi: WifiIcon,
+  signal: SignalIcon,
+  cloud: CloudIcon,
+
+  // Security & identity
+  lock: LockClosedIcon,
+  unlock: LockOpenIcon,
+  shield: ShieldCheckIcon,
+  key: KeyIcon,
+  "finger-print": FingerPrintIcon,
+  eye: EyeIcon,
+
+  // Time & scheduling
+  clock: ClockIcon,
+  calendar: CalendarIcon,
+
+  // Misc
+  rocket: RocketLaunchIcon,
+  language: LanguageIcon,
 };
 
-const CURATED_KEYS = Object.keys(ICON_MAP);
+const ALL_KEYS = Object.keys(ICON_MAP);
 
 export default function GroupIconPicker({
   color,
@@ -75,9 +291,9 @@ export default function GroupIconPicker({
   const [search, setSearch] = useState("");
 
   const displayedIcons = useMemo(() => {
-    if (!search.trim()) return CURATED_KEYS;
+    if (!search.trim()) return ALL_KEYS;
     const q = search.toLowerCase().replace(/\s+/g, "-");
-    return CURATED_KEYS.filter((name) => name.includes(q));
+    return ALL_KEYS.filter((name) => name.includes(q));
   }, [search]);
 
   return (
@@ -91,7 +307,9 @@ export default function GroupIconPicker({
             className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-transform hover:scale-110"
             style={{ backgroundColor: c }}
           >
-            {c === color && <CheckIcon className="h-2 w-2 text-white" />}
+            {c === color && (
+              <CheckIcon className="h-2 w-2 text-white" />
+            )}
           </button>
         ))}
       </div>
@@ -101,7 +319,7 @@ export default function GroupIconPicker({
         <MagnifyingGlassIcon className="h-3 w-3 text-zinc-400" />
         <input
           type="text"
-          placeholder="Search..."
+          placeholder="Search icons..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 bg-transparent text-xs text-zinc-700 placeholder:text-zinc-400 outline-none"
@@ -109,13 +327,14 @@ export default function GroupIconPicker({
       </div>
 
       {/* Icons */}
-      <div className="grid grid-cols-7 gap-0.5 max-h-40 overflow-x-hidden overflow-y-auto [scrollbar-width:thin]">
+      <div className="grid grid-cols-7 gap-0.5 max-h-48 overflow-x-hidden overflow-y-auto [scrollbar-width:thin]">
         {displayedIcons.map((key) => {
           const Icon = ICON_MAP[key];
           const isActive = key === icon;
           return (
             <button
               key={key}
+              title={key}
               onClick={() => onIconChange(key)}
               className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors ${
                 isActive
