@@ -95,6 +95,7 @@ Return a JSON array of objects: [{"name": "AI", "icon": "cpu"}, ...]`;
     return parsed
       .filter(
         (item) =>
+          item !== null &&
           typeof item === "object" &&
           typeof item.name === "string" &&
           !existingLower.has(item.name.toLowerCase()),
