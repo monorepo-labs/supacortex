@@ -64,6 +64,7 @@ function GroupItem({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(group.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { mutate: rename } = useRenameGroup();
   const { mutate: updateGroup } = useUpdateGroup();
@@ -117,18 +118,19 @@ function GroupItem({
       >
         <ContextMenuTrigger asChild>
           <div
-            onClick={() => onSelect(group.id)}
+            onClick={() => { if (!pickerOpen) onSelect(group.id); }}
             className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
               isActive
                 ? "bg-black/6 text-zinc-900"
                 : "text-zinc-600 hover:bg-black/6"
             }`}
           >
-            <Popover>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
               <PopoverTrigger asChild>
                 <button
                   className="cursor-pointer"
                   onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   <GroupIcon color={group.color} iconName={iconName} />
                 </button>
@@ -146,7 +148,7 @@ function GroupItem({
             </Popover>
             <button
               onDoubleClick={() => setEditing(true)}
-              className="flex-1 text-left cursor-default"
+              className="flex-1 text-left cursor-default truncate"
             >
               {group.name}
             </button>
@@ -154,10 +156,11 @@ function GroupItem({
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           {confirmDelete ? (
-            <div className="flex items-center gap-1.5 px-2 py-1.5">
+            <div className="flex items-center gap-1.5">
               <Button
                 variant="destructive"
-                size="xs"
+                size="sm"
+                className="flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(group.id);
@@ -166,11 +169,12 @@ function GroupItem({
                   );
                 }}
               >
-                Yes, delete
+                Delete
               </Button>
               <Button
                 variant="ghost"
-                size="xs"
+                size="sm"
+                className="flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   setConfirmDelete(false);
@@ -287,6 +291,7 @@ export default function Sidebar({
     deleteGroup(id, {
       onSuccess: () => {
         if (activeGroupId === id) onGroupSelect(null);
+        sileo.success({ title: "Group deleted" });
       },
       onError: () => sileo.error({ title: "Failed to delete group" }),
     });
