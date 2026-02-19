@@ -1,0 +1,1 @@
+ALTER TABLE "sync_logs" ADD COLUMN "since_year" integer;

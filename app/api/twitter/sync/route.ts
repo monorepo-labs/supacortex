@@ -8,10 +8,19 @@ export const maxDuration = 720;
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET;
 
-export async function POST() {
+export async function POST(request: Request) {
   const user = await getUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Read optional sinceYear from request body
+  let sinceYear: number | undefined;
+  try {
+    const body = await request.json();
+    if (body?.sinceYear != null) sinceYear = Number(body.sinceYear);
+  } catch {
+    // No body — sinceYear stays undefined
+  }
 
   // Refresh X access token via BetterAuth (ensures token is fresh before sync)
   try {
@@ -30,7 +39,9 @@ export async function POST() {
       headers: {
         "X-Internal-Token": INTERNAL_API_SECRET ?? "",
         "X-User-Id": user.id,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({ sinceYear: sinceYear ?? null }),
     });
 
     const body = await res.json();

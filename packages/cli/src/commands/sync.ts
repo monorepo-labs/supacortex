@@ -9,10 +9,21 @@ export const registerSyncCommand = (program: Command) => {
   sync
     .command("twitter", { isDefault: true })
     .description("Sync bookmarks from X (Twitter)")
-    .action(async () => {
-      console.log("Syncing X bookmarks...");
+    .option("--since <year>", "Only fetch bookmarks from this year onwards")
+    .action(async (opts: { since?: string }) => {
+      let sinceYear: number | undefined;
+      if (opts.since) {
+        sinceYear = parseInt(opts.since, 10);
+        const currentYear = new Date().getFullYear();
+        if (isNaN(sinceYear) || sinceYear < 2010 || sinceYear > currentYear) {
+          console.error(`Invalid year. Must be between 2010 and ${currentYear}.`);
+          process.exit(1);
+        }
+      }
 
-      const result = await apiRequest("sync", "POST");
+      console.log(sinceYear ? `Syncing X bookmarks from ${sinceYear} onwards...` : "Syncing X bookmarks...");
+
+      const result = await apiRequest("sync", "POST", sinceYear ? { sinceYear } : undefined);
 
       if (result.synced === 0) {
         console.log("Already up to date.");

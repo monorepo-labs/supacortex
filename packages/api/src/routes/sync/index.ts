@@ -22,8 +22,24 @@ sync.post("/", async (c) => {
     );
   }
 
+  // Parse optional sinceYear from request body
+  let sinceYear: number | undefined;
   try {
-    const result = await syncTwitterBookmarks(userId, token.accessToken, token.xUserId);
+    const body = await c.req.json();
+    if (body?.sinceYear != null) {
+      const year = Number(body.sinceYear);
+      const currentYear = new Date().getFullYear();
+      if (!Number.isInteger(year) || year < 2010 || year > currentYear) {
+        return c.json({ error: `sinceYear must be between 2010 and ${currentYear}` }, 400);
+      }
+      sinceYear = year;
+    }
+  } catch {
+    // No body or invalid JSON — sinceYear stays undefined
+  }
+
+  try {
+    const result = await syncTwitterBookmarks(userId, token.accessToken, token.xUserId, sinceYear ? { sinceYear } : undefined);
 
     // Fire-and-forget categorization if sync completed (not interrupted)
     if (result.status === "completed" && result.insertedBookmarks.length > 0) {

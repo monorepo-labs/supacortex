@@ -70,8 +70,12 @@ type SyncResponse = {
 export function useSyncTwitter() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/twitter/sync", { method: "POST" });
+    mutationFn: async (sinceYear?: number) => {
+      const res = await fetch("/api/twitter/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sinceYear: sinceYear ?? null }),
+      });
       if (!res.ok) {
         const body = await res.json();
         if (res.status === 429 && body.rateLimitResetsAt) {

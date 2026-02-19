@@ -33,6 +33,7 @@ import {
 } from "@/hooks/use-twitter";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
 import UserMenu from "./UserMenu";
+import SyncDateFilterModal from "./SyncDateFilterModal";
 import { randomColor, randomGroupName } from "@/lib/group-defaults";
 
 type Group = { id: string; name: string; color: string; icon?: string | null };
@@ -217,6 +218,8 @@ export default function Sidebar({
   const { mutate: syncTwitter, isPending: isSyncing } = useSyncTwitter();
   const { data: syncStatus } = useSyncStatus(!!twitterAccount);
 
+  const [showDateFilter, setShowDateFilter] = useState(false);
+
   const isInterrupted = syncStatus?.status === "interrupted";
   const resumeTime = syncStatus?.rateLimitResetsAt
     ? new Date(syncStatus.rateLimitResetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -231,6 +234,50 @@ export default function Sidebar({
   //     syncTwitter();
   //   }
   // }, [twitterAccount, syncStatus?.status, isSyncing, syncTwitter]);
+
+  const triggerSync = (sinceYear?: number) => {
+    sileo.promise(
+      new Promise((resolve, reject) => {
+        syncTwitter(sinceYear, {
+          onSuccess: (data) => {
+            resolve(data);
+            if (data.status === "interrupted")
+              sileo.warning({
+                title: "Rate limited by X",
+                description:
+                  "Remaining bookmarks will sync automatically.",
+              });
+          },
+          onError: (err) => reject(err),
+        });
+      }),
+      {
+        loading: { title: "Syncing bookmarks from X..." },
+        success: (data) => ({
+          title: `Synced ${(data as { synced: number }).synced} bookmarks from X`,
+        }),
+        error: (err) => ({
+          title:
+            (err as Error).message || "Failed to sync bookmarks",
+        }),
+      },
+    );
+  };
+
+  const handleSyncClick = () => {
+    // First sync → show year picker modal
+    if (syncStatus?.status === "none") {
+      setShowDateFilter(true);
+    } else {
+      // Incremental sync — no modal needed
+      triggerSync();
+    }
+  };
+
+  const handleDateFilterConfirm = (sinceYear: number | undefined) => {
+    setShowDateFilter(false);
+    triggerSync(sinceYear);
+  };
 
   const handleAddGroup = () => {
     createGroup({ name: randomGroupName(), color: randomColor() });
@@ -323,34 +370,7 @@ export default function Sidebar({
             ) : (
               <Button
                 variant="link"
-                onClick={() =>
-                  sileo.promise(
-                    new Promise((resolve, reject) => {
-                      syncTwitter(undefined, {
-                        onSuccess: (data) => {
-                          resolve(data);
-                          if (data.status === "interrupted")
-                            sileo.warning({
-                              title: "Rate limited by X",
-                              description:
-                                "Remaining bookmarks will sync automatically.",
-                            });
-                        },
-                        onError: (err) => reject(err),
-                      });
-                    }),
-                    {
-                      loading: { title: "Syncing bookmarks from X..." },
-                      success: (data) => ({
-                        title: `Synced ${(data as { synced: number }).synced} bookmarks from X`,
-                      }),
-                      error: (err) => ({
-                        title:
-                          (err as Error).message || "Failed to sync bookmarks",
-                      }),
-                    },
-                  )
-                }
+                onClick={handleSyncClick}
                 disabled={isSyncing}
                 className="w-full justify-start text-zinc-500 hover:text-zinc-600"
               >
@@ -372,6 +392,11 @@ export default function Sidebar({
           )}
         </div>
       </aside>
+
+      <SyncDateFilterModal
+        open={showDateFilter}
+        onConfirm={handleDateFilterConfirm}
+      />
     </>
   );
 }
