@@ -4,6 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { PanelLeft, Plus, RefreshCw, Trash2 } from "lucide-react";
 import XIcon from "./XIcon";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
+import {
+  BookOpenIcon,
+  ChatBubbleLeftIcon,
+} from "@heroicons/react/16/solid";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -223,6 +227,7 @@ export default function Sidebar({
   const { data: syncStatus } = useSyncStatus(!!twitterAccount);
 
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"library" | "ask">("library");
 
   const isInterrupted = syncStatus?.status === "interrupted";
   const resumeTime = syncStatus?.rateLimitResetsAt
@@ -323,8 +328,36 @@ export default function Sidebar({
           <UserMenu />
         </div>
 
+        {/* Tab switcher */}
+        <div className="mt-6 w-52 px-3">
+          <div className="flex rounded-full bg-black/5 p-0.5">
+            <button
+              onClick={() => setSidebarTab("library")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
+                sidebarTab === "library"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              <BookOpenIcon className="h-3.5 w-3.5" />
+              Library
+            </button>
+            <button
+              onClick={() => setSidebarTab("ask")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
+                sidebarTab === "ask"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
+              AI
+            </button>
+          </div>
+        </div>
+
         {/* Groups */}
-        <nav className="mt-4 flex-1 w-52 px-3">
+        <nav className="mt-2 flex-1 w-52 px-3">
           <Button
             onClick={handleAddGroup}
             variant="ghost"
