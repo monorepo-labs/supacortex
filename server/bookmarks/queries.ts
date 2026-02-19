@@ -9,20 +9,49 @@ export type BookmarkEdge = {
   terms: string[];
 };
 
+export type GraphNode = {
+  id: string;
+  title: string | null;
+  url: string;
+  type: string;
+  author: string | null;
+  content: string | null;
+  mediaUrls: unknown[] | null;
+  groupIds: string[];
+  isRead: boolean;
+  tweetCreatedAt: string | null;
+  createdAt: string | null;
+};
+
 export type GraphData = {
+  nodes: GraphNode[];
   edges: BookmarkEdge[];
 };
 
-export const getBookmarkGraph = async (
+export const getGraphBookmarks = async (
   userId: string,
   minShared = 3,
+  type?: string,
 ): Promise<GraphData> => {
+  const typeCondition = type ? sql`AND type = ${type}` : sql``;
+
   const result = await db.execute(sql`
-    WITH terms AS (
-      SELECT id, unnest(tsvector_to_array(search_vector)) AS term
-      FROM bookmarks
-      WHERE created_by = ${userId}
-        AND search_vector IS NOT NULL
+    WITH all_bookmarks AS (
+      SELECT b.id, b.title, b.url, b.type, b.author, b.content, b.media_urls,
+        b.is_read, b.tweet_created_at, b.created_at,
+        coalesce(array_agg(bg.group_id) filter (where bg.group_id is not null), '{}') as group_ids
+      FROM bookmarks b
+      LEFT JOIN bookmark_groups bg ON b.id = bg.bookmark_id
+      WHERE b.created_by = ${userId} ${typeCondition}
+      GROUP BY b.id
+      ORDER BY coalesce(b.tweet_created_at, b.created_at) DESC
+      LIMIT 100
+    ),
+    terms AS (
+      SELECT b.id, unnest(tsvector_to_array(bk.search_vector)) AS term
+      FROM all_bookmarks b
+      JOIN bookmarks bk ON b.id = bk.id
+      WHERE bk.search_vector IS NOT NULL
     ),
     term_counts AS (
       SELECT term, COUNT(*) AS doc_count
@@ -52,6 +81,16 @@ export const getBookmarkGraph = async (
       HAVING COUNT(*) >= ${minShared}
     )
     SELECT json_build_object(
+      'nodes', (
+        SELECT coalesce(json_agg(
+          json_build_object(
+            'id', id, 'title', title, 'url', url, 'type', type,
+            'author', author, 'content', content, 'mediaUrls', media_urls, 'groupIds', group_ids,
+            'isRead', is_read, 'tweetCreatedAt', tweet_created_at, 'createdAt', created_at
+          )
+        ), '[]'::json)
+        FROM all_bookmarks
+      ),
       'edges', (
         SELECT coalesce(json_agg(
           json_build_object('source', source, 'target', target, 'shared', shared::int, 'terms', terms)
@@ -63,7 +102,7 @@ export const getBookmarkGraph = async (
   `);
 
   const row = (result as unknown as { data: GraphData }[])[0];
-  return row?.data ?? { edges: [] };
+  return row?.data ?? { nodes: [], edges: [] };
 };
 
 export const getBookmarksForUser = async (
@@ -72,9 +111,14 @@ export const getBookmarksForUser = async (
   groupId?: string,
   limit?: number,
   offset?: number,
+  type?: string,
 ) => {
   const conditions = [eq(bookmarks.createdBy, userId)];
   let tsQuery;
+
+  if (type) {
+    conditions.push(eq(bookmarks.type, type));
+  }
 
   if (search) {
     // Split into words, append :* for prefix matching, join with | (OR)
@@ -164,9 +208,14 @@ export const getBookmarksForAPI = async (
   groupId?: string,
   limit?: number,
   offset?: number,
+  type?: string,
 ) => {
   const conditions = [eq(bookmarks.createdBy, userId)];
   let tsQuery;
+
+  if (type) {
+    conditions.push(eq(bookmarks.type, type));
+  }
 
   if (search) {
     const prefixQuery = search

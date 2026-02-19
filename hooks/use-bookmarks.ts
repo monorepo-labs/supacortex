@@ -13,11 +13,13 @@ const PAGE_SIZE = 50;
 
 type BookmarkPage = { data: BookmarkData[]; total: number };
 
-export const useGraphData = (enabled: boolean) => {
+export const useGraphData = (enabled: boolean, type?: string) => {
   return useQuery<GraphData>({
-    queryKey: ["graph-data"],
+    queryKey: ["graph-data", type],
     queryFn: async () => {
-      const res = await fetch("/api/bookmarks/graph");
+      const params = new URLSearchParams();
+      if (type) params.set("type", type);
+      const res = await fetch(`/api/bookmarks/graph?${params}`);
       if (!res.ok) throw new Error("Failed to fetch graph data");
       return res.json();
     },
@@ -26,13 +28,15 @@ export const useGraphData = (enabled: boolean) => {
   });
 };
 
-export const useBookmarks = (search?: string, groupId?: string) => {
+export const useBookmarks = (search?: string, groupId?: string, type?: string, enabled = true) => {
   const query = useInfiniteQuery<BookmarkPage>({
-    queryKey: ["bookmarks", search, groupId],
+    queryKey: ["bookmarks", search, groupId, type],
+    enabled,
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (groupId) params.set("group", groupId);
+      if (type) params.set("type", type);
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(pageParam));
       const res = await fetch(`/api/bookmarks?${params}`);
@@ -142,6 +146,7 @@ export const useDeleteBookmark = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      queryClient.invalidateQueries({ queryKey: ["graph-data"] });
     },
   });
 };
@@ -196,6 +201,7 @@ export const useCreateBookmark = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      queryClient.invalidateQueries({ queryKey: ["graph-data"] });
     },
   });
 };

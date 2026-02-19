@@ -9,6 +9,7 @@ export const registerBookmarksCommand = (program: Command) => {
     .option("-l, --limit <number>", "Max results", "20")
     .option("-o, --offset <number>", "Skip results")
     .option("-s, --search <string>", "Search bookmarks")
+    .option("-t, --type <string>", "Filter by type (tweet, link, youtube)")
     .option("-j, --json", "Output raw JSON")
     .description("List all bookmarks")
     .action(async (option) => {
@@ -16,6 +17,7 @@ export const registerBookmarksCommand = (program: Command) => {
       if (option.limit) searchParams.append("limit", String(parseInt(option.limit, 10)));
       if (option.offset) searchParams.append("offset", String(parseInt(option.offset, 10)));
       if (option.search) searchParams.append("search", option.search);
+      if (option.type) searchParams.append("type", option.type);
       const result = await apiRequest(
         `bookmarks?${searchParams.toString()}`,
         "GET",
