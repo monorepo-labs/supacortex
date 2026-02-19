@@ -1,14 +1,29 @@
 {
   "name": "@supacortex/cli",
   "version": "0.1.0",
+  "description": "Supacortex CLI — your second brain from the terminal",
   "type": "module",
   "bin": {
     "scx": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsup src/index.ts --format esm"
+    "build": "tsup src/index.ts --format esm --target node18"
   },
+  "keywords": [
+    "supacortex",
+    "bookmarks",
+    "cli",
+    "second-brain"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monorepo-labs/supacortex"
+  },
+  "license": "MIT",
   "dependencies": {
     "commander": "^13.0.0"
   },

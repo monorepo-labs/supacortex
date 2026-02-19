@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import { Command } from "commander";
 import { registerLoginCommand } from "./commands/login";
 import { registerLogoutCommand } from "./commands/logout";
@@ -8,13 +9,18 @@ import { registerWhoamiCommand } from "./commands/whoami";
 import { registerBookmarksCommand } from "./commands/bookmarks";
 import { registerGroupsCommand } from "./commands/groups";
 import { registerSyncCommand } from "./commands/sync";
+import { registerUpdateCommand } from "./commands/update";
+import { checkForUpdates } from "./lib/update-notifier";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
 
 const program = new Command();
 
 program
   .name("scx")
   .description("Supacortex CLI — your second brain from the terminal")
-  .version("0.1.0");
+  .version(pkg.version);
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
@@ -24,5 +30,7 @@ registerWhoamiCommand(program);
 registerBookmarksCommand(program);
 registerGroupsCommand(program);
 registerSyncCommand(program);
+registerUpdateCommand(program);
 
+checkForUpdates(pkg.version);
 program.parse();
