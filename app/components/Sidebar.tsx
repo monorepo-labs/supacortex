@@ -4,10 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { PanelLeft, Plus, RefreshCw, Trash2 } from "lucide-react";
 import XIcon from "./XIcon";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
-import {
-  BookOpenIcon,
-  ChatBubbleLeftIcon,
-} from "@heroicons/react/16/solid";
+import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -126,7 +123,7 @@ function GroupItem({
               if (!pickerOpen) onSelect(group.id);
             }}
             className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
-              isActive ? " text-zinc-900" : "text-zinc-400 hover:text-zinc-900"
+              isActive ? " text-zinc-900" : "text-zinc-600 hover:text-zinc-900"
             }`}
           >
             <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
@@ -374,7 +371,7 @@ export default function Sidebar({
                   className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
                     activeGroupId === null
                       ? " text-zinc-900"
-                      : "text-zinc-400 hover:text-zinc-900"
+                      : "text-zinc-600 hover:text-zinc-900"
                   }`}
                 >
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-400">
