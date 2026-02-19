@@ -71,6 +71,9 @@ export default function LibraryGridView({
   const cols = gridWidth > 0 ? calcCols(gridWidth) : 4;
   const prevColsRef = useRef(cols);
 
+  // Track bookmark IDs to detect when the dataset changes (e.g. switching groups)
+  const prevBookmarkIdsRef = useRef("");
+
   // Measure width from scroll container
   useEffect(() => {
     const el = scrollRef.current;
@@ -101,9 +104,14 @@ export default function LibraryGridView({
       const colsChanged = prevColsRef.current !== cols;
       prevColsRef.current = cols;
 
+      // Detect if the set of bookmarks changed (group switch, search change, etc.)
+      const currentIds = bookmarks.map((b) => b.id).join(",");
+      const idsChanged = prevBookmarkIdsRef.current !== currentIds;
+      prevBookmarkIdsRef.current = currentIds;
+
       setLayout((prev) => {
-        // When cols change or filtered, ignore previous positions — re-flow everything
-        const usePrev = !colsChanged && !isFiltered;
+        // When cols change or dataset changes, ignore previous positions — re-flow everything
+        const usePrev = !colsChanged && !idsChanged;
         const existing = usePrev ? new Map(prev.map((item) => [item.i, item])) : null;
 
         // Track the max Y so new items from next pages go below existing ones
@@ -135,7 +143,7 @@ export default function LibraryGridView({
 
       setMeasured(true);
     });
-  }, [bookmarks, gridWidth, isFiltered, cols]);
+  }, [bookmarks, gridWidth, cols]);
 
   const bookmarkMap = useMemo(
     () => new Map(bookmarks.map((b) => [b.id, b])),
