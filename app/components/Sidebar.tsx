@@ -7,6 +7,12 @@ import { RectangleStackIcon } from "@heroicons/react/20/solid";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import {
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -339,17 +345,20 @@ export default function Sidebar({
               <BookOpenIcon className="h-3.5 w-3.5" />
               Library
             </button>
-            <button
-              onClick={() => setSidebarTab("ask")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
-                sidebarTab === "ask"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700"
-              }`}
-            >
-              <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
-              AI
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    disabled
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium text-zinc-400 cursor-not-allowed"
+                  >
+                    <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
+                    AI
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Work in progress</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
