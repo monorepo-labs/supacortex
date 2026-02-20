@@ -8,6 +8,12 @@
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
+    "core:webview:allow-create-webview",
+    "core:webview:allow-webview-close",
+    "core:webview:allow-set-webview-position",
+    "core:webview:allow-set-webview-size",
+    "core:webview:allow-set-webview-focus",
+    "core:webview:allow-get-all-webviews",
     {
       "identifier": "shell:allow-execute",
       "allow": [

@@ -10,7 +10,6 @@ import {
   MousePointerClick,
   FolderPlus,
   ArrowLeft,
-  ArrowUpRight,
 } from "lucide-react";
 import { sileo } from "sileo";
 import {
@@ -97,16 +96,11 @@ export default function BookmarkCard({
   );
   const isVideo = media?.type === "video" || media?.type === "animated_gif";
   const isTweet = bookmark.type === "tweet" || bookmark.type === "article";
-  const isArticle = bookmark.type === "article";
   const isYouTube = bookmark.type === "youtube";
   const ytMedia = isYouTube
     ? bookmark.mediaUrls?.find((m) => m.type === "youtube")
     : null;
   const bookmarkGroupIds = bookmark.groupIds ?? [];
-
-  const articleUrl = isArticle
-    ? (bookmark.content?.match(/https?:\/\/[^\s)]+/)?.[0] ?? bookmark.url)
-    : null;
 
   return (
     <ContextMenu
@@ -142,7 +136,6 @@ export default function BookmarkCard({
               onOpenInNewPanel?.();
               return;
             }
-            if (bookmark.type === "article") return;
             onClick();
           }}
           className={`group/card relative flex flex-col h-full rounded-lg bg-white/70 tauri:bg-white shadow-card overflow-hidden ${
@@ -151,7 +144,7 @@ export default function BookmarkCard({
               : isOpenInReader
                 ? "outline-1 outline-black/20"
                 : ""
-          } ${textSelectable ? "cursor-text select-text" : isArticle ? "cursor-default select-none" : "cursor-pointer select-none"} ${className ?? ""}`}
+          } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {isYouTube ? (
             <>
@@ -274,20 +267,6 @@ export default function BookmarkCard({
                 </div>
               )}
               {!media && !bookmark.content && <div className="shrink-0 h-4" />}
-
-              {/* Article hover button — full width at bottom */}
-              {isArticle && articleUrl && (
-                <a
-                  href={articleUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="shrink-0 flex items-center justify-center gap-1.5 mx-4 mb-4 rounded-lg bg-blue-500 py-2 text-xs font-medium text-white translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 transition-all duration-200 hover:bg-blue-600"
-                >
-                  Read article
-                  <ArrowUpRight size={12} />
-                </a>
-              )}
             </>
           ) : (
             <>
@@ -395,7 +374,7 @@ export default function BookmarkCard({
       <ContextMenuContent className="w-64">
         {contextMode === "default" ? (
           <>
-            {onOpenInNewPanel && !isOpenInReader && !isArticle && (
+            {onOpenInNewPanel && !isOpenInReader && (
               <ContextMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
