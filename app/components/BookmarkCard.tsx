@@ -73,7 +73,7 @@ export default function BookmarkCard({
   if (bookmark._optimistic) {
     return (
       <div
-        className={`rounded-xl bg-white/80 shadow-card h-full ${className ?? ""}`}
+        className={`rounded-xl bg-white/80 tauri:bg-white shadow-card h-full ${className ?? ""}`}
       >
         <div className="p-4 space-y-3">
           <div className="h-4 w-3/4 rounded bg-zinc-100 animate-pulse" />
@@ -145,7 +145,7 @@ export default function BookmarkCard({
             if (bookmark.type === "article") return;
             onClick();
           }}
-          className={`group/card relative flex flex-col h-full rounded-lg bg-white/70 shadow-card overflow-hidden ${
+          className={`group/card relative flex flex-col h-full rounded-lg bg-white/70 tauri:bg-white shadow-card overflow-hidden ${
             isSelected
               ? "outline-2 outline-blue-600/50"
               : isOpenInReader
