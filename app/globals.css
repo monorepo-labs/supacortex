@@ -3,6 +3,7 @@
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant tauri (&:is([data-tauri] *));
 
 @theme inline {
     --color-background: var(--background);
@@ -129,6 +130,14 @@ body {
         @apply bg-background text-foreground;
     }
 }
+
+/* Tauri desktop — transparent for vibrancy */
+html[data-tauri],
+html[data-tauri] body {
+    background: rgba(239, 240, 242, 0.9);
+}
+
+/* Tauri drag region */
 
 /* Scrollbar: hidden until parent hovered (for cards) */
 .scrollbar-hover {

@@ -1,8 +1,8 @@
 "use client";
 
-import { type CSSProperties, type DragEvent } from "react";
+import { type CSSProperties, type DragEvent, useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { X, ExternalLink, GripVertical, FolderPlus } from "lucide-react";
+import { X, ExternalLink, GripVertical, FolderPlus, BookOpen, Globe } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -39,8 +39,6 @@ export default function Reader({
   onDrop?: (e: DragEvent) => void;
   onDragEnd?: (e: DragEvent) => void;
 }) {
-  const isTweet = bookmark.type === "tweet";
-
   const dragProps = {
     draggable,
     onDragStart,
@@ -49,19 +47,22 @@ export default function Reader({
     onDragEnd,
   };
 
+  const panel =
+    bookmark.type === "tweet" ? (
+      <TweetPanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
+    ) : bookmark.type === "youtube" ? (
+      <YouTubePanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
+    ) : (
+      <LinkPanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
+    );
+
   return (
     <div
       className="group/reader shrink-0 shadow-card rounded-xl overflow-hidden bg-white"
       style={style}
     >
       <div className="h-full flex flex-col">
-        {isTweet ? (
-          <TweetPanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
-        ) : bookmark.type === "youtube" ? (
-          <YouTubePanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
-        ) : (
-          <LinkPanel bookmark={bookmark} onClose={onClose} dragProps={dragProps} />
-        )}
+        {panel}
       </div>
     </div>
   );
@@ -114,16 +115,22 @@ function CloseButton({ onClose }: { onClose: () => void }) {
 
 // ── Shared reader header ──────────────────────────────────────────
 
+type ViewMode = "reader" | "web";
+
 function ReaderHeader({
   bookmark,
   label,
   onClose,
   dragProps,
+  viewMode,
+  onViewModeChange,
 }: {
   bookmark: BookmarkData;
   label: string;
   onClose: () => void;
   dragProps?: DragProps;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100">
@@ -140,6 +147,32 @@ function ReaderHeader({
         </a>
       </div>
       <div className="flex items-center gap-1">
+        {viewMode && onViewModeChange && (
+          <div className="flex rounded-full bg-black/5 p-0.5 mr-1">
+            <button
+              onClick={() => onViewModeChange("reader")}
+              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                viewMode === "reader"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              <BookOpen size={11} />
+              Reader
+            </button>
+            <button
+              onClick={() => onViewModeChange("web")}
+              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                viewMode === "web"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              <Globe size={11} />
+              Web
+            </button>
+          </div>
+        )}
         <Popover>
           <PopoverTrigger asChild>
             <button className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600">
@@ -419,6 +452,72 @@ function TweetPanel({
 
 // ── YouTube Panel — embedded video + transcript ─────────────────────
 
+function isTauri(): boolean {
+  return !!(window as any).__TAURI_INTERNALS__;
+}
+
+function invokeTauri(cmd: string, args: Record<string, unknown>) {
+  const tauri = (window as any).__TAURI_INTERNALS__;
+  if (tauri) tauri.invoke(cmd, args);
+}
+
+function WebViewFrame({ url, bookmarkId }: { url: string; bookmarkId: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const label = `webview-${bookmarkId.slice(0, 8)}`;
+
+  useEffect(() => {
+    if (!isTauri() || !containerRef.current) return;
+
+    const el = containerRef.current;
+
+    function sync() {
+      const r = el.getBoundingClientRect();
+      invokeTauri("resize_webview", {
+        label,
+        x: r.left,
+        y: r.top,
+        width: r.width,
+        height: r.height,
+      });
+    }
+
+    // Initial open
+    const rect = el.getBoundingClientRect();
+    invokeTauri("open_webview", {
+      url,
+      label,
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+    });
+
+    // Track size/position changes
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    window.addEventListener("resize", sync);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+      invokeTauri("close_webview", { label });
+    };
+  }, [url, label]);
+
+  if (!isTauri()) {
+    return (
+      <iframe
+        src={url}
+        title="Web view"
+        className="flex-1 w-full border-none"
+      />
+    );
+  }
+
+  // Transparent placeholder that the native webview overlays
+  return <div ref={containerRef} className="flex-1 w-full" />;
+}
+
 function YouTubePanel({
   bookmark,
   onClose,
@@ -428,6 +527,7 @@ function YouTubePanel({
   onClose: () => void;
   dragProps?: DragProps;
 }) {
+  const [viewMode, setViewMode] = useState<ViewMode>("reader");
   const ytMedia = bookmark.mediaUrls?.find((m) => m.type === "youtube");
   const videoId = ytMedia?.videoUrl
     ? new URL(ytMedia.videoUrl).searchParams.get("v")
@@ -440,8 +540,13 @@ function YouTubePanel({
         label="Watch on YouTube"
         onClose={onClose}
         dragProps={dragProps}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
+      {viewMode === "web" ? (
+        <WebViewFrame url={bookmark.url} bookmarkId={bookmark.id} />
+      ) : (
       <div className="flex-1 overflow-y-auto scrollbar-light">
         {/* Video embed */}
         {videoId && (
@@ -492,6 +597,7 @@ function YouTubePanel({
           )}
         </div>
       </div>
+      )}
     </>
   );
 }
@@ -507,6 +613,8 @@ function LinkPanel({
   onClose: () => void;
   dragProps?: DragProps;
 }) {
+  const isArticle = bookmark.type === "article";
+  const [viewMode, setViewMode] = useState<ViewMode>(isArticle ? "web" : "reader");
   const displayTitle = bookmark.title;
   const avatar = bookmark.mediaUrls?.find((m) => m.type === "avatar");
   const media = bookmark.mediaUrls?.find(
@@ -555,9 +663,13 @@ function LinkPanel({
         label={new URL(bookmark.url).hostname.replace("www.", "")}
         onClose={onClose}
         dragProps={dragProps}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
-      {/* Scrollable content */}
+      {viewMode === "web" ? (
+        <WebViewFrame url={bookmark.url} bookmarkId={bookmark.id} />
+      ) : (
       <div className="flex-1 overflow-y-auto scrollbar-light">
         <div className="px-5 pt-6 pb-12">
           {displayTitle && (
@@ -644,6 +756,7 @@ function LinkPanel({
           )}
         </div>
       </div>
+      )}
 
       {lightbox}
     </>

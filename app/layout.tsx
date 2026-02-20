@@ -32,12 +32,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {process.env.NODE_ENV === "development" && (
+        {/*{process.env.NODE_ENV === "development" && (
           <script
             crossOrigin="anonymous"
             src="//unpkg.com/react-scan/dist/auto.global.js"
           />
-        )}
+        )}*/}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var n=0;(function t(){if(window.__TAURI_INTERNALS__){document.documentElement.setAttribute('data-tauri','');document.documentElement.style.setProperty('--titlebar-height','28px')}else if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',t)}else if(n++<5){setTimeout(t,50)}})()})()`,
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased`}

@@ -3,9 +3,16 @@
 import { useState, useRef, useEffect } from "react";
 import { PanelLeft, Plus, RefreshCw, Trash2 } from "lucide-react";
 import XIcon from "./XIcon";
+import { useTauriDrag } from "@/hooks/use-tauri-drag";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import {
   Popover,
   PopoverTrigger,
@@ -215,6 +222,7 @@ export default function Sidebar({
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
 }) {
+  const handleDrag = useTauriDrag();
   const { data: groups } = useGroups();
   const { mutate: createGroup } = useCreateGroup();
   const { mutate: deleteGroup } = useDeleteGroup();
@@ -305,17 +313,23 @@ export default function Sidebar({
       {collapsed && (
         <button
           onClick={() => onCollapsedChange(false)}
-          className="absolute left-3 top-3 z-20 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+          className="absolute left-3 top-[calc(var(--titlebar-height,0px)+12px)] z-20 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
         >
           <PanelLeft size={18} />
         </button>
       )}
       <aside
-        className="flex h-screen shrink-0 flex-col bg-background overflow-hidden transition-[width] duration-200 ease-out"
+        className="flex h-screen shrink-0 flex-col bg-background tauri:bg-transparent overflow-hidden transition-[width] duration-200 ease-out"
         style={{ width: collapsed ? 0 : 208 }}
       >
+        {/* Drag region for desktop app (traffic lights area) */}
+        <div
+          className="hidden tauri:block h-[var(--titlebar-height,0px)] w-52 shrink-0"
+          onMouseDown={handleDrag}
+        />
+
         {/* Toggle + Avatar */}
-        <div className="flex w-52 items-center justify-between px-3 pt-3">
+        <div className="flex w-52 items-center justify-between px-3 pt-1" onMouseDown={handleDrag}>
           <button
             onClick={() => onCollapsedChange(true)}
             className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
@@ -339,17 +353,20 @@ export default function Sidebar({
               <BookOpenIcon className="h-3.5 w-3.5" />
               Library
             </button>
-            <button
-              onClick={() => setSidebarTab("ask")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
-                sidebarTab === "ask"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700"
-              }`}
-            >
-              <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
-              AI
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    disabled
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium text-zinc-400 cursor-not-allowed"
+                  >
+                    <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
+                    AI
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Work in progress</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
