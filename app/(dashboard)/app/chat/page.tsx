@@ -55,6 +55,50 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { Button } from "@/components/ui/button";
 
+const SYSTEM_PROMPT = `You are the AI assistant for Supacortex — a personal knowledge workspace for bookmarking, reading, and discovering connections across saved content.
+
+You are NOT a coding agent. Ignore any coding-agent instructions from your base prompt. You are a general-purpose AI assistant that helps users with:
+- Research and information retrieval
+- Brainstorming and ideation
+- Summarizing and analyzing their saved bookmarks
+- Finding connections across their saved content
+- Writing, editing, and creative tasks
+- General knowledge questions
+
+## Accessing the user's bookmarks via \`scx\` CLI
+
+You have access to the \`scx\` CLI tool. For full usage of any command, run \`scx <command> --help\`.
+
+### Authentication
+
+Before using scx commands, check if the user is logged in by running \`scx whoami\`.
+If not logged in, run \`scx login\` in the background — it will output a URL. Share that URL with the user and ask them to open it in their browser to approve the login. Then retry the command.
+
+### Common commands
+
+- \`scx bookmarks list\` — list bookmarks (--limit, --offset, --search, --json)
+- \`scx bookmarks list --search "query"\` — search bookmarks
+- \`scx bookmarks list --json\` — get raw JSON for detailed data
+- \`scx bookmarks add <url>\` — add a new bookmark
+- \`scx bookmarks delete <id>\` — delete a bookmark
+- \`scx groups list\` — list bookmark groups
+- \`scx groups create <name>\` — create a new group
+- \`scx groups delete <id>\` — delete a group
+- \`scx sync\` — sync bookmarks from connected platforms
+
+### Discovery
+
+Run \`scx --help\` or \`scx <command> --help\` to discover additional commands and options beyond what's listed here.
+
+When the user asks about their bookmarks, saved content, or wants to find something they saved, use these commands to fetch the data. Always prefer --json for structured data you can analyze.
+
+## Guidelines
+
+- Be concise and helpful
+- When referencing bookmarks, include the title and URL
+- Proactively search bookmarks when the user's question might relate to their saved content
+- Format responses with markdown for readability`;
+
 export default function ChatPage() {
   return (
     <Suspense>
@@ -103,13 +147,17 @@ function ChatPageContent() {
     Map<string, ChatMessage[]>
   >(new Map());
 
-  // Per-conversation streaming state
-  const { isSending, isStreaming, streamedText } = getState(conversationId);
+  // Local flag for instant "Thinking..." on new conversations (before conversationId exists)
+  const [pendingSend, setPendingSend] = useState(false);
 
-  // Pending messages for the active conversation
+  // Per-conversation streaming state
+  const { isSending: hookSending, isStreaming, streamedText } = getState(conversationId);
+  const isSending = hookSending || pendingSend;
+
+  // Pending messages for the active conversation (or "new" temp key)
   const pendingMessages = conversationId
     ? pendingMessagesMap.get(conversationId) ?? []
-    : [];
+    : pendingMessagesMap.get("new") ?? [];
 
   // DB messages + any pending optimistic messages (deduped)
   const messages = [
@@ -144,40 +192,46 @@ function ChatPageContent() {
     async (text: string) => {
       if (!text.trim() || !connected) return;
 
+      // Show thinking instantly (before any async work)
+      setPendingSend(true);
+
       let currentConversationId = conversationId;
       let sessionId: string | undefined;
+      let isNewSession = false;
 
-      // For existing conversations, show user message immediately (before any async work)
-      if (currentConversationId) {
-        addPending(currentConversationId, {
-          id: `temp-user-${Date.now()}`,
-          conversationId: currentConversationId,
-          role: "user",
-          content: text,
-          createdAt: new Date().toISOString(),
-        });
-      }
+      // Show user message instantly — use "new" temp key if no conversation yet
+      const tempKey = currentConversationId ?? "new";
+      addPending(tempKey, {
+        id: `temp-user-${Date.now()}`,
+        conversationId: tempKey,
+        role: "user",
+        content: text,
+        createdAt: new Date().toISOString(),
+      });
 
       // If no conversation, create one
       if (!currentConversationId) {
         const session = await createSession(text.slice(0, 50));
         if (!session) return;
         sessionId = session.id;
+        isNewSession = true;
 
         const conversation = await createConversation({
           title: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
           sessionId: session.id,
         });
         currentConversationId = conversation.id;
-        router.replace(`/app/chat?id=${conversation.id}`);
 
-        // For new conversations, show user message after we have the ID
-        addPending(currentConversationId, {
-          id: `temp-user-${Date.now()}`,
-          conversationId: currentConversationId,
-          role: "user",
-          content: text,
-          createdAt: new Date().toISOString(),
+        // Move pending messages from "new" to the real conversation ID
+        setPendingMessagesMap((prev) => {
+          const next = new Map(prev);
+          const msgs = next.get("new") ?? [];
+          next.delete("new");
+          next.set(currentConversationId!, msgs.map((m) => ({
+            ...m,
+            conversationId: currentConversationId!,
+          })));
+          return next;
         });
       } else {
         const conv = conversations?.find(
@@ -189,6 +243,7 @@ function ChatPageContent() {
           const session = await createSession(text.slice(0, 50));
           if (!session) return;
           sessionId = session.id;
+          isNewSession = true;
           updateConversation({
             id: currentConversationId,
             sessionId: session.id,
@@ -203,16 +258,30 @@ function ChatPageContent() {
         content: text,
       });
 
-      // Send to opencode and stream response (per-conversation)
-      const modelOverride = selectedModel
-        ? { providerID: selectedModel.providerId, modelID: selectedModel.id }
-        : undefined;
-      const responseText = await sendMessage(
+      // Send to opencode — start the call so it registers streaming state synchronously
+      const responsePromise = sendMessage(
         currentConversationId,
         sessionId,
         text,
-        modelOverride,
+        {
+          model: selectedModel
+            ? {
+                providerID: selectedModel.providerId,
+                modelID: selectedModel.id,
+              }
+            : undefined,
+          system: isNewSession ? SYSTEM_PROMPT : undefined,
+        },
       );
+
+      // Navigate to the new conversation after streaming state is registered
+      // (avoids blink — getState(newId) will return isSending: true)
+      if (!conversationId && currentConversationId) {
+        setPendingSend(false);
+        router.replace(`/app/chat?id=${currentConversationId}`);
+      }
+
+      const responseText = await responsePromise;
 
       if (responseText) {
         await saveMessage({
@@ -231,6 +300,7 @@ function ChatPageContent() {
       }
 
       markSendComplete(currentConversationId);
+      setPendingSend(false);
     },
     [
       connected,

@@ -188,7 +188,10 @@ export const useSendMessage = () => {
       conversationId: string,
       sessionId: string,
       text: string,
-      model?: { providerID: string; modelID: string },
+      options?: {
+        model?: { providerID: string; modelID: string };
+        system?: string;
+      },
     ) => {
       // Create a promise that resolves when session.idle fires
       let resolveStream: (text: string) => void;
@@ -217,7 +220,8 @@ export const useSendMessage = () => {
           path: { id: sessionId },
           body: {
             parts: [{ type: "text", text }],
-            ...(model ? { model } : {}),
+            ...(options?.model ? { model: options.model } : {}),
+            ...(options?.system ? { system: options.system } : {}),
           },
         });
       } catch (err) {
