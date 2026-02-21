@@ -29,8 +29,12 @@ export const startServer = async () => {
   const { Command } = await import("@tauri-apps/plugin-shell");
   const command = Command.create("exec-sh", [
     "-c",
-    `opencode serve --port ${PORT}`,
+    `export PATH="$HOME/.opencode/bin:$HOME/.local/bin:/usr/local/bin:$PATH" && opencode serve --port ${PORT}`,
   ]);
+  command.on("error", (err) => console.error("[opencode] error:", err));
+  command.stdout.on("data", (line) => console.log("[opencode]", line));
+  command.stderr.on("data", (line) => console.error("[opencode]", line));
+
   const child = await command.spawn();
 
   // Poll until server is ready

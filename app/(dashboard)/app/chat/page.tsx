@@ -58,7 +58,15 @@ function ChatPageContent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Merge DB messages with local state
-  const messages = conversationId ? (dbMessages ?? localMessages) : localMessages;
+  // Use local messages as long as we have them (avoids flicker during DB save race)
+  const messages = localMessages.length > 0 ? localMessages : (dbMessages ?? []);
+
+  // Sync DB messages into local state when they load (for existing conversations)
+  useEffect(() => {
+    if (dbMessages && dbMessages.length > 0 && localMessages.length === 0) {
+      setLocalMessages(dbMessages);
+    }
+  }, [dbMessages, localMessages.length]);
 
   // Auto-scroll to bottom
   useEffect(() => {

@@ -2,11 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getClient, isRunning, startServer } from "@/services/opencode";
-import type {
-  Event,
-  EventMessagePartUpdated,
-  Session,
-} from "@opencode-ai/sdk/client";
+import type { Session } from "@opencode-ai/sdk/client";
 
 export const useOpenCode = () => {
   const [connected, setConnected] = useState(false);
@@ -14,7 +10,6 @@ export const useOpenCode = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only attempt connection in Tauri environment
     if (
       typeof window === "undefined" ||
       !(window as unknown as { __TAURI_INTERNALS__: unknown })
@@ -86,65 +81,117 @@ export const useSendMessage = () => {
     setStreamedText("");
 
     const client = getClient();
-
-    // Subscribe to events before sending the prompt
     const abortController = new AbortController();
     abortRef.current = abortController;
 
     let fullText = "";
 
-    // Start listening for events
-    const eventPromise = (async () => {
+    // Subscribe to SSE events FIRST
+    let streamRef: AsyncIterable<unknown> | null = null;
+    try {
+      const result = await client.event.subscribe();
+      streamRef = result.stream;
+      console.log("[opencode] SSE stream connected");
+    } catch (err) {
+      console.error("[opencode] Failed to subscribe to events:", err);
+    }
+
+    // Start consuming the stream in the background (don't await yet)
+    const streamPromise = (async () => {
+      if (!streamRef) return;
       try {
-        const { stream } = await client.event.subscribe();
-        for await (const event of stream) {
+        for await (const event of streamRef) {
           if (abortController.signal.aborted) break;
 
-          const evt = event as unknown as Event;
+          const evt = event as {
+            type: string;
+            properties: Record<string, unknown>;
+          };
+          console.log("[opencode] Event:", evt.type);
+
           if (evt.type === "message.part.updated") {
-            const partEvent = evt as unknown as EventMessagePartUpdated;
-            if (partEvent.properties.part.type === "text") {
-              if (partEvent.properties.delta) {
-                fullText += partEvent.properties.delta;
-                setStreamedText(fullText);
-              }
+            const props = evt.properties as {
+              part: { type: string };
+              delta?: string;
+            };
+            if (props.part.type === "text" && props.delta) {
+              fullText += props.delta;
+              setStreamedText(fullText);
             }
           }
 
-          // Stop when session goes idle (response complete)
-          if (
-            evt.type === ("session.idle" as string) ||
-            (evt.type === "message.updated" &&
-              "info" in (evt as { type: string; properties: { info?: { role?: string; time?: { completed?: number } } } }).properties &&
-              (evt as { type: string; properties: { info: { role: string; time?: { completed?: number } } } }).properties.info.role === "assistant" &&
-              (evt as { type: string; properties: { info: { role: string; time?: { completed?: number } } } }).properties.info.time?.completed)
-          ) {
+          if (evt.type === "session.idle") {
+            console.log("[opencode] Session idle");
             break;
           }
+          if (evt.type === "message.updated") {
+            const props = evt.properties as {
+              info?: { role?: string; time?: { completed?: number } };
+            };
+            if (
+              props.info?.role === "assistant" &&
+              props.info?.time?.completed
+            ) {
+              console.log("[opencode] Assistant message completed");
+              break;
+            }
+          }
         }
-      } catch {
-        // Stream ended or aborted
+      } catch (err) {
+        console.error("[opencode] Stream error:", err);
       }
     })();
 
-    // Send the prompt
+    // Send the prompt (stream is already being consumed above)
     try {
+      console.log("[opencode] Sending prompt to session:", sessionId);
       await client.session.prompt({
         path: { id: sessionId },
         body: {
           parts: [{ type: "text", text }],
         },
       });
+      console.log("[opencode] Prompt sent successfully");
     } catch (err) {
-      console.error("Failed to send prompt:", err);
+      console.error("[opencode] Failed to send prompt:", err);
+      abortController.abort();
+      setIsStreaming(false);
+      abortRef.current = null;
+      return "";
     }
 
     // Wait for streaming to finish
-    await eventPromise;
+    await streamPromise;
+
+    // If we got no text from streaming, fetch messages directly as fallback
+    if (!fullText) {
+      console.log("[opencode] No streamed text, fetching messages as fallback");
+      try {
+        const { data: messages } = await client.session.messages({
+          path: { id: sessionId },
+        });
+        if (messages && Array.isArray(messages)) {
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i] as {
+              info: { role: string };
+              parts: Array<{ type: string; text?: string }>;
+            };
+            if (msg.info.role === "assistant") {
+              const textParts = msg.parts
+                .filter((p) => p.type === "text" && p.text)
+                .map((p) => p.text!);
+              fullText = textParts.join("\n");
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[opencode] Failed to fetch messages:", err);
+      }
+    }
 
     setIsStreaming(false);
     abortRef.current = null;
-
     return fullText;
   }, []);
 
