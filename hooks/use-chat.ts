@@ -151,6 +151,8 @@ export const useSaveMessage = () => {
       queryClient.invalidateQueries({
         queryKey: ["messages", variables.conversationId],
       });
+      // Refetch conversations so order updates (updatedAt changed)
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
 };

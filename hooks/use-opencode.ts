@@ -91,12 +91,11 @@ export const useSendMessage = () => {
     try {
       const result = await client.event.subscribe();
       streamRef = result.stream;
-      console.log("[opencode] SSE stream connected");
     } catch (err) {
       console.error("[opencode] Failed to subscribe to events:", err);
     }
 
-    // Start consuming the stream in the background (don't await yet)
+    // Start consuming the stream in the background
     const streamPromise = (async () => {
       if (!streamRef) return;
       try {
@@ -107,32 +106,25 @@ export const useSendMessage = () => {
             type: string;
             properties: Record<string, unknown>;
           };
-          console.log("[opencode] Event:", evt.type);
 
-          if (evt.type === "message.part.updated") {
+          // Streaming text deltas come via message.part.delta
+          if (evt.type === "message.part.delta") {
             const props = evt.properties as {
-              part: { type: string };
-              delta?: string;
+              sessionID: string;
+              delta: string;
+              field: string;
             };
-            if (props.part.type === "text" && props.delta) {
+            // Only handle deltas for OUR session
+            if (props.sessionID === sessionId && props.field === "text") {
               fullText += props.delta;
               setStreamedText(fullText);
             }
           }
 
+          // Stop when our session goes idle
           if (evt.type === "session.idle") {
-            console.log("[opencode] Session idle");
-            break;
-          }
-          if (evt.type === "message.updated") {
-            const props = evt.properties as {
-              info?: { role?: string; time?: { completed?: number } };
-            };
-            if (
-              props.info?.role === "assistant" &&
-              props.info?.time?.completed
-            ) {
-              console.log("[opencode] Assistant message completed");
+            const props = evt.properties as { sessionID: string };
+            if (props.sessionID === sessionId) {
               break;
             }
           }
@@ -142,16 +134,14 @@ export const useSendMessage = () => {
       }
     })();
 
-    // Send the prompt (stream is already being consumed above)
+    // Send prompt using promptAsync (returns 204 immediately, non-blocking)
     try {
-      console.log("[opencode] Sending prompt to session:", sessionId);
-      await client.session.prompt({
+      await client.session.promptAsync({
         path: { id: sessionId },
         body: {
           parts: [{ type: "text", text }],
         },
       });
-      console.log("[opencode] Prompt sent successfully");
     } catch (err) {
       console.error("[opencode] Failed to send prompt:", err);
       abortController.abort();
@@ -163,9 +153,8 @@ export const useSendMessage = () => {
     // Wait for streaming to finish
     await streamPromise;
 
-    // If we got no text from streaming, fetch messages directly as fallback
+    // Fallback: if streaming captured nothing, fetch messages directly
     if (!fullText) {
-      console.log("[opencode] No streamed text, fetching messages as fallback");
       try {
         const { data: messages } = await client.session.messages({
           path: { id: sessionId },
@@ -195,9 +184,18 @@ export const useSendMessage = () => {
     return fullText;
   }, []);
 
-  const abort = useCallback(() => {
+  const abort = useCallback(async (sessionId?: string) => {
     abortRef.current?.abort();
     setIsStreaming(false);
+    // Also tell opencode to abort the session
+    if (sessionId) {
+      try {
+        const client = getClient();
+        await client.session.abort({ path: { id: sessionId } });
+      } catch {
+        // ignore
+      }
+    }
   }, []);
 
   return { send, abort, isStreaming, streamedText };

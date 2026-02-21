@@ -478,7 +478,8 @@ export default function Sidebar({
                   <li key={conversation.id}>
                     <ContextMenu>
                       <ContextMenuTrigger asChild>
-                        <div
+                        <button
+                          type="button"
                           onClick={() => onConversationSelect?.(conversation.id)}
                           className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer ${
                             activeConversationId === conversation.id
@@ -488,7 +489,7 @@ export default function Sidebar({
                         >
                           <ChatBubbleLeftIcon className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                           <span className="truncate">{conversation.title}</span>
-                        </div>
+                        </button>
                       </ContextMenuTrigger>
                       <ContextMenuContent className="w-48">
                         <ContextMenuItem

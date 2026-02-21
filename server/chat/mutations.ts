@@ -28,5 +28,10 @@ export const createMessage = async (data: {
   content: string;
 }) => {
   const [result] = await db.insert(messages).values(data).returning();
+  // Bump conversation updatedAt so newest conversations sort first
+  await db
+    .update(conversations)
+    .set({ updatedAt: new Date() })
+    .where(eq(conversations.id, data.conversationId));
   return result;
 };
