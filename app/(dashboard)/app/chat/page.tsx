@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback, useRef, useEffect } from "react";
+import { Suspense, useState, useCallback, useRef, useEffect, useDeferredValue, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
@@ -23,17 +23,23 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick } from "lucide-react";
+import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, ArrowLeft, ArrowRight, Columns3 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import BookmarkPickerPanel from "@/app/components/BookmarkPickerPanel";
-import ReadersContainer from "@/app/components/ReadersContainer";
+import Reader from "@/app/components/Reader";
+import GridSearch from "@/app/components/GridSearch";
+import TypeFilter from "@/app/components/TypeFilter";
+import LibraryGridView from "@/app/components/LibraryGridView";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
+import { useBookmarks, useCreateBookmark } from "@/hooks/use-bookmarks";
+import { sileo } from "sileo";
+import { useWorkspace, type PanelConfig } from "@/hooks/use-workspace";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import type { ChatStatus, FileUIPart } from "ai";
 import {
@@ -138,10 +144,12 @@ function ChatPageContent() {
   const [conversationDirs, setConversationDirs] = useState<Map<string, string>>(new Map());
   const activeDir = conversationDirs.get(conversationId ?? "new") ?? null;
 
-  // Bookmark picker state
+  // Workspace panels (chat, library, reader)
+  const workspace = useWorkspace();
+  const { panels, addPanel, removePanel, reorderPanels, togglePanel, hasPanel, cycleWidth } = workspace;
+
+  // Bookmark selection for attaching to chat
   const [selectedBookmarks, setSelectedBookmarks] = useState<BookmarkData[]>([]);
-  const [bookmarkPickerOpen, setBookmarkPickerOpen] = useState(false);
-  const [chatHidden, setChatHidden] = useState(false);
 
   const handleToggleBookmark = useCallback((bookmark: BookmarkData) => {
     setSelectedBookmarks((prev) => {
@@ -150,47 +158,104 @@ function ChatPageContent() {
     });
   }, []);
 
-  // Reader panels for bookmark attachments (same pattern as library page)
-  const [openReaders, setOpenReaders] = useState<BookmarkData[]>([]);
+  // Reader bookmark data (keyed by panel ID)
+  const [readerBookmarks, setReaderBookmarks] = useState<Map<string, BookmarkData>>(new Map());
 
   const handleOpenReader = useCallback((bookmark: BookmarkData) => {
-    setOpenReaders((prev) => {
-      if (prev.length === 0) return [bookmark];
-      const next = [...prev];
-      next[next.length - 1] = bookmark;
-      return next;
-    });
-  }, []);
+    // Find existing reader panels
+    const readerPanels = panels.filter((p) => p.type === "reader");
+    if (readerPanels.length === 0) {
+      // Open new reader panel
+      const id = `reader-${Date.now()}`;
+      addPanel("reader", { bookmarkId: bookmark.id });
+      // We need to store bookmark data — use effect below handles it
+      setReaderBookmarks((prev) => {
+        const next = new Map(prev);
+        // Store by bookmark ID for lookup in render
+        next.set(bookmark.id, bookmark);
+        return next;
+      });
+    } else {
+      // Replace last reader
+      const lastReader = readerPanels[readerPanels.length - 1];
+      removePanel(lastReader.id);
+      addPanel("reader", { bookmarkId: bookmark.id });
+      setReaderBookmarks((prev) => {
+        const next = new Map(prev);
+        next.set(bookmark.id, bookmark);
+        return next;
+      });
+    }
+  }, [panels, addPanel, removePanel]);
 
   const handleOpenInNewPanel = useCallback((bookmark: BookmarkData) => {
-    setOpenReaders((prev) => {
-      if (prev.some((r) => r.id === bookmark.id)) return prev;
-      return [...prev, bookmark];
-    });
-  }, []);
-
-  const handleCloseReader = useCallback((id: string) => {
-    setOpenReaders((prev) => prev.filter((r) => r.id !== id));
-  }, []);
-
-  const handleReorderReaders = useCallback((fromIndex: number, toIndex: number) => {
-    setOpenReaders((prev) => {
-      const next = [...prev];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
+    // Don't open duplicate
+    if (panels.some((p) => p.type === "reader" && p.bookmarkId === bookmark.id)) return;
+    addPanel("reader", { bookmarkId: bookmark.id });
+    setReaderBookmarks((prev) => {
+      const next = new Map(prev);
+      next.set(bookmark.id, bookmark);
       return next;
     });
-  }, []);
+  }, [panels, addPanel]);
 
-  // Auto-collapse sidebar when 2+ readers are open
-  const autoCollapsed = openReaders.length >= 2;
-  const sidebarCollapsed = userCollapsedOverride ?? autoCollapsed;
+  const handleCloseReader = useCallback((panelId: string) => {
+    removePanel(panelId);
+  }, [removePanel]);
 
-  useEffect(() => {
-    if (openReaders.length === 0) {
-      setUserCollapsedOverride(null);
-    }
-  }, [openReaders.length]);
+  const sidebarCollapsed = userCollapsedOverride ?? false;
+
+  // Library panel state
+  const [librarySearch, setLibrarySearch] = useState("");
+  const deferredLibrarySearch = useDeferredValue(librarySearch);
+  const [libraryTypeFilter, setLibraryTypeFilter] = useState("");
+  const librarySearchRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+
+  const {
+    data: libraryBookmarks,
+    isLoading: libraryLoading,
+    error: libraryError,
+    fetchNextPage: libraryFetchNextPage,
+    hasNextPage: libraryHasNextPage,
+    isFetchingNextPage: libraryIsFetchingNextPage,
+  } = useBookmarks(
+    deferredLibrarySearch.length >= 3 ? deferredLibrarySearch : "",
+    undefined,
+    libraryTypeFilter || undefined,
+    hasPanel("library"),
+  );
+
+  const { mutate: addBookmark } = useCreateBookmark();
+
+  const handlePasteUrl = useCallback((url: string) => {
+    sileo.promise(
+      new Promise((resolve, reject) => {
+        addBookmark({ url }, { onSuccess: resolve, onError: reject });
+      }),
+      {
+        loading: { title: "Saving bookmark..." },
+        success: { title: "Bookmark saved" },
+        error: (err) => ({
+          title: (err as Error).message || "Failed to save bookmark",
+        }),
+      },
+    );
+  }, [addBookmark]);
+
+  // Derive open reader IDs for library grid highlighting
+  const openReaderIds = useMemo(() => {
+    const ids = new Set<string>();
+    panels.forEach((p) => {
+      if (p.type === "reader" && p.bookmarkId) ids.add(p.bookmarkId);
+    });
+    return ids;
+  }, [panels]);
+
+  // Selected bookmark IDs for library grid
+  const selectedBookmarkIds = useMemo(
+    () => new Set(selectedBookmarks.map((b) => b.id)),
+    [selectedBookmarks],
+  );
 
   // Seed directory from DB conversation
   useEffect(() => {
@@ -505,7 +570,6 @@ function ChatPageContent() {
 
   const handleNewConversation = useCallback(() => {
     setSelectedBookmarks([]);
-    setBookmarkPickerOpen(false);
     router.replace("/app/chat");
   }, [router]);
 
@@ -513,7 +577,6 @@ function ChatPageContent() {
     (id: string) => {
       if (id === conversationId) return;
       setSelectedBookmarks([]);
-      setBookmarkPickerOpen(false);
       router.replace(`/app/chat?id=${id}`);
     },
     [conversationId, router],
@@ -572,25 +635,25 @@ function ChatPageContent() {
     }
   }, [conversationId, updateConversation]);
 
-  // Keyboard shortcuts: ⌥S sidebar, ⌥B bookmarks, ⌥E chat
+  // Keyboard shortcuts: ⌥S sidebar, ⌥B library, ⌥E chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
 
       if (e.code === "KeyS") {
         e.preventDefault();
-        setUserCollapsedOverride((prev) => prev === null ? !autoCollapsed : !prev);
+        setUserCollapsedOverride((prev) => !prev);
       } else if (e.code === "KeyB") {
         e.preventDefault();
-        setBookmarkPickerOpen((prev) => !prev);
+        togglePanel("library");
       } else if (e.code === "KeyE") {
         e.preventDefault();
-        setChatHidden((prev) => !prev);
+        togglePanel("chat");
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [autoCollapsed]);
+  }, [togglePanel]);
 
   const showThinking = isSending && !streamedText;
   const showStreaming = streamedText && isSending;
@@ -601,6 +664,447 @@ function ChatPageContent() {
   const activeModel = selectedModel ?? defaultModelInfo ?? null;
   const contextMaxTokens = activeModel?.contextLimit ?? 200000;
   const usedTokens = tokens.input + tokens.output + tokens.reasoning;
+
+  const panelToolbar = (panel: PanelConfig, index: number) => {
+    const canMoveLeft = index > 0;
+    const canMoveRight = index < panels.length - 1;
+    const widthLabel = panel.widthPreset === "narrow" ? "S" : panel.widthPreset === "medium" ? "M" : "L";
+    const canClose = panel.type !== "chat" || panels.filter((p) => p.type === "chat").length > 0;
+
+    return (
+      <div className="flex items-center justify-between px-2 py-1 shrink-0">
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => canMoveLeft && reorderPanels(index, index - 1)}
+            disabled={!canMoveLeft}
+            className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
+          >
+            <ArrowLeft size={12} />
+          </button>
+          <button
+            type="button"
+            onClick={() => canMoveRight && reorderPanels(index, index + 1)}
+            disabled={!canMoveRight}
+            className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
+          >
+            <ArrowRight size={12} />
+          </button>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => cycleWidth(panel.id)}
+            className="rounded px-1.5 py-1 text-[10px] font-medium text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 transition-colors"
+            title={`Resize (${panel.widthPreset})`}
+          >
+            {widthLabel}
+          </button>
+          {panel.type !== "chat" && (
+            <button
+              type="button"
+              onClick={() => removePanel(panel.id)}
+              className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Width preset → CSS classes
+  const widthClasses = (preset: string) => {
+    switch (preset) {
+      case "narrow": return "shrink-0 w-[380px] min-w-[380px]";
+      case "medium": return "shrink-0 w-[520px] min-w-[520px]";
+      case "wide": return "flex-1 min-w-[640px]";
+      default: return "flex-1 min-w-[640px]";
+    }
+  };
+
+  const renderPanel = (panel: PanelConfig, index: number) => {
+    if (panel.type === "chat") {
+      return (
+        <main key={panel.id} className={`relative ${widthClasses(panel.widthPreset)} bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col`}>
+          {panels.length > 1 && panelToolbar(panel, index)}
+          {!isTauri && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
+              <Monitor size={14} />
+              <span>
+                AI chat requires the desktop app. Download it to chat with AI.
+              </span>
+            </div>
+          )}
+
+          {/* Messages area */}
+          <Conversation className="flex-1">
+            <ConversationContent
+              className="max-w-3xl mx-auto w-full px-4 py-6"
+              scrollClassName="scrollbar-light"
+            >
+              {messages.length === 0 ? (
+                <ConversationEmptyState
+                  className={isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}
+                  title="Start a conversation"
+                  description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
+                />
+              ) : (
+                <>
+                  {messages.map((msg) => (
+                    <MessageBubble key={msg.id} message={msg} onOpenBookmark={handleOpenReader} onOpenBookmarkInNewPanel={handleOpenInNewPanel} />
+                  ))}
+                  {showThinking && (
+                    <div className="flex justify-start py-2">
+                      <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
+                        Thinking...
+                      </span>
+                    </div>
+                  )}
+                  {showStreaming && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] text-sm text-zinc-800">
+                        <div className="prose prose-sm prose-zinc max-w-none">
+                          <Streamdown
+                            isAnimating={isStreaming}
+                            animated={{ animation: "fadeIn", sep: "word" }}
+                            caret={isStreaming ? "block" : undefined}
+                          >
+                            {streamedText}
+                          </Streamdown>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {showToolCallThinking && (
+                    <div className="flex justify-start py-2">
+                      <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
+                        Thinking...
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </ConversationContent>
+            <ConversationScrollButton className="bg-white hover:bg-zinc-50" />
+          </Conversation>
+
+          {/* Input area */}
+          {isTauri && (
+            <div className="px-4 py-3">
+              <div className="max-w-3xl mx-auto">
+                {connecting ? (
+                  <div className="flex items-center gap-2 text-sm text-zinc-400 py-2">
+                    <div className="size-3 border-2 border-zinc-300 border-t-transparent rounded-full animate-spin" />
+                    Connecting to OpenCode...
+                  </div>
+                ) : connectionError ? (
+                  <div className="text-sm text-red-500 py-2">
+                    Failed to connect: {connectionError}
+                  </div>
+                ) : (
+                  <TooltipProvider>
+                    <PromptInput onSubmit={handleSubmit} globalDrop>
+                      <AttachmentPreviews />
+                      <BookmarkChips bookmarks={selectedBookmarks} onRemove={(id) => setSelectedBookmarks((prev) => prev.filter((b) => b.id !== id))} />
+                      <PromptInputTextarea placeholder="Ask anything..." />
+                      <PromptInputFooter>
+                        <PromptInputTools>
+                          <PromptInputActionMenu>
+                            <PromptInputActionMenuTrigger tooltip="Attach" />
+                            <PromptInputActionMenuContent>
+                              <PromptInputActionAddAttachments />
+                              <DropdownMenuItem onClick={() => {
+                                if (!hasPanel("library")) togglePanel("library");
+                              }}>
+                                <Bookmark className="size-4 mr-2" />
+                                Add bookmarks
+                              </DropdownMenuItem>
+                            </PromptInputActionMenuContent>
+                          </PromptInputActionMenu>
+                          {(() => {
+                            const canChange = messages.length === 0 && !isSending;
+                            if (activeDir) {
+                              return (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 gap-1.5 text-xs text-muted-foreground"
+                                        onClick={canChange ? handleSelectDirectory : undefined}
+                                        disabled={!canChange}
+                                      >
+                                        <FolderOpen className="size-3.5" />
+                                        <span className="max-w-[120px] truncate">
+                                          {activeDir.split("/").pop()}
+                                        </span>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">{activeDir}</TooltipContent>
+                                  </Tooltip>
+                                  {canChange && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const key = conversationId ?? "new";
+                                        setConversationDirs((prev) => {
+                                          const next = new Map(prev);
+                                          next.delete(key);
+                                          return next;
+                                        });
+                                        if (conversationId) {
+                                          updateConversation({ id: conversationId, directory: undefined });
+                                        }
+                                      }}
+                                      className="rounded-full p-0.5 text-muted-foreground hover:bg-zinc-200 transition-colors"
+                                    >
+                                      <X className="size-3" />
+                                    </button>
+                                  )}
+                                </span>
+                              );
+                            }
+                            if (canChange) {
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs text-muted-foreground"
+                                      onClick={handleSelectDirectory}
+                                    >
+                                      <FolderOpen className="size-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">Change directory</TooltipContent>
+                                </Tooltip>
+                              );
+                            }
+                            return null;
+                          })()}
+                          <ModelSelector
+                            open={modelSelectorOpen}
+                            onOpenChange={setModelSelectorOpen}
+                          >
+                            <ModelSelectorTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 gap-1.5 text-xs text-muted-foreground"
+                              >
+                                {(selectedModel || defaultModelInfo) && (
+                                  <ModelSelectorLogo
+                                    provider={
+                                      selectedModel?.providerId ??
+                                      defaultModelInfo?.providerId ??
+                                      ""
+                                    }
+                                  />
+                                )}
+                                <span className="max-w-[140px] truncate">
+                                  {activeModelName ?? "Loading..."}
+                                </span>
+                                <ChevronDown className="size-3" />
+                              </Button>
+                            </ModelSelectorTrigger>
+                            <ModelSelectorContent title="Select a model">
+                              <ModelSelectorInput placeholder="Search models..." />
+                              <ModelSelectorList>
+                                <ModelSelectorEmpty>
+                                  No models found.
+                                </ModelSelectorEmpty>
+                                {providers.map((provider) => (
+                                  <ModelSelectorGroup
+                                    key={provider.id}
+                                    heading={provider.name}
+                                  >
+                                    {provider.models.map((model) => {
+                                      const isSelected =
+                                        selectedModel?.id === model.id &&
+                                        selectedModel?.providerId ===
+                                          provider.id;
+                                      return (
+                                        <ModelSelectorItem
+                                          key={`${provider.id}/${model.id}`}
+                                          onSelect={() =>
+                                            handleModelSelect(model)
+                                          }
+                                          className="gap-2"
+                                        >
+                                          <ModelSelectorLogo
+                                            provider={provider.id}
+                                          />
+                                          <ModelSelectorName>
+                                            {model.name}
+                                          </ModelSelectorName>
+                                          {isSelected && (
+                                            <Check className="size-3.5 text-zinc-500 shrink-0" />
+                                          )}
+                                        </ModelSelectorItem>
+                                      );
+                                    })}
+                                  </ModelSelectorGroup>
+                                ))}
+                              </ModelSelectorList>
+                            </ModelSelectorContent>
+                          </ModelSelector>
+                          {queueLength > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <span>{queueLength} queued</span>
+                              <button
+                                type="button"
+                                onClick={clearQueue}
+                                className="rounded-full p-0.5 hover:bg-zinc-200 transition-colors"
+                              >
+                                <X className="size-3" />
+                              </button>
+                            </span>
+                          )}
+                          {usedTokens > 0 && (
+                            <Context
+                              usedTokens={usedTokens}
+                              maxTokens={contextMaxTokens}
+                              usage={{
+                                inputTokens: tokens.input,
+                                outputTokens: tokens.output,
+                                reasoningTokens: tokens.reasoning,
+                                cachedInputTokens: tokens.cacheRead,
+                                totalTokens: usedTokens,
+                                inputTokenDetails: {
+                                  noCacheTokens: tokens.input - tokens.cacheRead,
+                                  cacheReadTokens: tokens.cacheRead,
+                                  cacheWriteTokens: tokens.cacheWrite,
+                                },
+                                outputTokenDetails: {
+                                  textTokens: tokens.output - tokens.reasoning,
+                                  reasoningTokens: tokens.reasoning,
+                                },
+                              }}
+                              modelId={activeModel?.id}
+                            >
+                              <ContextTrigger className="h-7 text-xs" />
+                              <ContextContent>
+                                <ContextContentHeader />
+                                <ContextContentBody>
+                                  <ContextInputUsage />
+                                  <ContextOutputUsage />
+                                </ContextContentBody>
+                                <ContextContentFooter />
+                              </ContextContent>
+                            </Context>
+                          )}
+                        </PromptInputTools>
+                        <PromptInputSubmit
+                          status={chatStatus}
+                          onStop={() =>
+                            conversationId && abort(conversationId)
+                          }
+                        />
+                      </PromptInputFooter>
+                    </PromptInput>
+                  </TooltipProvider>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Read-only message view for web */}
+          {!isTauri && conversationId && messages.length > 0 && (
+            <div className="border-t border-zinc-100 px-4 py-3">
+              <p className="text-center text-xs text-zinc-400">
+                Viewing conversation history (read-only)
+              </p>
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    if (panel.type === "library") {
+      return (
+        <div key={panel.id} className={`${widthClasses(panel.widthPreset)} shrink-0 my-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
+          {panels.length > 1 && panelToolbar(panel, index)}
+          <GridSearch
+            onSearch={setLibrarySearch}
+            onRefresh={() => {}}
+            inputRef={librarySearchRef}
+            value={librarySearch}
+            onPasteUrl={handlePasteUrl}
+          />
+          <TypeFilter value={libraryTypeFilter} onChange={setLibraryTypeFilter} />
+          <div className="flex-1 overflow-hidden">
+            <LibraryGridView
+              bookmarks={libraryBookmarks}
+              isLoading={libraryLoading}
+              error={libraryError}
+              onOpenReader={handleOpenReader}
+              onOpenInNewPanel={handleOpenInNewPanel}
+              openReaderIds={openReaderIds}
+              fetchNextPage={libraryFetchNextPage}
+              hasNextPage={libraryHasNextPage}
+              isFetchingNextPage={libraryIsFetchingNextPage}
+              attachedToChatIds={selectedBookmarkIds}
+              contextMenuExtra={(bookmark) => (
+                <>
+                  <ContextMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleBookmark(bookmark);
+                    }}
+                    className="gap-2"
+                  >
+                    <MessageSquarePlus size={14} />
+                    {selectedBookmarkIds.has(bookmark.id) ? "Remove from chat" : "Attach to chat"}
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                </>
+              )}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (panel.type === "reader" && panel.bookmarkId) {
+      const bookmark = readerBookmarks.get(panel.bookmarkId);
+      if (!bookmark) return null;
+      return (
+        <div key={panel.id} className="shrink-0 my-2 mr-2 flex flex-col" style={{ width: 480 }}>
+          {panels.length > 1 && (
+            <div className="flex items-center gap-0.5 px-2 py-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => index > 0 && reorderPanels(index, index - 1)}
+                disabled={index === 0}
+                className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
+              >
+                <ArrowLeft size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => index < panels.length - 1 && reorderPanels(index, index + 1)}
+                disabled={index === panels.length - 1}
+                className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
+              >
+                <ArrowRight size={12} />
+              </button>
+            </div>
+          )}
+          <Reader
+            bookmark={bookmark}
+            onClose={() => handleCloseReader(panel.id)}
+            style={{ height: panels.length > 1 ? "calc(100vh - 1rem - 32px)" : "calc(100vh - 1rem)", width: 480 }}
+          />
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div className="flex h-screen overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
@@ -616,315 +1120,34 @@ function ChatPageContent() {
         activeConversationId={conversationId}
         onConversationSelect={handleConversationSelect}
         onNewConversation={handleNewConversation}
+        workspaceControls={
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => togglePanel("chat")}
+              className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                hasPanel("chat") ? "bg-zinc-200/60 text-zinc-700" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+              }`}
+              title="Toggle chat (⌥E)"
+            >
+              <MessageCircle size={13} />
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => togglePanel("library")}
+              className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                hasPanel("library") ? "bg-zinc-200/60 text-zinc-700" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+              }`}
+              title="Toggle library (⌥B)"
+            >
+              <BookOpen size={13} />
+              Library
+            </button>
+          </div>
+        }
       />
-      {!chatHidden && <main className="relative flex-1 min-w-[480px] bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
-        {!isTauri && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
-            <Monitor size={14} />
-            <span>
-              AI chat requires the desktop app. Download it to chat with AI.
-            </span>
-          </div>
-        )}
-
-        {/* Messages area */}
-        <Conversation className="flex-1">
-          <ConversationContent
-            className="max-w-3xl mx-auto w-full px-4 py-6"
-            scrollClassName="scrollbar-light"
-          >
-            {messages.length === 0 ? (
-              <ConversationEmptyState
-                className={isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}
-                title="Start a conversation"
-                description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
-              />
-            ) : (
-              <>
-                {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} onOpenBookmark={handleOpenReader} onOpenBookmarkInNewPanel={handleOpenInNewPanel} />
-                ))}
-                {showThinking && (
-                  <div className="flex justify-start py-2">
-                    <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
-                      Thinking...
-                    </span>
-                  </div>
-                )}
-                {showStreaming && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] text-sm text-zinc-800">
-                      <div className="prose prose-sm prose-zinc max-w-none">
-                        <Streamdown
-                          isAnimating={isStreaming}
-                          animated={{ animation: "fadeIn", sep: "word" }}
-                          caret={isStreaming ? "block" : undefined}
-                        >
-                          {streamedText}
-                        </Streamdown>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {showToolCallThinking && (
-                  <div className="flex justify-start py-2">
-                    <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
-                      Thinking...
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-          </ConversationContent>
-          <ConversationScrollButton className="bg-white hover:bg-zinc-50" />
-        </Conversation>
-
-        {/* Input area */}
-        {isTauri && (
-          <div className="px-4 py-3">
-            <div className="max-w-3xl mx-auto">
-              {connecting ? (
-                <div className="flex items-center gap-2 text-sm text-zinc-400 py-2">
-                  <div className="size-3 border-2 border-zinc-300 border-t-transparent rounded-full animate-spin" />
-                  Connecting to OpenCode...
-                </div>
-              ) : connectionError ? (
-                <div className="text-sm text-red-500 py-2">
-                  Failed to connect: {connectionError}
-                </div>
-              ) : (
-                <TooltipProvider>
-                  <PromptInput onSubmit={handleSubmit} globalDrop>
-                    <AttachmentPreviews />
-                    <BookmarkChips bookmarks={selectedBookmarks} onRemove={(id) => setSelectedBookmarks((prev) => prev.filter((b) => b.id !== id))} />
-                    <PromptInputTextarea placeholder="Ask anything..." />
-                    <PromptInputFooter>
-                      <PromptInputTools>
-                        <PromptInputActionMenu>
-                          <PromptInputActionMenuTrigger tooltip="Attach" />
-                          <PromptInputActionMenuContent>
-                            <PromptInputActionAddAttachments />
-                            <DropdownMenuItem onClick={() => setBookmarkPickerOpen(true)}>
-                              <Bookmark className="size-4 mr-2" />
-                              Add bookmarks
-                            </DropdownMenuItem>
-                          </PromptInputActionMenuContent>
-                        </PromptInputActionMenu>
-                        {(() => {
-                          const canChange = messages.length === 0 && !isSending;
-                          if (activeDir) {
-                            // Always show dir label when set
-                            return (
-                              <span className="inline-flex items-center gap-0.5">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 gap-1.5 text-xs text-muted-foreground"
-                                      onClick={canChange ? handleSelectDirectory : undefined}
-                                      disabled={!canChange}
-                                    >
-                                      <FolderOpen className="size-3.5" />
-                                      <span className="max-w-[120px] truncate">
-                                        {activeDir.split("/").pop()}
-                                      </span>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">{activeDir}</TooltipContent>
-                                </Tooltip>
-                                {canChange && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const key = conversationId ?? "new";
-                                      setConversationDirs((prev) => {
-                                        const next = new Map(prev);
-                                        next.delete(key);
-                                        return next;
-                                      });
-                                      if (conversationId) {
-                                        updateConversation({ id: conversationId, directory: undefined });
-                                      }
-                                    }}
-                                    className="rounded-full p-0.5 text-muted-foreground hover:bg-zinc-200 transition-colors"
-                                  >
-                                    <X className="size-3" />
-                                  </button>
-                                )}
-                              </span>
-                            );
-                          }
-                          if (canChange) {
-                            return (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs text-muted-foreground"
-                                    onClick={handleSelectDirectory}
-                                  >
-                                    <FolderOpen className="size-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">Change directory</TooltipContent>
-                              </Tooltip>
-                            );
-                          }
-                          return null;
-                        })()}
-                        <ModelSelector
-                          open={modelSelectorOpen}
-                          onOpenChange={setModelSelectorOpen}
-                        >
-                          <ModelSelectorTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 gap-1.5 text-xs text-muted-foreground"
-                            >
-                              {(selectedModel || defaultModelInfo) && (
-                                <ModelSelectorLogo
-                                  provider={
-                                    selectedModel?.providerId ??
-                                    defaultModelInfo?.providerId ??
-                                    ""
-                                  }
-                                />
-                              )}
-                              <span className="max-w-[140px] truncate">
-                                {activeModelName ?? "Loading..."}
-                              </span>
-                              <ChevronDown className="size-3" />
-                            </Button>
-                          </ModelSelectorTrigger>
-                          <ModelSelectorContent title="Select a model">
-                            <ModelSelectorInput placeholder="Search models..." />
-                            <ModelSelectorList>
-                              <ModelSelectorEmpty>
-                                No models found.
-                              </ModelSelectorEmpty>
-                              {providers.map((provider) => (
-                                <ModelSelectorGroup
-                                  key={provider.id}
-                                  heading={provider.name}
-                                >
-                                  {provider.models.map((model) => {
-                                    const isSelected =
-                                      selectedModel?.id === model.id &&
-                                      selectedModel?.providerId ===
-                                        provider.id;
-                                    return (
-                                      <ModelSelectorItem
-                                        key={`${provider.id}/${model.id}`}
-                                        onSelect={() =>
-                                          handleModelSelect(model)
-                                        }
-                                        className="gap-2"
-                                      >
-                                        <ModelSelectorLogo
-                                          provider={provider.id}
-                                        />
-                                        <ModelSelectorName>
-                                          {model.name}
-                                        </ModelSelectorName>
-                                        {isSelected && (
-                                          <Check className="size-3.5 text-zinc-500 shrink-0" />
-                                        )}
-                                      </ModelSelectorItem>
-                                    );
-                                  })}
-                                </ModelSelectorGroup>
-                              ))}
-                            </ModelSelectorList>
-                          </ModelSelectorContent>
-                        </ModelSelector>
-                        {queueLength > 0 && (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <span>{queueLength} queued</span>
-                            <button
-                              type="button"
-                              onClick={clearQueue}
-                              className="rounded-full p-0.5 hover:bg-zinc-200 transition-colors"
-                            >
-                              <X className="size-3" />
-                            </button>
-                          </span>
-                        )}
-                        {usedTokens > 0 && (
-                          <Context
-                            usedTokens={usedTokens}
-                            maxTokens={contextMaxTokens}
-                            usage={{
-                              inputTokens: tokens.input,
-                              outputTokens: tokens.output,
-                              reasoningTokens: tokens.reasoning,
-                              cachedInputTokens: tokens.cacheRead,
-                              totalTokens: usedTokens,
-                              inputTokenDetails: {
-                                noCacheTokens: tokens.input - tokens.cacheRead,
-                                cacheReadTokens: tokens.cacheRead,
-                                cacheWriteTokens: tokens.cacheWrite,
-                              },
-                              outputTokenDetails: {
-                                textTokens: tokens.output - tokens.reasoning,
-                                reasoningTokens: tokens.reasoning,
-                              },
-                            }}
-                            modelId={activeModel?.id}
-                          >
-                            <ContextTrigger className="h-7 text-xs" />
-                            <ContextContent>
-                              <ContextContentHeader />
-                              <ContextContentBody>
-                                <ContextInputUsage />
-                                <ContextOutputUsage />
-                              </ContextContentBody>
-                              <ContextContentFooter />
-                            </ContextContent>
-                          </Context>
-                        )}
-                      </PromptInputTools>
-                      <PromptInputSubmit
-                        status={chatStatus}
-                        onStop={() =>
-                          conversationId && abort(conversationId)
-                        }
-                      />
-                    </PromptInputFooter>
-                  </PromptInput>
-                </TooltipProvider>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Read-only message view for web */}
-        {!isTauri && conversationId && messages.length > 0 && (
-          <div className="border-t border-zinc-100 px-4 py-3">
-            <p className="text-center text-xs text-zinc-400">
-              Viewing conversation history (read-only)
-            </p>
-          </div>
-        )}
-      </main>}
-
-      {bookmarkPickerOpen && (
-        <BookmarkPickerPanel
-          onClose={() => setBookmarkPickerOpen(false)}
-          selectedBookmarks={selectedBookmarks}
-          onAttach={handleToggleBookmark}
-          onOpenReader={handleOpenReader}
-          onOpenInNewPanel={handleOpenInNewPanel}
-        />
-      )}
-
-      <ReadersContainer
-        readers={openReaders}
-        onClose={handleCloseReader}
-        onReorder={handleReorderReaders}
-      />
+      {panels.map(renderPanel)}
     </div>
   );
 }

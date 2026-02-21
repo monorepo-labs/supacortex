@@ -249,6 +249,7 @@ export default function Sidebar({
   activeConversationId,
   onConversationSelect,
   onNewConversation,
+  workspaceControls,
 }: {
   activeGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
@@ -259,6 +260,7 @@ export default function Sidebar({
   activeConversationId?: string | null;
   onConversationSelect?: (id: string) => void;
   onNewConversation?: () => void;
+  workspaceControls?: React.ReactNode;
 }) {
   const handleDrag = useTauriDrag();
   const { data: groups } = useGroups();
@@ -550,6 +552,11 @@ export default function Sidebar({
               </nav>
               <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-background to-transparent" />
             </div>
+            {workspaceControls && (
+              <div className="w-52 px-3 pb-3">
+                {workspaceControls}
+              </div>
+            )}
           </>
         )}
       </aside>

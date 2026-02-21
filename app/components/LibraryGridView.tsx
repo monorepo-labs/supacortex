@@ -44,6 +44,8 @@ export default function LibraryGridView({
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
+  contextMenuExtra,
+  attachedToChatIds,
 }: {
   bookmarks: BookmarkData[];
   isLoading: boolean;
@@ -55,6 +57,8 @@ export default function LibraryGridView({
   fetchNextPage?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
+  contextMenuExtra?: (bookmark: BookmarkData) => React.ReactNode;
+  attachedToChatIds?: Set<string>;
 }) {
   const { mutate: saveLayout } = useUpdateGridLayout();
   const [layout, setLayout] = useState<Layout>([]);
@@ -281,8 +285,10 @@ export default function LibraryGridView({
                 }
                 textSelectable={!dragEnabled}
                 isSelected={selectedIds.has(bookmark.id)}
+                isAttachedToChat={attachedToChatIds?.has(bookmark.id)}
                 isOpenInReader={openReaderIds?.has(bookmark.id)}
                 onSelect={handleSelect}
+                contextMenuExtra={contextMenuExtra?.(bookmark)}
               />
             </div>
           );

@@ -45,6 +45,7 @@ export default function BookmarkCard({
   onOpenInNewPanel,
   textSelectable,
   isSelected,
+  isAttachedToChat,
   isOpenInReader,
   onSelect,
   className,
@@ -58,6 +59,7 @@ export default function BookmarkCard({
   onOpenInNewPanel?: () => void;
   textSelectable?: boolean;
   isSelected?: boolean;
+  isAttachedToChat?: boolean;
   isOpenInReader?: boolean;
   onSelect?: (id: string) => void;
   className?: string;
@@ -146,7 +148,7 @@ export default function BookmarkCard({
               : isOpenInReader
                 ? "outline-1 outline-black/20"
                 : ""
-          } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
+          } ${isAttachedToChat ? "ring-2 ring-blue-400/60" : ""} ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {isYouTube ? (
             <>
