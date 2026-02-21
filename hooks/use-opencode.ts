@@ -71,134 +71,233 @@ export const useOpenCodeSessions = (connected: boolean) => {
   return sessions;
 };
 
+interface StreamState {
+  isSending: boolean;
+  isStreaming: boolean;
+  streamedText: string;
+  sessionId: string | null;
+  resolve: ((text: string) => void) | null;
+}
+
+const defaultStreamState = {
+  isSending: false,
+  isStreaming: false,
+  streamedText: "",
+};
+
 export const useSendMessage = () => {
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamedText, setStreamedText] = useState("");
-  const abortRef = useRef<AbortController | null>(null);
+  // Per-conversation state keyed by conversationId
+  const streamsRef = useRef<Map<string, StreamState>>(new Map());
+  // Reverse lookup: sessionId → conversationId (for routing SSE events)
+  const sessionToConvRef = useRef<Map<string, string>>(new Map());
+  // Single shared SSE listener
+  const listenerRef = useRef<{ active: boolean; stop: () => void } | null>(
+    null,
+  );
+  const [, setTick] = useState(0);
+  const rerender = useCallback(() => setTick((t) => t + 1), []);
 
-  const send = useCallback(async (sessionId: string, text: string) => {
-    setIsStreaming(true);
-    setStreamedText("");
+  const getState = useCallback(
+    (conversationId: string | null) => {
+      if (!conversationId) return defaultStreamState;
+      const state = streamsRef.current.get(conversationId);
+      if (!state) return defaultStreamState;
+      return {
+        isSending: state.isSending,
+        isStreaming: state.isStreaming,
+        streamedText: state.streamedText,
+      };
+    },
+    [],
+  );
 
-    const client = getClient();
-    const abortController = new AbortController();
-    abortRef.current = abortController;
+  // Start the shared SSE listener (idempotent — only one runs at a time)
+  const ensureListener = useCallback(() => {
+    if (listenerRef.current?.active) return;
 
-    let fullText = "";
+    let stopped = false;
+    const listener = {
+      active: true,
+      stop: () => {
+        stopped = true;
+        listener.active = false;
+      },
+    };
+    listenerRef.current = listener;
 
-    // Subscribe to SSE events FIRST
-    let streamRef: AsyncIterable<unknown> | null = null;
-    try {
-      const result = await client.event.subscribe();
-      streamRef = result.stream;
-    } catch (err) {
-      console.error("[opencode] Failed to subscribe to events:", err);
-    }
+    (async () => {
+      while (!stopped) {
+        try {
+          const client = getClient();
+          const { stream } = await client.event.subscribe();
 
-    // Start consuming the stream in the background
-    const streamPromise = (async () => {
-      if (!streamRef) return;
-      try {
-        for await (const event of streamRef) {
-          if (abortController.signal.aborted) break;
+          for await (const event of stream) {
+            if (stopped) break;
 
-          const evt = event as {
-            type: string;
-            properties: Record<string, unknown>;
-          };
-
-          // Streaming text deltas come via message.part.delta
-          if (evt.type === "message.part.delta") {
-            const props = evt.properties as {
-              sessionID: string;
-              delta: string;
-              field: string;
+            const evt = event as {
+              type: string;
+              properties: Record<string, unknown>;
             };
-            // Only handle deltas for OUR session
-            if (props.sessionID === sessionId && props.field === "text") {
-              fullText += props.delta;
-              setStreamedText(fullText);
+
+            if (evt.type === "message.part.delta") {
+              const props = evt.properties as {
+                sessionID: string;
+                delta: string;
+                field: string;
+              };
+              if (props.field !== "text") continue;
+
+              const convId = sessionToConvRef.current.get(props.sessionID);
+              if (!convId) continue;
+
+              const state = streamsRef.current.get(convId);
+              if (!state || !state.isStreaming) continue;
+
+              state.streamedText += props.delta;
+              rerender();
+            }
+
+            if (evt.type === "session.idle") {
+              const props = evt.properties as { sessionID: string };
+              const convId = sessionToConvRef.current.get(props.sessionID);
+              if (!convId) continue;
+
+              const state = streamsRef.current.get(convId);
+              if (!state) continue;
+
+              state.isStreaming = false;
+              // Resolve the send promise with accumulated text
+              state.resolve?.(state.streamedText);
+              state.resolve = null;
+              rerender();
             }
           }
-
-          // Stop when our session goes idle
-          if (evt.type === "session.idle") {
-            const props = evt.properties as { sessionID: string };
-            if (props.sessionID === sessionId) {
-              break;
-            }
+        } catch (err) {
+          console.error("[opencode] SSE listener error, reconnecting:", err);
+          if (!stopped) {
+            // Brief pause before reconnecting
+            await new Promise((r) => setTimeout(r, 1000));
           }
         }
-      } catch (err) {
-        console.error("[opencode] Stream error:", err);
       }
     })();
+  }, [rerender]);
 
-    // Send prompt using promptAsync (returns 204 immediately, non-blocking)
-    try {
-      await client.session.promptAsync({
-        path: { id: sessionId },
-        body: {
-          parts: [{ type: "text", text }],
-        },
+  const send = useCallback(
+    async (conversationId: string, sessionId: string, text: string) => {
+      // Create a promise that resolves when session.idle fires
+      let resolveStream: (text: string) => void;
+      const streamDone = new Promise<string>((resolve) => {
+        resolveStream = resolve;
       });
-    } catch (err) {
-      console.error("[opencode] Failed to send prompt:", err);
-      abortController.abort();
-      setIsStreaming(false);
-      abortRef.current = null;
-      return "";
-    }
 
-    // Wait for streaming to finish
-    await streamPromise;
+      // Register state
+      streamsRef.current.set(conversationId, {
+        isSending: true,
+        isStreaming: true,
+        streamedText: "",
+        sessionId,
+        resolve: resolveStream!,
+      });
+      sessionToConvRef.current.set(sessionId, conversationId);
+      rerender();
 
-    // Fallback: if streaming captured nothing, fetch messages directly
-    if (!fullText) {
+      // Ensure shared SSE listener is running
+      ensureListener();
+
+      // Send prompt (non-blocking)
+      const client = getClient();
       try {
-        const { data: messages } = await client.session.messages({
+        await client.session.promptAsync({
           path: { id: sessionId },
+          body: { parts: [{ type: "text", text }] },
         });
-        if (messages && Array.isArray(messages)) {
-          for (let i = messages.length - 1; i >= 0; i--) {
-            const msg = messages[i] as {
-              info: { role: string };
-              parts: Array<{ type: string; text?: string }>;
-            };
-            if (msg.info.role === "assistant") {
-              const textParts = msg.parts
-                .filter((p) => p.type === "text" && p.text)
-                .map((p) => p.text!);
-              fullText = textParts.join("\n");
-              break;
+      } catch (err) {
+        console.error("[opencode] Failed to send prompt:", err);
+        const state = streamsRef.current.get(conversationId);
+        if (state) {
+          state.isSending = false;
+          state.isStreaming = false;
+          state.resolve = null;
+        }
+        rerender();
+        return "";
+      }
+
+      // Wait for streaming to complete (resolved by SSE listener on session.idle)
+      // Timeout after 5 minutes to prevent hanging forever
+      const timeout = new Promise<string>((resolve) =>
+        setTimeout(() => resolve(""), 5 * 60 * 1000),
+      );
+      let fullText = await Promise.race([streamDone, timeout]);
+
+      // Fallback: fetch messages if streaming captured nothing
+      if (!fullText) {
+        try {
+          const { data: messages } = await client.session.messages({
+            path: { id: sessionId },
+          });
+          if (messages && Array.isArray(messages)) {
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const msg = messages[i] as {
+                info: { role: string };
+                parts: Array<{ type: string; text?: string }>;
+              };
+              if (msg.info.role === "assistant") {
+                const textParts = msg.parts
+                  .filter((p) => p.type === "text" && p.text)
+                  .map((p) => p.text!);
+                fullText = textParts.join("\n");
+                break;
+              }
             }
           }
+        } catch (err) {
+          console.error("[opencode] Failed to fetch messages:", err);
         }
-      } catch (err) {
-        console.error("[opencode] Failed to fetch messages:", err);
       }
-    }
 
-    setIsStreaming(false);
-    abortRef.current = null;
-    return fullText;
-  }, []);
+      return fullText;
+    },
+    [rerender, ensureListener],
+  );
 
-  const abort = useCallback(async (sessionId?: string) => {
-    abortRef.current?.abort();
-    setIsStreaming(false);
-    // Also tell opencode to abort the session
-    if (sessionId) {
-      try {
-        const client = getClient();
-        await client.session.abort({ path: { id: sessionId } });
-      } catch {
-        // ignore
+  const markSendComplete = useCallback(
+    (conversationId: string) => {
+      const state = streamsRef.current.get(conversationId);
+      if (state) {
+        state.isSending = false;
+        rerender();
       }
-    }
-  }, []);
+    },
+    [rerender],
+  );
 
-  return { send, abort, isStreaming, streamedText };
+  const abort = useCallback(
+    async (conversationId: string) => {
+      const state = streamsRef.current.get(conversationId);
+      if (!state) return;
+
+      state.isSending = false;
+      state.isStreaming = false;
+      // Resolve the pending promise so send() doesn't hang
+      state.resolve?.("");
+      state.resolve = null;
+      rerender();
+
+      if (state.sessionId) {
+        try {
+          const client = getClient();
+          await client.session.abort({ path: { id: state.sessionId } });
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [rerender],
+  );
+
+  return { send, abort, getState, markSendComplete };
 };
 
 export const useCreateSession = () => {

@@ -59,8 +59,8 @@ function ChatPageContent() {
   const {
     send: sendMessage,
     abort,
-    isStreaming,
-    streamedText,
+    getState,
+    markSendComplete,
   } = useSendMessage();
 
   const { data: conversations } = useConversations();
@@ -70,11 +70,20 @@ function ChatPageContent() {
   const { mutateAsync: saveMessage } = useSaveMessage();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Optimistic messages not yet in DB (appended on top of dbMessages)
-  const [pendingMessages, setPendingMessages] = useState<ChatMessage[]>([]);
-  const [isSending, setIsSending] = useState(false);
+  // Per-conversation optimistic messages (keyed by conversationId)
+  const [pendingMessagesMap, setPendingMessagesMap] = useState<
+    Map<string, ChatMessage[]>
+  >(new Map());
 
-  // DB messages + any pending optimistic messages
+  // Per-conversation streaming state
+  const { isSending, isStreaming, streamedText } = getState(conversationId);
+
+  // Pending messages for the active conversation
+  const pendingMessages = conversationId
+    ? pendingMessagesMap.get(conversationId) ?? []
+    : [];
+
+  // DB messages + any pending optimistic messages (deduped)
   const messages = [
     ...(dbMessages ?? []),
     ...pendingMessages.filter(
@@ -85,14 +94,6 @@ function ChatPageContent() {
     ),
   ];
 
-  // Clear pending messages when switching conversations
-  // Using a ref to track previous conversationId to avoid useEffect
-  const [prevConvId, setPrevConvId] = useState(conversationId);
-  if (prevConvId !== conversationId) {
-    setPrevConvId(conversationId);
-    setPendingMessages([]);
-  }
-
   // ChatStatus for PromptInputSubmit
   const chatStatus: ChatStatus = isStreaming
     ? "streaming"
@@ -102,9 +103,7 @@ function ChatPageContent() {
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (!text.trim() || isStreaming || isSending || !connected) return;
-
-      setIsSending(true);
+      if (!text.trim() || !connected) return;
 
       let currentConversationId = conversationId;
       let sessionId: string | undefined;
@@ -112,10 +111,7 @@ function ChatPageContent() {
       // If no conversation, create one
       if (!currentConversationId) {
         const session = await createSession(text.slice(0, 50));
-        if (!session) {
-          setIsSending(false);
-          return;
-        }
+        if (!session) return;
         sessionId = session.id;
 
         const conversation = await createConversation({
@@ -132,10 +128,7 @@ function ChatPageContent() {
 
         if (!sessionId) {
           const session = await createSession(text.slice(0, 50));
-          if (!session) {
-            setIsSending(false);
-            return;
-          }
+          if (!session) return;
           sessionId = session.id;
           updateConversation({
             id: currentConversationId,
@@ -144,15 +137,22 @@ function ChatPageContent() {
         }
       }
 
+      const addPending = (convId: string, msg: ChatMessage) => {
+        setPendingMessagesMap((prev) => {
+          const next = new Map(prev);
+          next.set(convId, [...(next.get(convId) ?? []), msg]);
+          return next;
+        });
+      };
+
       // Add user message to local state immediately
-      const userMsg: ChatMessage = {
+      addPending(currentConversationId, {
         id: `temp-user-${Date.now()}`,
         conversationId: currentConversationId,
         role: "user",
         content: text,
         createdAt: new Date().toISOString(),
-      };
-      setPendingMessages((prev) => [...prev, userMsg]);
+      });
 
       // Save user message to DB (don't await — keep UI fast)
       saveMessage({
@@ -161,32 +161,32 @@ function ChatPageContent() {
         content: text,
       });
 
-      // Send to opencode and stream response
-      const responseText = await sendMessage(sessionId, text);
+      // Send to opencode and stream response (per-conversation)
+      const responseText = await sendMessage(
+        currentConversationId,
+        sessionId,
+        text,
+      );
 
       if (responseText) {
-        // Save assistant message to DB
         await saveMessage({
           conversationId: currentConversationId,
           role: "assistant",
           content: responseText,
         });
 
-        const assistantMsg: ChatMessage = {
+        addPending(currentConversationId, {
           id: `temp-assistant-${Date.now()}`,
           conversationId: currentConversationId,
           role: "assistant",
           content: responseText,
           createdAt: new Date().toISOString(),
-        };
-        setPendingMessages((prev) => [...prev, assistantMsg]);
+        });
       }
 
-      setIsSending(false);
+      markSendComplete(currentConversationId);
     },
     [
-      isStreaming,
-      isSending,
       connected,
       conversationId,
       conversations,
@@ -195,28 +195,25 @@ function ChatPageContent() {
       updateConversation,
       saveMessage,
       sendMessage,
+      markSendComplete,
       router,
     ],
   );
 
   const handleSubmit = useCallback(
     (message: { text: string }) => {
-      // Don't await — PromptInput waits for the promise to resolve before
-      // clearing the textarea. Fire-and-forget so the input clears immediately.
       handleSend(message.text);
     },
     [handleSend],
   );
 
   const handleNewConversation = useCallback(() => {
-    setPendingMessages([]);
     router.replace("/app/chat");
   }, [router]);
 
   const handleConversationSelect = useCallback(
     (id: string) => {
       if (id === conversationId) return;
-      setPendingMessages([]);
       router.replace(`/app/chat?id=${id}`);
     },
     [conversationId, router],
@@ -252,7 +249,10 @@ function ChatPageContent() {
 
         {/* Messages area */}
         <Conversation className="flex-1">
-          <ConversationContent className="max-w-3xl mx-auto w-full px-4 py-6" scrollClassName="scrollbar-light">
+          <ConversationContent
+            className="max-w-3xl mx-auto w-full px-4 py-6"
+            scrollClassName="scrollbar-light"
+          >
             {messages.length === 0 && !showThinking ? (
               <ConversationEmptyState
                 title="Start a conversation"
@@ -319,7 +319,9 @@ function ChatPageContent() {
                       </PromptInputTools>
                       <PromptInputSubmit
                         status={chatStatus}
-                        onStop={() => abort()}
+                        onStop={() =>
+                          conversationId && abort(conversationId)
+                        }
                       />
                     </PromptInputFooter>
                   </PromptInput>
