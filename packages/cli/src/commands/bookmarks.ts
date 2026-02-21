@@ -56,6 +56,27 @@ export const registerBookmarksCommand = (program: Command) => {
     });
 
   bookmarks
+    .command("get")
+    .description("Get a bookmark by ID")
+    .argument("<id>", "Bookmark ID")
+    .option("-j, --json", "Output raw JSON")
+    .action(async (id, option) => {
+      const data = await apiRequest(`bookmarks/${id}`, "GET");
+      if (option.json) {
+        console.log(JSON.stringify(data, null, 2));
+        return;
+      }
+      console.log(`ID:      ${data.id}`);
+      console.log(`Type:    ${data.type}`);
+      console.log(`Title:   ${data.title || "(none)"}`);
+      console.log(`URL:     ${data.url}`);
+      if (data.author) console.log(`Author:  ${data.author}`);
+      if (data.content) console.log(`Content: ${data.content.slice(0, 200)}${data.content.length > 200 ? "…" : ""}`);
+      console.log(`Read:    ${data.isRead ? "yes" : "no"}`);
+      console.log(`Created: ${data.createdAt}`);
+    });
+
+  bookmarks
     .command("delete")
     .description("Delete a bookmark")
     .argument("<id>", "Bookmark ID to delete")
