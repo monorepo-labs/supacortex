@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
@@ -19,7 +19,26 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Send, Square, Loader2, Monitor } from "lucide-react";
+import { Monitor } from "lucide-react";
+import type { ChatStatus } from "ai";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputSubmit,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionAddAttachments,
+} from "@/components/ai-elements/prompt-input";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default function ChatPage() {
   return (
@@ -51,142 +70,143 @@ function ChatPageContent() {
   const { mutateAsync: saveMessage } = useSaveMessage();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [input, setInput] = useState("");
   // Optimistic messages not yet in DB (appended on top of dbMessages)
   const [pendingMessages, setPendingMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // DB messages + any pending optimistic messages
   const messages = [
     ...(dbMessages ?? []),
     ...pendingMessages.filter(
-      (pm) => !(dbMessages ?? []).some((db) => db.content === pm.content && db.role === pm.role),
+      (pm) =>
+        !(dbMessages ?? []).some(
+          (db) => db.content === pm.content && db.role === pm.role,
+        ),
     ),
   ];
 
   // Clear pending messages when switching conversations
-  useEffect(() => {
+  // Using a ref to track previous conversationId to avoid useEffect
+  const [prevConvId, setPrevConvId] = useState(conversationId);
+  if (prevConvId !== conversationId) {
+    setPrevConvId(conversationId);
     setPendingMessages([]);
-  }, [conversationId]);
+  }
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamedText, isSending]);
+  // ChatStatus for PromptInputSubmit
+  const chatStatus: ChatStatus = isStreaming
+    ? "streaming"
+    : isSending
+      ? "submitted"
+      : "ready";
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-    }
-  }, [input]);
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isStreaming || isSending || !connected) return;
 
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isStreaming || isSending || !connected) return;
+      setIsSending(true);
 
-    setInput("");
-    setIsSending(true);
+      let currentConversationId = conversationId;
+      let sessionId: string | undefined;
 
-    let currentConversationId = conversationId;
-    let sessionId: string | undefined;
-
-    // If no conversation, create one
-    if (!currentConversationId) {
-      const session = await createSession(text.slice(0, 50));
-      if (!session) {
-        setIsSending(false);
-        return;
-      }
-      sessionId = session.id;
-
-      const conversation = await createConversation({
-        title: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
-        sessionId: session.id,
-      });
-      currentConversationId = conversation.id;
-      router.replace(`/app/chat?id=${conversation.id}`);
-    } else {
-      const conv = conversations?.find((c) => c.id === currentConversationId);
-      sessionId = conv?.sessionId ?? undefined;
-
-      if (!sessionId) {
+      // If no conversation, create one
+      if (!currentConversationId) {
         const session = await createSession(text.slice(0, 50));
         if (!session) {
           setIsSending(false);
           return;
         }
         sessionId = session.id;
-        updateConversation({
-          id: currentConversationId,
+
+        const conversation = await createConversation({
+          title: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
           sessionId: session.id,
         });
+        currentConversationId = conversation.id;
+        router.replace(`/app/chat?id=${conversation.id}`);
+      } else {
+        const conv = conversations?.find(
+          (c) => c.id === currentConversationId,
+        );
+        sessionId = conv?.sessionId ?? undefined;
+
+        if (!sessionId) {
+          const session = await createSession(text.slice(0, 50));
+          if (!session) {
+            setIsSending(false);
+            return;
+          }
+          sessionId = session.id;
+          updateConversation({
+            id: currentConversationId,
+            sessionId: session.id,
+          });
+        }
       }
-    }
 
-    // Add user message to local state immediately
-    const userMsg: ChatMessage = {
-      id: `temp-user-${Date.now()}`,
-      conversationId: currentConversationId,
-      role: "user",
-      content: text,
-      createdAt: new Date().toISOString(),
-    };
-    setPendingMessages((prev) => [...prev, userMsg]);
-
-    // Save user message to DB (don't await — keep UI fast)
-    saveMessage({
-      conversationId: currentConversationId,
-      role: "user",
-      content: text,
-    });
-
-    // Send to opencode and stream response
-    const responseText = await sendMessage(sessionId, text);
-
-    if (responseText) {
-      // Save assistant message to DB
-      await saveMessage({
+      // Add user message to local state immediately
+      const userMsg: ChatMessage = {
+        id: `temp-user-${Date.now()}`,
         conversationId: currentConversationId,
-        role: "assistant",
-        content: responseText,
-      });
-
-      const assistantMsg: ChatMessage = {
-        id: `temp-assistant-${Date.now()}`,
-        conversationId: currentConversationId,
-        role: "assistant",
-        content: responseText,
+        role: "user",
+        content: text,
         createdAt: new Date().toISOString(),
       };
-      setPendingMessages((prev) => [...prev, assistantMsg]);
-    }
+      setPendingMessages((prev) => [...prev, userMsg]);
 
-    setIsSending(false);
-  }, [
-    input,
-    isStreaming,
-    isSending,
-    connected,
-    conversationId,
-    conversations,
-    createSession,
-    createConversation,
-    updateConversation,
-    saveMessage,
-    sendMessage,
-    router,
-  ]);
+      // Save user message to DB (don't await — keep UI fast)
+      saveMessage({
+        conversationId: currentConversationId,
+        role: "user",
+        content: text,
+      });
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+      // Send to opencode and stream response
+      const responseText = await sendMessage(sessionId, text);
+
+      if (responseText) {
+        // Save assistant message to DB
+        await saveMessage({
+          conversationId: currentConversationId,
+          role: "assistant",
+          content: responseText,
+        });
+
+        const assistantMsg: ChatMessage = {
+          id: `temp-assistant-${Date.now()}`,
+          conversationId: currentConversationId,
+          role: "assistant",
+          content: responseText,
+          createdAt: new Date().toISOString(),
+        };
+        setPendingMessages((prev) => [...prev, assistantMsg]);
+      }
+
+      setIsSending(false);
+    },
+    [
+      isStreaming,
+      isSending,
+      connected,
+      conversationId,
+      conversations,
+      createSession,
+      createConversation,
+      updateConversation,
+      saveMessage,
+      sendMessage,
+      router,
+    ],
+  );
+
+  const handleSubmit = useCallback(
+    (message: { text: string }) => {
+      // Don't await — PromptInput waits for the promise to resolve before
+      // clearing the textarea. Fire-and-forget so the input clears immediately.
+      handleSend(message.text);
+    },
+    [handleSend],
+  );
 
   const handleNewConversation = useCallback(() => {
     setPendingMessages([]);
@@ -202,7 +222,8 @@ function ChatPageContent() {
     [conversationId, router],
   );
 
-  const showThinking = isSending || (isStreaming && !streamedText);
+  const showThinking = isSending && !streamedText;
+  const showStreaming = streamedText && isSending;
 
   return (
     <div className="flex h-screen">
@@ -219,7 +240,7 @@ function ChatPageContent() {
         onConversationSelect={handleConversationSelect}
         onNewConversation={handleNewConversation}
       />
-      <main className="relative flex-1 shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
+      <main className="relative flex-1 bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
         {!isTauri && (
           <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
             <Monitor size={14} />
@@ -230,42 +251,53 @@ function ChatPageContent() {
         )}
 
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto">
-          {messages.length === 0 && !showThinking ? (
-            <EmptyState />
-          ) : (
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))}
-              {showThinking && !streamedText && <ThinkingIndicator />}
-              {streamedText && isSending && (
-                <div className="flex justify-start">
-                  <div className="max-w-[80%] text-sm text-zinc-800">
-                    <div className="prose prose-sm prose-zinc max-w-none">
-                      <Streamdown
-                        isAnimating={isStreaming}
-                        animated={{ animation: "fadeIn", sep: "word" }}
-                        caret={isStreaming ? "block" : undefined}
-                      >
-                        {streamedText}
-                      </Streamdown>
+        <Conversation className="flex-1">
+          <ConversationContent className="max-w-3xl mx-auto w-full px-4 py-6" scrollClassName="scrollbar-light">
+            {messages.length === 0 && !showThinking ? (
+              <ConversationEmptyState
+                title="Start a conversation"
+                description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
+              />
+            ) : (
+              <>
+                {messages.map((msg) => (
+                  <MessageBubble key={msg.id} message={msg} />
+                ))}
+                {showThinking && (
+                  <div className="flex justify-start py-2">
+                    <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
+                      Thinking...
+                    </span>
+                  </div>
+                )}
+                {showStreaming && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] text-sm text-zinc-800">
+                      <div className="prose prose-sm prose-zinc max-w-none">
+                        <Streamdown
+                          isAnimating={isStreaming}
+                          animated={{ animation: "fadeIn", sep: "word" }}
+                          caret={isStreaming ? "block" : undefined}
+                        >
+                          {streamedText}
+                        </Streamdown>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
+                )}
+              </>
+            )}
+          </ConversationContent>
+          <ConversationScrollButton className="bg-white hover:bg-zinc-50" />
+        </Conversation>
 
         {/* Input area */}
         {isTauri && (
-          <div className="border-t border-zinc-100 px-4 py-3">
+          <div className="px-4 py-3">
             <div className="max-w-3xl mx-auto">
               {connecting ? (
                 <div className="flex items-center gap-2 text-sm text-zinc-400 py-2">
-                  <Loader2 size={14} className="animate-spin" />
+                  <div className="size-3 border-2 border-zinc-300 border-t-transparent rounded-full animate-spin" />
                   Connecting to OpenCode...
                 </div>
               ) : connectionError ? (
@@ -273,36 +305,25 @@ function ChatPageContent() {
                   Failed to connect: {connectionError}
                 </div>
               ) : (
-                <div className="flex items-end gap-2">
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask anything... (Enter to send)"
-                    rows={1}
-                    disabled={!connected || isStreaming || isSending}
-                    className="flex-1 resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-zinc-400 transition-colors disabled:opacity-50 bg-transparent"
-                  />
-                  <button
-                    onClick={
-                      isStreaming || isSending
-                        ? () => abort()
-                        : handleSend
-                    }
-                    disabled={
-                      !connected ||
-                      (!input.trim() && !isStreaming && !isSending)
-                    }
-                    className="shrink-0 rounded-lg bg-zinc-900 p-2 text-white transition-colors hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    {isStreaming || isSending ? (
-                      <Square size={16} />
-                    ) : (
-                      <Send size={16} />
-                    )}
-                  </button>
-                </div>
+                <TooltipProvider>
+                  <PromptInput onSubmit={handleSubmit}>
+                    <PromptInputTextarea placeholder="Ask anything..." />
+                    <PromptInputFooter>
+                      <PromptInputTools>
+                        <PromptInputActionMenu>
+                          <PromptInputActionMenuTrigger tooltip="Attach" />
+                          <PromptInputActionMenuContent>
+                            <PromptInputActionAddAttachments />
+                          </PromptInputActionMenuContent>
+                        </PromptInputActionMenu>
+                      </PromptInputTools>
+                      <PromptInputSubmit
+                        status={chatStatus}
+                        onStop={() => abort()}
+                      />
+                    </PromptInputFooter>
+                  </PromptInput>
+                </TooltipProvider>
               )}
             </div>
           </div>
@@ -317,46 +338,6 @@ function ChatPageContent() {
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-1 items-center justify-center h-full">
-      <div className="text-center space-y-2">
-        <h2 className="text-lg font-medium text-zinc-900">
-          Start a conversation
-        </h2>
-        <p className="text-sm text-zinc-500 max-w-sm">
-          Ask questions about your bookmarks, get summaries, or explore
-          connections in your saved content.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ThinkingIndicator() {
-  return (
-    <div className="flex justify-start">
-      <div className="flex items-center gap-1.5 text-sm text-zinc-400 py-2">
-        <div className="flex gap-1">
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-zinc-300 animate-bounce"
-            style={{ animationDelay: "0ms" }}
-          />
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-zinc-300 animate-bounce"
-            style={{ animationDelay: "150ms" }}
-          />
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-zinc-300 animate-bounce"
-            style={{ animationDelay: "300ms" }}
-          />
-        </div>
-        <span className="ml-1">Thinking...</span>
-      </div>
     </div>
   );
 }

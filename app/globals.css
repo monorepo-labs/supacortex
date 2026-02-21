@@ -205,6 +205,15 @@ html[data-tauri] body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
+/* Shimmer text animation */
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+@utility animate-shimmer {
+    animation: shimmer 2s ease-in-out infinite;
+}
+
 /* Card shadows */
 @utility shadow-card {
     box-shadow:
