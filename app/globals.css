@@ -214,6 +214,54 @@ html[data-tauri] body {
     animation: shimmer 2s ease-in-out infinite;
 }
 
+/* Streamdown code blocks — compact layout */
+[data-streamdown="code-block"] {
+    @apply relative my-2 gap-0 rounded-lg border-0 bg-zinc-950 p-0 overflow-hidden;
+    box-shadow:
+        0 12px 12px -3px #0000000a,
+        0 6px 6px -3px #00000005,
+        0 3px 3px -1.5px #00000005,
+        0 1px 1px -0.5px #00000008,
+        0 0 0 1px #0000000a;
+}
+[data-streamdown="code-block-header"] {
+    @apply h-8 px-3 text-zinc-400;
+}
+/* Actions sticky wrapper — flatten into header row */
+[data-streamdown="code-block"] > .pointer-events-none.sticky {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-top: 0;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    padding-right: 0.25rem;
+    pointer-events: auto;
+    z-index: 10;
+}
+[data-streamdown="code-block-actions"] {
+    @apply border-0 bg-transparent p-0 shadow-none;
+    backdrop-filter: none;
+}
+[data-streamdown="code-block-actions"] button {
+    @apply text-zinc-500 hover:text-zinc-300;
+}
+[data-streamdown="code-block-body"] {
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0.75rem !important;
+    margin: 0 !important;
+    background: #09090b !important;
+}
+[data-streamdown="code-block-body"] pre {
+    margin: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+}
+
 /* Card shadows */
 @utility shadow-card {
     box-shadow:
