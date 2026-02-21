@@ -239,9 +239,6 @@ function LibraryPageContent() {
               onOpenReader={handleOpenReader}
               onOpenInNewPanel={handleOpenInNewPanel}
               openReaderIds={openReaderIds}
-              isFiltered={
-                !!activeGroupId || deferredSearch.length >= 3 || !!typeFilter
-              }
               fetchNextPage={fetchNextPage}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}

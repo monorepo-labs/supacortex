@@ -8,7 +8,6 @@ import type { BookmarkData } from "./BookmarkNode";
 
 const TARGET_CARD_WIDTH = 260;
 const GAP = 24;
-const PAD = 24;
 
 export default function LibraryGridView({
   bookmarks,
@@ -17,7 +16,6 @@ export default function LibraryGridView({
   onOpenReader,
   onOpenInNewPanel,
   openReaderIds,
-  isFiltered,
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
@@ -28,7 +26,6 @@ export default function LibraryGridView({
   onOpenReader: (bookmark: BookmarkData) => void;
   onOpenInNewPanel?: (bookmark: BookmarkData) => void;
   openReaderIds?: Set<string>;
-  isFiltered?: boolean;
   fetchNextPage?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;

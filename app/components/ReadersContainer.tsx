@@ -279,14 +279,22 @@ export default function ReadersContainer({
     );
   }
 
-  // Track whether we've rendered with readers before (for initial slide-in)
+  // Track slide-in animation state
   const [mounted, setMounted] = useState(false);
+  const [animating, setAnimating] = useState(false);
   useEffect(() => {
     if (readers.length > 0 && !mounted) {
-      // Trigger slide-in on next frame so the transform transition plays
-      requestAnimationFrame(() => setMounted(true));
+      setAnimating(true);
+      const rafId = requestAnimationFrame(() => setMounted(true));
+      // Remove overflow-hidden after animation completes (200ms transition)
+      const timerId = setTimeout(() => setAnimating(false), 250);
+      return () => {
+        cancelAnimationFrame(rafId);
+        clearTimeout(timerId);
+      };
     } else if (readers.length === 0) {
       setMounted(false);
+      setAnimating(false);
     }
   }, [readers.length, mounted]);
 
@@ -294,7 +302,7 @@ export default function ReadersContainer({
 
   return (
     <div
-      className="shrink-0 overflow-hidden"
+      className={`shrink-0 ${animating ? "overflow-hidden" : ""}`}
       style={{ width: wrapperWidth }}
     >
       <div
