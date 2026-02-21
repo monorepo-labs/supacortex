@@ -44,6 +44,13 @@ export const updateGridLayout = async (
   await Promise.all(queries);
 };
 
+export const updateBookmarkNotes = async (id: string, notes: string | null) => {
+  return db
+    .update(bookmarks)
+    .set({ notes })
+    .where(eq(bookmarks.id, id));
+};
+
 export const resetGridLayout = async (userId: string) => {
   await db
     .update(bookmarks)

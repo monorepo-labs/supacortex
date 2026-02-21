@@ -111,6 +111,44 @@ export const useResetGridLayout = () => {
   });
 };
 
+export const useUpdateBookmarkNotes = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { id: string; notes: string }) => {
+      const res = await fetch(`/api/bookmarks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update notes");
+      return res.json();
+    },
+    onMutate: async ({ id, notes }) => {
+      await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
+      const queries = queryClient.getQueriesData<InfiniteData<BookmarkPage>>({ queryKey: ["bookmarks"] });
+      queries.forEach(([key, data]) => {
+        if (!data) return;
+        queryClient.setQueryData(key, {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            data: page.data.map((b) => b.id === id ? { ...b, notes } : b),
+          })),
+        });
+      });
+      return { queries };
+    },
+    onError: (_err, _data, context) => {
+      context?.queries.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+};
+
 export const useDeleteBookmark = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -173,6 +211,7 @@ export const useCreateBookmark = () => {
         content: null,
         author: null,
         url: bookmark.url,
+        notes: null,
         isRead: false,
         mediaUrls: null,
         positionX: null,

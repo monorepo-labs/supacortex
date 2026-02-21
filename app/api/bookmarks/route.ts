@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBookmarksForUser } from "@/server/bookmarks/queries";
 import { getUser } from "@/lib/get-user";
-import { createBookmark, deleteBookmark, updateBookmarkPosition, updateGridLayout, resetGridLayout } from "@/server/bookmarks/mutations";
+import { createBookmark, deleteBookmark, updateBookmarkPosition, updateGridLayout, resetGridLayout, updateBookmarkNotes } from "@/server/bookmarks/mutations";
 import { classifyUrlType } from "@/lib/ingest/url-type";
 import { scrapeContent } from "@/lib/ingest/scraper";
 import { scrapeYouTube } from "@/lib/ingest/youtube-scraper";
@@ -146,6 +146,12 @@ export async function PATCH(req: Request) {
   const body = await req.json();
 
   try {
+    // Update notes
+    if (body.id && "notes" in body) {
+      await updateBookmarkNotes(body.id, body.notes || null);
+      return NextResponse.json({ ok: true });
+    }
+
     // Reset grid layout
     if (body.resetGrid) {
       await resetGridLayout(user.id);

@@ -29,6 +29,13 @@
       "when": 1771485082782,
       "tag": "0003_regular_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771516348121,
+      "tag": "0004_productive_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

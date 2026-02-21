@@ -161,6 +161,7 @@ export const getBookmarksForUser = async (
       content: bookmarks.content,
       author: bookmarks.author,
       mediaUrls: bookmarks.mediaUrls,
+      notes: bookmarks.notes,
       isRead: bookmarks.isRead,
       tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
