@@ -117,6 +117,34 @@ export const deviceCodes = pgTable("device_codes", {
   createdAt: timestamp().defaultNow().notNull(),
 });
 
+export const conversations = pgTable("conversations", {
+  id: uuid().primaryKey().defaultRandom(),
+  title: text().notNull().default("New conversation"),
+  sessionId: text(), // opencode session ID
+  userId: text()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp().defaultNow().notNull(),
+  updatedAt: timestamp()
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    conversationId: uuid()
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    role: text().notNull(), // "user" | "assistant"
+    content: text().notNull(),
+    createdAt: timestamp().defaultNow().notNull(),
+  },
+  (table) => [index("messages_conversation_idx").on(table.conversationId)],
+);
+
 export const bookmarksInsertSchema = createInsertSchema(bookmarks);
 export const bookmarksSelectSchema = createSelectSchema(bookmarks);
 export const groupsInsertSchema = createInsertSchema(groups);
@@ -214,5 +242,16 @@ export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
     references: [user.id],
+  }),
+}));
+
+export const conversationRelations = relations(conversations, ({ many }) => ({
+  messages: many(messages),
+}));
+
+export const messageRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
   }),
 }));

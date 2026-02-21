@@ -11,6 +11,9 @@ importers:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.3)
+      '@opencode-ai/sdk':
+        specifier: ^1.2.10
+        version: 1.2.10
       '@openrouter/sdk':
         specifier: ^0.8.0
         version: 0.8.0
@@ -26,6 +29,9 @@ importers:
       '@tanstack/react-query-persist-client':
         specifier: ^5.90.22
         version: 5.90.22(@tanstack/react-query@5.90.21(react@19.2.3))(react@19.2.3)
+      '@tauri-apps/plugin-shell':
+        specifier: ^2.3.5
+        version: 2.3.5
       '@types/d3-force':
         specifier: ^3.0.10
         version: 3.0.10
@@ -1220,6 +1226,9 @@ packages:
 
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
+
+  '@opencode-ai/sdk@1.2.10':
+    resolution: {integrity: sha512-SyXcVqry2hitPVvQtvXOhqsWyFhSycG/+LTLYXrcq8AFmd9FR7dyBSDB3f5Ol6IPkYOegk8P2Eg2kKPNSNiKGw==}
 
   '@openrouter/sdk@0.8.0':
     resolution: {integrity: sha512-hmCY5CE/adBmwZmrwuSx7Pw5UngcyuA9FvgpouyWEX8m283omLD1BqJlYYkLdVoUdI8iGNFHKezH2CeJqsVymw==}
@@ -6223,6 +6232,8 @@ snapshots:
       outvariant: 1.4.3
 
   '@open-draft/until@2.1.0': {}
+
+  '@opencode-ai/sdk@1.2.10': {}
 
   '@openrouter/sdk@0.8.0':
     dependencies:
