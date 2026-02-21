@@ -79,6 +79,7 @@ type DragProps = {
 };
 
 function DragHandle({ dragProps }: { dragProps?: DragProps }) {
+  if (!dragProps?.draggable) return null;
   return (
     <div
       className="cursor-grab active:cursor-grabbing rounded-lg p-1.5 text-zinc-300 hover:text-zinc-500 transition-colors"

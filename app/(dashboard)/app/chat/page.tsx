@@ -23,7 +23,7 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, ArrowLeft, ArrowRight, Columns3 } from "lucide-react";
+import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, EyeOff, Link as LinkIcon } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -665,55 +665,6 @@ function ChatPageContent() {
   const contextMaxTokens = activeModel?.contextLimit ?? 200000;
   const usedTokens = tokens.input + tokens.output + tokens.reasoning;
 
-  const panelToolbar = (panel: PanelConfig, index: number) => {
-    const canMoveLeft = index > 0;
-    const canMoveRight = index < panels.length - 1;
-    const widthLabel = panel.widthPreset === "narrow" ? "S" : panel.widthPreset === "medium" ? "M" : "L";
-    const canClose = panel.type !== "chat" || panels.filter((p) => p.type === "chat").length > 0;
-
-    return (
-      <div className="flex items-center justify-between px-2 py-1 shrink-0">
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => canMoveLeft && reorderPanels(index, index - 1)}
-            disabled={!canMoveLeft}
-            className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
-          >
-            <ArrowLeft size={12} />
-          </button>
-          <button
-            type="button"
-            onClick={() => canMoveRight && reorderPanels(index, index + 1)}
-            disabled={!canMoveRight}
-            className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
-          >
-            <ArrowRight size={12} />
-          </button>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => cycleWidth(panel.id)}
-            className="rounded px-1.5 py-1 text-[10px] font-medium text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 transition-colors"
-            title={`Resize (${panel.widthPreset})`}
-          >
-            {widthLabel}
-          </button>
-          {panel.type !== "chat" && (
-            <button
-              type="button"
-              onClick={() => removePanel(panel.id)}
-              className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 transition-colors"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   // Width preset → CSS classes
   const widthClasses = (preset: string) => {
     switch (preset) {
@@ -727,8 +678,7 @@ function ChatPageContent() {
   const renderPanel = (panel: PanelConfig, index: number) => {
     if (panel.type === "chat") {
       return (
-        <main key={panel.id} className={`relative ${widthClasses(panel.widthPreset)} bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col`}>
-          {panels.length > 1 && panelToolbar(panel, index)}
+        <main key={panel.id} className={`relative ${widthClasses(panel.widthPreset)} bg-white shadow-card rounded-xl m-2 mt-0 overflow-hidden flex flex-col`}>
           {!isTauri && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
               <Monitor size={14} />
@@ -1026,8 +976,7 @@ function ChatPageContent() {
 
     if (panel.type === "library") {
       return (
-        <div key={panel.id} className={`${widthClasses(panel.widthPreset)} shrink-0 my-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
-          {panels.length > 1 && panelToolbar(panel, index)}
+        <div key={panel.id} className={`${widthClasses(panel.widthPreset)} shrink-0 mb-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
           <GridSearch
             onSearch={setLibrarySearch}
             onRefresh={() => {}}
@@ -1073,31 +1022,11 @@ function ChatPageContent() {
       const bookmark = readerBookmarks.get(panel.bookmarkId);
       if (!bookmark) return null;
       return (
-        <div key={panel.id} className="shrink-0 my-2 mr-2 flex flex-col" style={{ width: 480 }}>
-          {panels.length > 1 && (
-            <div className="flex items-center gap-0.5 px-2 py-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => index > 0 && reorderPanels(index, index - 1)}
-                disabled={index === 0}
-                className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
-              >
-                <ArrowLeft size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={() => index < panels.length - 1 && reorderPanels(index, index + 1)}
-                disabled={index === panels.length - 1}
-                className="rounded p-1 text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-300 transition-colors"
-              >
-                <ArrowRight size={12} />
-              </button>
-            </div>
-          )}
+        <div key={panel.id} className="shrink-0 mb-2 mr-2" style={{ width: 480 }}>
           <Reader
             bookmark={bookmark}
             onClose={() => handleCloseReader(panel.id)}
-            style={{ height: panels.length > 1 ? "calc(100vh - 1rem - 32px)" : "calc(100vh - 1rem)", width: 480 }}
+            style={{ height: "calc(100vh - 1rem - 36px)", width: 480 }}
           />
         </div>
       );
@@ -1107,7 +1036,7 @@ function ChatPageContent() {
   };
 
   return (
-    <div className="flex h-screen overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+    <div className="flex h-screen">
       <Sidebar
         activeGroupId={null}
         onGroupSelect={() => {}}
@@ -1120,34 +1049,21 @@ function ChatPageContent() {
         activeConversationId={conversationId}
         onConversationSelect={handleConversationSelect}
         onNewConversation={handleNewConversation}
-        workspaceControls={
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => togglePanel("chat")}
-              className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs transition-colors ${
-                hasPanel("chat") ? "bg-zinc-200/60 text-zinc-700" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
-              }`}
-              title="Toggle chat (⌥E)"
-            >
-              <MessageCircle size={13} />
-              Chat
-            </button>
-            <button
-              type="button"
-              onClick={() => togglePanel("library")}
-              className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs transition-colors ${
-                hasPanel("library") ? "bg-zinc-200/60 text-zinc-700" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
-              }`}
-              title="Toggle library (⌥B)"
-            >
-              <BookOpen size={13} />
-              Library
-            </button>
-          </div>
-        }
       />
-      {panels.map(renderPanel)}
+      <div className="flex-1 flex flex-col min-w-0">
+        <WorkspaceTabBar
+          panels={panels}
+          readerBookmarks={readerBookmarks}
+          onTogglePanel={togglePanel}
+          onRemovePanel={removePanel}
+          onReorderPanels={reorderPanels}
+          onCycleWidth={cycleWidth}
+          hasPanel={hasPanel}
+        />
+        <div className="flex flex-1 min-h-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+          {panels.map(renderPanel)}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1393,5 +1309,162 @@ function BookmarkChips({ bookmarks, onRemove }: { bookmarks: BookmarkData[]; onR
         );
       })}
     </PromptInputHeader>
+  );
+}
+
+function faviconUrl(bookmarkUrl: string): string | null {
+  try {
+    const host = new URL(bookmarkUrl).hostname;
+    return `https://icons.duckduckgo.com/ip3/${host}.ico`;
+  } catch {
+    return null;
+  }
+}
+
+function TabIcon({ panel, bookmark }: { panel: PanelConfig; bookmark?: BookmarkData }) {
+  if (panel.type === "chat") return <MessageCircle size={13} className="shrink-0" />;
+  if (panel.type === "library") return <BookOpen size={13} className="shrink-0" />;
+  if (panel.type === "reader" && bookmark) {
+    if (bookmark.type === "tweet") {
+      return (
+        <svg viewBox="0 0 24 24" className="size-3.5 shrink-0">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="currentColor" />
+        </svg>
+      );
+    }
+    if (bookmark.type === "youtube") {
+      return (
+        <svg viewBox="0 0 28 20" className="h-3 w-auto shrink-0">
+          <path fill="#FF0000" d="M27.4 3.1a3.5 3.5 0 0 0-2.5-2.5C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5C28 14.7 28 10 28 10s0-4.7-.6-6.9Z" />
+          <path fill="#FFF" d="m11.2 14.3 7.2-4.3-7.2-4.3v8.6Z" />
+        </svg>
+      );
+    }
+    const favicon = faviconUrl(bookmark.url);
+    if (favicon) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={favicon} alt="" className="size-3.5 shrink-0 rounded-sm" />
+      );
+    }
+    return <LinkIcon size={13} className="shrink-0" />;
+  }
+  return null;
+}
+
+function WorkspaceTabBar({
+  panels,
+  readerBookmarks,
+  onTogglePanel,
+  onRemovePanel,
+  onReorderPanels,
+  onCycleWidth,
+  hasPanel,
+}: {
+  panels: PanelConfig[];
+  readerBookmarks: Map<string, BookmarkData>;
+  onTogglePanel: (type: "chat" | "library" | "reader") => void;
+  onRemovePanel: (id: string) => void;
+  onReorderPanels: (from: number, to: number) => void;
+  onCycleWidth: (id: string) => void;
+  hasPanel: (type: "chat" | "library" | "reader") => boolean;
+}) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const handleDragOver = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragIndex !== null && index !== dragIndex) {
+      setOverIndex(index);
+    }
+  };
+
+  const handleDrop = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dragIndex !== null && dragIndex !== index) {
+      onReorderPanels(dragIndex, index);
+    }
+    setDragIndex(null);
+    setOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setOverIndex(null);
+  };
+
+  const tabLabel = (panel: PanelConfig, bookmark?: BookmarkData) => {
+    if (panel.type === "chat") return "Chat";
+    if (panel.type === "library") return "Library";
+    if (bookmark) return bookmark.title ?? bookmark.author ?? "Bookmark";
+    return "Bookmark";
+  };
+
+  const widthLabel = (preset: string) => preset === "narrow" ? "S" : preset === "medium" ? "M" : "L";
+
+  return (
+    <div className="flex items-end gap-0 pl-2 pt-2 pr-2 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+      {panels.map((panel, index) => {
+        const bookmark = panel.bookmarkId ? readerBookmarks.get(panel.bookmarkId) : undefined;
+        const isDragging = dragIndex === index;
+        const isOver = overIndex === index;
+
+        return (
+          <div
+            key={panel.id}
+            draggable
+            onDragStart={handleDragStart(index)}
+            onDragOver={handleDragOver(index)}
+            onDrop={handleDrop(index)}
+            onDragEnd={handleDragEnd}
+            className={`group/tab flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs cursor-grab active:cursor-grabbing transition-all max-w-[200px] ${
+              isDragging ? "opacity-40" : ""
+            } ${
+              isOver ? "bg-zinc-200/60" : "bg-zinc-100/60 hover:bg-zinc-100"
+            } ${panel.type === "reader" ? "mr-px" : "mr-px"}`}
+          >
+            <TabIcon panel={panel} bookmark={bookmark} />
+            <span className="truncate text-zinc-600 select-none">
+              {tabLabel(panel, bookmark)}
+            </span>
+            <div className="flex items-center gap-0 ml-auto shrink-0 opacity-0 group-hover/tab:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onCycleWidth(panel.id); }}
+                className="rounded px-1 py-0.5 text-[9px] font-medium text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
+                title={`Resize (${panel.widthPreset})`}
+              >
+                {widthLabel(panel.widthPreset)}
+              </button>
+              {panel.type === "chat" || panel.type === "library" ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onTogglePanel(panel.type as "chat" | "library"); }}
+                  className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
+                  title={`Hide ${panel.type}`}
+                >
+                  <EyeOff size={11} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onRemovePanel(panel.id); }}
+                  className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
