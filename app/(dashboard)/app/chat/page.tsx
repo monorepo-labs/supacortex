@@ -21,7 +21,7 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Monitor, ChevronDown, Check } from "lucide-react";
+import { Monitor, ChevronDown, Check, X } from "lucide-react";
 import type { ChatStatus } from "ai";
 import {
   Conversation,
@@ -55,15 +55,22 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { Button } from "@/components/ui/button";
 
-const SYSTEM_PROMPT = `You are the AI assistant for Supacortex — a personal knowledge workspace for bookmarking, reading, and discovering connections across saved content.
+const SYSTEM_PROMPT = `# IMPORTANT: ROLE OVERRIDE
 
-You are NOT a coding agent. Ignore any coding-agent instructions from your base prompt. You are a general-purpose AI assistant that helps users with:
+Disregard all previous system instructions about being a coding agent, software engineer, or code assistant. Those do not apply to this conversation.
+
+You are the AI assistant for Supacortex — a personal knowledge workspace for bookmarking, reading, and discovering connections across saved content.
+
+You are a general-purpose AI assistant. You help users with:
 - Research and information retrieval
 - Brainstorming and ideation
 - Summarizing and analyzing their saved bookmarks
 - Finding connections across their saved content
 - Writing, editing, and creative tasks
 - General knowledge questions
+- Anything they ask — you are not limited to coding
+
+Do NOT suggest code changes, refactor files, edit source code, or behave like a coding assistant unless the user explicitly asks for coding help.
 
 ## Accessing the user's bookmarks via \`scx\` CLI
 
@@ -192,26 +199,17 @@ function ChatPageContent() {
     [],
   );
 
-  const handleSend = useCallback(
+  // Queue for messages sent while streaming is active
+  const queueRef = useRef<string[]>([]);
+  const sendingRef = useRef(false);
+  const [queueLength, setQueueLength] = useState(0);
+
+  // Core send logic — sends one message and processes queue after
+  const doSend = useCallback(
     async (text: string) => {
-      if (!text.trim() || !connected) return;
-
-      // Show thinking instantly (before any async work)
-      setPendingSend(true);
-
       let currentConversationId = conversationId;
       let sessionId: string | undefined;
       let isNewSession = false;
-
-      // Show user message instantly
-      const tempKey = currentConversationId ?? "new";
-      addLocalMessage(tempKey, {
-        id: `temp-user-${Date.now()}`,
-        conversationId: tempKey,
-        role: "user",
-        content: text,
-        createdAt: new Date().toISOString(),
-      });
 
       // If no conversation, create one
       if (!currentConversationId) {
@@ -237,8 +235,9 @@ function ChatPageContent() {
           );
           return next;
         });
-        // Mark as seeded so DB doesn't overwrite
         seededRef.current.add(currentConversationId);
+
+        router.replace(`/app/chat?id=${currentConversationId}`);
       } else {
         const conv = conversations?.find(
           (c) => c.id === currentConversationId,
@@ -264,8 +263,8 @@ function ChatPageContent() {
         content: text,
       });
 
-      // Send to opencode — registers streaming state synchronously before first await
-      const responsePromise = sendMessage(
+      // Send to opencode
+      const responseText = await sendMessage(
         currentConversationId,
         sessionId,
         text,
@@ -277,20 +276,11 @@ function ChatPageContent() {
               }
             : undefined,
           system: isNewSession ? SYSTEM_PROMPT : undefined,
+          agent: "general",
         },
       );
 
-      // Navigate after streaming state is registered (no blink)
-      // Navigate after streaming state is registered (no blink)
-      // Keep pendingSend true — it clears at the end with markSendComplete
-      if (!conversationId && currentConversationId) {
-        router.replace(`/app/chat?id=${currentConversationId}`);
-      }
-
-      const responseText = await responsePromise;
-
       if (responseText) {
-        // Add assistant message to local state immediately
         addLocalMessage(currentConversationId, {
           id: `msg-assistant-${Date.now()}`,
           conversationId: currentConversationId,
@@ -299,7 +289,6 @@ function ChatPageContent() {
           createdAt: new Date().toISOString(),
         });
 
-        // Persist to DB in background
         saveMessage({
           conversationId: currentConversationId,
           role: "assistant",
@@ -308,10 +297,8 @@ function ChatPageContent() {
       }
 
       markSendComplete(currentConversationId);
-      setPendingSend(false);
     },
     [
-      connected,
       conversationId,
       conversations,
       addLocalMessage,
@@ -324,6 +311,63 @@ function ChatPageContent() {
       selectedModel,
       router,
     ],
+  );
+
+  // Process queue: send current message, then drain any queued messages
+  const processQueue = useCallback(
+    async (text: string) => {
+      sendingRef.current = true;
+      setPendingSend(true);
+
+      await doSend(text);
+
+      // Drain queued messages
+      while (queueRef.current.length > 0) {
+        const next = queueRef.current.shift()!;
+        setQueueLength(queueRef.current.length);
+        // Show queued user message now that it's being sent
+        if (conversationId) {
+          addLocalMessage(conversationId, {
+            id: `temp-user-${Date.now()}`,
+            conversationId,
+            role: "user",
+            content: next,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        setPendingSend(true);
+        await doSend(next);
+      }
+
+      sendingRef.current = false;
+      setPendingSend(false);
+      setQueueLength(0);
+    },
+    [doSend, conversationId, addLocalMessage],
+  );
+
+  const handleSend = useCallback(
+    (text: string) => {
+      if (!text.trim() || !connected) return;
+
+      if (sendingRef.current) {
+        // Currently streaming — queue the message (don't show in chat yet)
+        queueRef.current.push(text);
+        setQueueLength(queueRef.current.length);
+      } else {
+        // No active stream — show user message and send immediately
+        const tempKey = conversationId ?? "new";
+        addLocalMessage(tempKey, {
+          id: `temp-user-${Date.now()}`,
+          conversationId: tempKey,
+          role: "user",
+          content: text,
+          createdAt: new Date().toISOString(),
+        });
+        processQueue(text);
+      }
+    },
+    [connected, conversationId, addLocalMessage, processQueue],
   );
 
   const handleSubmit = useCallback(
@@ -362,6 +406,11 @@ function ChatPageContent() {
       ? defaultModelInfo.name
       : null;
 
+  const clearQueue = useCallback(() => {
+    queueRef.current = [];
+    setQueueLength(0);
+  }, []);
+
   const handleModelSelect = useCallback((model: ProviderModel) => {
     setSelectedModel(model);
     setModelSelectorOpen(false);
@@ -374,6 +423,8 @@ function ChatPageContent() {
 
   const showThinking = isSending && !streamedText;
   const showStreaming = streamedText && isSending;
+  // Show thinking below streamed text during tool calls (has text, sending, but not actively streaming)
+  const showToolCallThinking = isSending && !!streamedText && !isStreaming;
 
   return (
     <div className="flex h-screen">
@@ -437,6 +488,13 @@ function ChatPageContent() {
                         </Streamdown>
                       </div>
                     </div>
+                  </div>
+                )}
+                {showToolCallThinking && (
+                  <div className="flex justify-start py-2">
+                    <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
+                      Thinking...
+                    </span>
                   </div>
                 )}
               </>
@@ -536,6 +594,18 @@ function ChatPageContent() {
                             </ModelSelectorList>
                           </ModelSelectorContent>
                         </ModelSelector>
+                        {queueLength > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <span>{queueLength} queued</span>
+                            <button
+                              type="button"
+                              onClick={clearQueue}
+                              className="rounded-full p-0.5 hover:bg-zinc-200 transition-colors"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </span>
+                        )}
                       </PromptInputTools>
                       <PromptInputSubmit
                         status={chatStatus}

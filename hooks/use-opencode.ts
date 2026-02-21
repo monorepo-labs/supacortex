@@ -77,6 +77,7 @@ interface StreamState {
   streamedText: string;
   sessionId: string | null;
   resolve: ((text: string) => void) | null;
+  idleTimeout: ReturnType<typeof setTimeout> | null;
 }
 
 const defaultStreamState = {
@@ -151,12 +152,34 @@ export const useSendMessage = () => {
               if (!convId) continue;
 
               const state = streamsRef.current.get(convId);
-              if (!state || !state.isStreaming) continue;
+              if (!state || !state.isSending) continue;
 
+              state.isStreaming = true;
               state.streamedText += props.delta;
               rerender();
             }
 
+            // session.status busy → cancel any pending idle timeout
+            if (evt.type === "session.status") {
+              const props = evt.properties as {
+                sessionID: string;
+                status: { type: string };
+              };
+              const convId = sessionToConvRef.current.get(props.sessionID);
+              if (!convId) continue;
+              const state = streamsRef.current.get(convId);
+              if (!state) continue;
+
+              if (props.status.type === "busy") {
+                // Session became busy again (e.g. tool call) — cancel idle timeout
+                if (state.idleTimeout) {
+                  clearTimeout(state.idleTimeout);
+                  state.idleTimeout = null;
+                }
+              }
+            }
+
+            // session.idle — debounce: only resolve if no busy follows within 500ms
             if (evt.type === "session.idle") {
               const props = evt.properties as { sessionID: string };
               const convId = sessionToConvRef.current.get(props.sessionID);
@@ -165,11 +188,18 @@ export const useSendMessage = () => {
               const state = streamsRef.current.get(convId);
               if (!state) continue;
 
-              state.isStreaming = false;
-              // Resolve the send promise with accumulated text
-              state.resolve?.(state.streamedText);
-              state.resolve = null;
-              rerender();
+              // Clear any existing timeout
+              if (state.idleTimeout) {
+                clearTimeout(state.idleTimeout);
+              }
+
+              state.idleTimeout = setTimeout(() => {
+                state.idleTimeout = null;
+                state.isStreaming = false;
+                state.resolve?.(state.streamedText);
+                state.resolve = null;
+                rerender();
+              }, 500);
             }
           }
         } catch (err) {
@@ -191,6 +221,7 @@ export const useSendMessage = () => {
       options?: {
         model?: { providerID: string; modelID: string };
         system?: string;
+        agent?: string;
       },
     ) => {
       // Create a promise that resolves when session.idle fires
@@ -206,6 +237,7 @@ export const useSendMessage = () => {
         streamedText: "",
         sessionId,
         resolve: resolveStream!,
+        idleTimeout: null,
       });
       sessionToConvRef.current.set(sessionId, conversationId);
       rerender();
@@ -222,6 +254,7 @@ export const useSendMessage = () => {
             parts: [{ type: "text", text }],
             ...(options?.model ? { model: options.model } : {}),
             ...(options?.system ? { system: options.system } : {}),
+            ...(options?.agent ? { agent: options.agent } : {}),
           },
         });
       } catch (err) {
@@ -292,6 +325,10 @@ export const useSendMessage = () => {
 
       state.isSending = false;
       state.isStreaming = false;
+      if (state.idleTimeout) {
+        clearTimeout(state.idleTimeout);
+        state.idleTimeout = null;
+      }
       // Resolve the pending promise so send() doesn't hang
       state.resolve?.("");
       state.resolve = null;
