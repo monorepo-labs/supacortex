@@ -16,10 +16,12 @@ import {
   useOpenCode,
   useCreateSession,
   useSendMessage,
+  useProviders,
+  type ProviderModel,
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Monitor } from "lucide-react";
+import { Monitor, ChevronDown, Check } from "lucide-react";
 import type { ChatStatus } from "ai";
 import {
   Conversation,
@@ -39,6 +41,19 @@ import {
   PromptInputActionAddAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  ModelSelector,
+  ModelSelectorTrigger,
+  ModelSelectorContent,
+  ModelSelectorInput,
+  ModelSelectorList,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorItem,
+  ModelSelectorLogo,
+  ModelSelectorName,
+} from "@/components/ai-elements/model-selector";
+import { Button } from "@/components/ui/button";
 
 export default function ChatPage() {
   return (
@@ -62,6 +77,7 @@ function ChatPageContent() {
     getState,
     markSendComplete,
   } = useSendMessage();
+  const { providers, defaultModel } = useProviders(connected);
 
   const { data: conversations } = useConversations();
   const { data: dbMessages } = useMessages(conversationId);
@@ -70,6 +86,18 @@ function ChatPageContent() {
   const { mutateAsync: saveMessage } = useSaveMessage();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      try {
+        const stored = localStorage.getItem("opencode-selected-model");
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    },
+  );
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   // Per-conversation optimistic messages (keyed by conversationId)
   const [pendingMessagesMap, setPendingMessagesMap] = useState<
     Map<string, ChatMessage[]>
@@ -101,12 +129,34 @@ function ChatPageContent() {
       ? "submitted"
       : "ready";
 
+  const addPending = useCallback(
+    (convId: string, msg: ChatMessage) => {
+      setPendingMessagesMap((prev) => {
+        const next = new Map(prev);
+        next.set(convId, [...(next.get(convId) ?? []), msg]);
+        return next;
+      });
+    },
+    [],
+  );
+
   const handleSend = useCallback(
     async (text: string) => {
       if (!text.trim() || !connected) return;
 
       let currentConversationId = conversationId;
       let sessionId: string | undefined;
+
+      // For existing conversations, show user message immediately (before any async work)
+      if (currentConversationId) {
+        addPending(currentConversationId, {
+          id: `temp-user-${Date.now()}`,
+          conversationId: currentConversationId,
+          role: "user",
+          content: text,
+          createdAt: new Date().toISOString(),
+        });
+      }
 
       // If no conversation, create one
       if (!currentConversationId) {
@@ -120,6 +170,15 @@ function ChatPageContent() {
         });
         currentConversationId = conversation.id;
         router.replace(`/app/chat?id=${conversation.id}`);
+
+        // For new conversations, show user message after we have the ID
+        addPending(currentConversationId, {
+          id: `temp-user-${Date.now()}`,
+          conversationId: currentConversationId,
+          role: "user",
+          content: text,
+          createdAt: new Date().toISOString(),
+        });
       } else {
         const conv = conversations?.find(
           (c) => c.id === currentConversationId,
@@ -137,23 +196,6 @@ function ChatPageContent() {
         }
       }
 
-      const addPending = (convId: string, msg: ChatMessage) => {
-        setPendingMessagesMap((prev) => {
-          const next = new Map(prev);
-          next.set(convId, [...(next.get(convId) ?? []), msg]);
-          return next;
-        });
-      };
-
-      // Add user message to local state immediately
-      addPending(currentConversationId, {
-        id: `temp-user-${Date.now()}`,
-        conversationId: currentConversationId,
-        role: "user",
-        content: text,
-        createdAt: new Date().toISOString(),
-      });
-
       // Save user message to DB (don't await — keep UI fast)
       saveMessage({
         conversationId: currentConversationId,
@@ -162,10 +204,14 @@ function ChatPageContent() {
       });
 
       // Send to opencode and stream response (per-conversation)
+      const modelOverride = selectedModel
+        ? { providerID: selectedModel.providerId, modelID: selectedModel.id }
+        : undefined;
       const responseText = await sendMessage(
         currentConversationId,
         sessionId,
         text,
+        modelOverride,
       );
 
       if (responseText) {
@@ -190,12 +236,14 @@ function ChatPageContent() {
       connected,
       conversationId,
       conversations,
+      addPending,
       createSession,
       createConversation,
       updateConversation,
       saveMessage,
       sendMessage,
       markSendComplete,
+      selectedModel,
       router,
     ],
   );
@@ -218,6 +266,33 @@ function ChatPageContent() {
     },
     [conversationId, router],
   );
+
+  // Resolve active model display name
+  // defaultModel may be "provider/model" or just "model"
+  const defaultModelInfo = defaultModel
+    ? providers
+        .flatMap((p) => p.models)
+        .find(
+          (m) =>
+            m.id === defaultModel ||
+            `${m.providerId}/${m.id}` === defaultModel,
+        )
+    : null;
+  const activeModelName = selectedModel
+    ? selectedModel.name
+    : defaultModelInfo
+      ? defaultModelInfo.name
+      : null;
+
+  const handleModelSelect = useCallback((model: ProviderModel) => {
+    setSelectedModel(model);
+    setModelSelectorOpen(false);
+    try {
+      localStorage.setItem("opencode-selected-model", JSON.stringify(model));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const showThinking = isSending && !streamedText;
   const showStreaming = streamedText && isSending;
@@ -316,6 +391,72 @@ function ChatPageContent() {
                             <PromptInputActionAddAttachments />
                           </PromptInputActionMenuContent>
                         </PromptInputActionMenu>
+                        <ModelSelector
+                          open={modelSelectorOpen}
+                          onOpenChange={setModelSelectorOpen}
+                        >
+                          <ModelSelectorTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1.5 text-xs text-muted-foreground"
+                            >
+                              {(selectedModel || defaultModelInfo) && (
+                                <ModelSelectorLogo
+                                  provider={
+                                    selectedModel?.providerId ??
+                                    defaultModelInfo?.providerId ??
+                                    ""
+                                  }
+                                />
+                              )}
+                              <span className="max-w-[140px] truncate">
+                                {activeModelName ?? "Loading..."}
+                              </span>
+                              <ChevronDown className="size-3" />
+                            </Button>
+                          </ModelSelectorTrigger>
+                          <ModelSelectorContent title="Select a model">
+                            <ModelSelectorInput placeholder="Search models..." />
+                            <ModelSelectorList>
+                              <ModelSelectorEmpty>
+                                No models found.
+                              </ModelSelectorEmpty>
+                              {providers.map((provider) => (
+                                <ModelSelectorGroup
+                                  key={provider.id}
+                                  heading={provider.name}
+                                >
+                                  {provider.models.map((model) => {
+                                    const isSelected =
+                                      selectedModel?.id === model.id &&
+                                      selectedModel?.providerId ===
+                                        provider.id;
+                                    return (
+                                      <ModelSelectorItem
+                                        key={`${provider.id}/${model.id}`}
+                                        onSelect={() =>
+                                          handleModelSelect(model)
+                                        }
+                                        className="gap-2"
+                                      >
+                                        <ModelSelectorLogo
+                                          provider={provider.id}
+                                        />
+                                        <ModelSelectorName>
+                                          {model.name}
+                                        </ModelSelectorName>
+                                        {isSelected && (
+                                          <Check className="size-3.5 text-zinc-500 shrink-0" />
+                                        )}
+                                      </ModelSelectorItem>
+                                    );
+                                  })}
+                                </ModelSelectorGroup>
+                              ))}
+                            </ModelSelectorList>
+                          </ModelSelectorContent>
+                        </ModelSelector>
                       </PromptInputTools>
                       <PromptInputSubmit
                         status={chatStatus}

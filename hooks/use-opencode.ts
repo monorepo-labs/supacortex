@@ -184,7 +184,12 @@ export const useSendMessage = () => {
   }, [rerender]);
 
   const send = useCallback(
-    async (conversationId: string, sessionId: string, text: string) => {
+    async (
+      conversationId: string,
+      sessionId: string,
+      text: string,
+      model?: { providerID: string; modelID: string },
+    ) => {
       // Create a promise that resolves when session.idle fires
       let resolveStream: (text: string) => void;
       const streamDone = new Promise<string>((resolve) => {
@@ -210,7 +215,10 @@ export const useSendMessage = () => {
       try {
         await client.session.promptAsync({
           path: { id: sessionId },
-          body: { parts: [{ type: "text", text }] },
+          body: {
+            parts: [{ type: "text", text }],
+            ...(model ? { model } : {}),
+          },
         });
       } catch (err) {
         console.error("[opencode] Failed to send prompt:", err);
@@ -317,4 +325,88 @@ export const useCreateSession = () => {
   }, []);
 
   return { create, creating };
+};
+
+export interface ProviderModel {
+  id: string;
+  name: string;
+  providerId: string;
+  providerName: string;
+  contextLimit: number;
+  outputLimit: number;
+}
+
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  models: ProviderModel[];
+}
+
+export const useProviders = (connected: boolean) => {
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [defaultModel, setDefaultModel] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!connected) return;
+
+    let cancelled = false;
+
+    const fetch = async () => {
+      setLoading(true);
+      try {
+        const client = getClient();
+        const { data } = await client.config.providers();
+        if (cancelled || !data) return;
+
+        const result = data as unknown as {
+          providers: Array<{
+            id: string;
+            name: string;
+            models: Record<
+              string,
+              {
+                id: string;
+                name: string;
+                limit: { context: number; output: number };
+              }
+            >;
+          }>;
+          default: Record<string, string>;
+        };
+
+        const providerList: ProviderInfo[] = result.providers.map((p) => ({
+          id: p.id,
+          name: p.name,
+          models: Object.values(p.models).map((m) => ({
+            id: m.id,
+            name: m.name,
+            providerId: p.id,
+            providerName: p.name,
+            contextLimit: m.limit?.context ?? 0,
+            outputLimit: m.limit?.output ?? 0,
+          })),
+        }));
+
+        setProviders(providerList);
+        // default might be keyed as "default", "chat", or similar
+        const defModel =
+          result.default?.default ?? Object.values(result.default ?? {})[0];
+        if (defModel) {
+          setDefaultModel(defModel);
+        }
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetch();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
+
+  return { providers, defaultModel, loading };
 };
