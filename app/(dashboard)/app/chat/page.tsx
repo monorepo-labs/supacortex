@@ -265,6 +265,11 @@ function ChatPageContent() {
         conversationId: currentConversationId,
         role: "user",
         content: text,
+        attachments: files?.map((f) => ({
+          url: f.url,
+          filename: f.filename,
+          mediaType: f.mediaType,
+        })),
       });
 
       // Build file parts for opencode
@@ -306,6 +311,8 @@ function ChatPageContent() {
           role: "assistant",
           content: responseText,
         });
+      } else {
+        console.warn("[chat] responseText was empty — assistant message not saved");
       }
 
       markSendComplete(currentConversationId);

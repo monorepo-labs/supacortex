@@ -6,6 +6,7 @@ import {
   boolean,
   uuid,
   json,
+  jsonb,
   primaryKey,
   real,
   integer,
@@ -141,6 +142,7 @@ export const messages = pgTable(
       .references(() => conversations.id, { onDelete: "cascade" }),
     role: text().notNull(), // "user" | "assistant"
     content: text().notNull(),
+    attachments: jsonb().$type<Array<{ url: string; filename?: string; mediaType?: string }>>(),
     createdAt: timestamp().defaultNow().notNull(),
   },
   (table) => [index("messages_conversation_idx").on(table.conversationId)],

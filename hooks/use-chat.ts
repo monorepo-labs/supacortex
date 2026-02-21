@@ -144,13 +144,14 @@ export const useSaveMessage = () => {
       conversationId: string;
       role: string;
       content: string;
+      attachments?: ChatAttachment[];
     }) => {
       const res = await fetch(
         `/api/chat/conversations/${data.conversationId}/messages`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: data.role, content: data.content }),
+          body: JSON.stringify({ role: data.role, content: data.content, attachments: data.attachments }),
         },
       );
       if (!res.ok) throw new Error("Failed to save message");

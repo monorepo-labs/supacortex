@@ -27,6 +27,7 @@ export const createMessage = async (data: {
   conversationId: string;
   role: string;
   content: string;
+  attachments?: Array<{ url: string; filename?: string; mediaType?: string }>;
 }) => {
   const [result] = await db.insert(messages).values(data).returning();
   // Bump conversation updatedAt so newest conversations sort first

@@ -34,7 +34,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { role, content } = await req.json();
+  const { role, content, attachments } = await req.json();
 
   if (!role || !content)
     return NextResponse.json(
@@ -47,6 +47,7 @@ export async function POST(
       conversationId: id,
       role,
       content,
+      attachments: attachments?.length ? attachments : undefined,
     });
     return NextResponse.json(result);
   } catch (error) {
