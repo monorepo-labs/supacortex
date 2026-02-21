@@ -15,13 +15,31 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Invalid url", { status: 400 });
   }
 
-  const res = await fetch(url);
-  if (!res.ok) return new NextResponse("Upstream error", { status: res.status });
+  // Forward Range header from client (WKWebView/Tauri needs range requests for video)
+  const headers: Record<string, string> = {};
+  const range = req.headers.get("Range");
+  if (range) headers["Range"] = range;
+
+  const res = await fetch(url, { headers });
+  if (!res.ok && res.status !== 206)
+    return new NextResponse("Upstream error", { status: res.status });
+
+  const contentType = res.headers.get("Content-Type") ?? "video/mp4";
+  const contentLength = res.headers.get("Content-Length");
+  const contentRange = res.headers.get("Content-Range");
+  const acceptRanges = res.headers.get("Accept-Ranges");
+
+  const responseHeaders: Record<string, string> = {
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=86400, immutable",
+    "Accept-Ranges": acceptRanges ?? "bytes",
+  };
+
+  if (contentLength) responseHeaders["Content-Length"] = contentLength;
+  if (contentRange) responseHeaders["Content-Range"] = contentRange;
 
   return new NextResponse(res.body, {
-    headers: {
-      "Content-Type": res.headers.get("Content-Type") ?? "video/mp4",
-      "Cache-Control": "public, max-age=86400, immutable",
-    },
+    status: res.status,
+    headers: responseHeaders,
   });
 }
