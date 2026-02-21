@@ -6,9 +6,16 @@ export type Conversation = {
   id: string;
   title: string;
   sessionId: string | null;
+  directory: string | null;
   userId: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ChatAttachment = {
+  url: string;
+  filename?: string;
+  mediaType?: string;
 };
 
 export type ChatMessage = {
@@ -17,6 +24,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  attachments?: ChatAttachment[];
 };
 
 export const useConversations = () => {
@@ -47,7 +55,7 @@ export const useMessages = (conversationId: string | null) => {
 export const useCreateConversation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { title?: string; sessionId?: string }) => {
+    mutationFn: async (data: { title?: string; sessionId?: string; directory?: string }) => {
       const res = await fetch("/api/chat/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,6 +77,7 @@ export const useUpdateConversation = () => {
       id: string;
       title?: string;
       sessionId?: string;
+      directory?: string;
     }) => {
       const res = await fetch("/api/chat/conversations", {
         method: "PATCH",

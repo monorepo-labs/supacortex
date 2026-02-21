@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getClient, isRunning, startServer } from "@/services/opencode";
+import { getClient, isRunning, startServer, getHomeDir } from "@/services/opencode";
 import type { Session } from "@opencode-ai/sdk/client";
 
 export const useOpenCode = () => {
@@ -23,12 +23,17 @@ export const useOpenCode = () => {
       setConnecting(true);
       setError(null);
       try {
+        console.log("[opencode] Checking if server is running...");
         const running = await isRunning();
+        console.log("[opencode] Server running:", running);
         if (!running) {
+          console.log("[opencode] Starting server...");
           await startServer();
+          console.log("[opencode] Server started successfully");
         }
         if (!cancelled) setConnected(true);
       } catch (err) {
+        console.error("[opencode] Connection failed:", err);
         if (!cancelled)
           setError(
             err instanceof Error
@@ -71,6 +76,15 @@ export const useOpenCodeSessions = (connected: boolean) => {
   return sessions;
 };
 
+export interface TokenUsage {
+  input: number;
+  output: number;
+  reasoning: number;
+  cacheRead: number;
+  cacheWrite: number;
+  cost: number;
+}
+
 interface StreamState {
   isSending: boolean;
   isStreaming: boolean;
@@ -78,12 +92,16 @@ interface StreamState {
   sessionId: string | null;
   resolve: ((text: string) => void) | null;
   idleTimeout: ReturnType<typeof setTimeout> | null;
+  tokens: TokenUsage;
 }
+
+const emptyTokens: TokenUsage = { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 
 const defaultStreamState = {
   isSending: false,
   isStreaming: false,
   streamedText: "",
+  tokens: emptyTokens,
 };
 
 export const useSendMessage = () => {
@@ -107,6 +125,7 @@ export const useSendMessage = () => {
         isSending: state.isSending,
         isStreaming: state.isStreaming,
         streamedText: state.streamedText,
+        tokens: state.tokens,
       };
     },
     [],
@@ -157,6 +176,35 @@ export const useSendMessage = () => {
               state.isStreaming = true;
               state.streamedText += props.delta;
               rerender();
+            }
+
+            // Track token usage from assistant message updates
+            if (evt.type === "message.updated") {
+              const props = evt.properties as {
+                info: {
+                  role: string;
+                  sessionID: string;
+                  tokens?: { input: number; output: number; reasoning: number; cache: { read: number; write: number } };
+                  cost?: number;
+                };
+              };
+              if (props.info.role === "assistant" && props.info.tokens) {
+                const convId = sessionToConvRef.current.get(props.info.sessionID);
+                if (convId) {
+                  const state = streamsRef.current.get(convId);
+                  if (state) {
+                    state.tokens = {
+                      input: props.info.tokens.input,
+                      output: props.info.tokens.output,
+                      reasoning: props.info.tokens.reasoning,
+                      cacheRead: props.info.tokens.cache.read,
+                      cacheWrite: props.info.tokens.cache.write,
+                      cost: props.info.cost ?? 0,
+                    };
+                    rerender();
+                  }
+                }
+              }
             }
 
             // session.status busy → cancel any pending idle timeout
@@ -222,6 +270,8 @@ export const useSendMessage = () => {
         model?: { providerID: string; modelID: string };
         system?: string;
         agent?: string;
+        files?: Array<{ url: string; mime: string; filename?: string }>;
+        directory?: string;
       },
     ) => {
       // Create a promise that resolves when session.idle fires
@@ -238,6 +288,7 @@ export const useSendMessage = () => {
         sessionId,
         resolve: resolveStream!,
         idleTimeout: null,
+        tokens: emptyTokens,
       });
       sessionToConvRef.current.set(sessionId, conversationId);
       rerender();
@@ -248,12 +299,28 @@ export const useSendMessage = () => {
       // Send prompt (non-blocking)
       const client = getClient();
       try {
+        const parts: Array<{ type: "text"; text: string } | { type: "file"; url: string; mime: string; filename?: string }> = [
+          { type: "text", text },
+        ];
+        if (options?.files?.length) {
+          for (const f of options.files) {
+            parts.push({ type: "file", url: f.url, mime: f.mime, filename: f.filename });
+          }
+        }
+
+        // Build system prompt with directory instruction if needed
+        let system = options?.system;
+        if (options?.directory) {
+          const dirInstruction = `IMPORTANT: Your working directory for this conversation is ${options.directory}. Always \`cd ${options.directory}\` before running any shell commands.`;
+          system = system ? `${system}\n\n${dirInstruction}` : dirInstruction;
+        }
+
         await client.session.promptAsync({
           path: { id: sessionId },
           body: {
-            parts: [{ type: "text", text }],
+            parts: parts as Array<{ type: "text"; text: string }>,
             ...(options?.model ? { model: options.model } : {}),
-            ...(options?.system ? { system: options.system } : {}),
+            ...(system ? { system } : {}),
             ...(options?.agent ? { agent: options.agent } : {}),
           },
         });
@@ -346,18 +413,68 @@ export const useSendMessage = () => {
     [rerender],
   );
 
-  return { send, abort, getState, markSendComplete };
+  // Load token usage from existing session messages (for page reload)
+  const loadTokens = useCallback(
+    async (conversationId: string, sessionId: string) => {
+      try {
+        const client = getClient();
+        const { data: messages } = await client.session.messages({
+          path: { id: sessionId },
+        });
+        if (!messages || !Array.isArray(messages)) return;
+
+        let totalInput = 0, totalOutput = 0, totalReasoning = 0, totalCacheRead = 0, totalCacheWrite = 0, totalCost = 0;
+        for (const msg of messages) {
+          const m = msg as { info: { role: string; tokens?: { input: number; output: number; reasoning: number; cache: { read: number; write: number } }; cost?: number } };
+          if (m.info.role === "assistant" && m.info.tokens) {
+            totalInput += m.info.tokens.input;
+            totalOutput += m.info.tokens.output;
+            totalReasoning += m.info.tokens.reasoning;
+            totalCacheRead += m.info.tokens.cache.read;
+            totalCacheWrite += m.info.tokens.cache.write;
+            totalCost += m.info.cost ?? 0;
+          }
+        }
+
+        if (totalInput + totalOutput > 0) {
+          const existing = streamsRef.current.get(conversationId);
+          if (existing) {
+            existing.tokens = { input: totalInput, output: totalOutput, reasoning: totalReasoning, cacheRead: totalCacheRead, cacheWrite: totalCacheWrite, cost: totalCost };
+          } else {
+            streamsRef.current.set(conversationId, {
+              isSending: false,
+              isStreaming: false,
+              streamedText: "",
+              sessionId,
+              resolve: null,
+              idleTimeout: null,
+              tokens: { input: totalInput, output: totalOutput, reasoning: totalReasoning, cacheRead: totalCacheRead, cacheWrite: totalCacheWrite, cost: totalCost },
+            });
+          }
+          rerender();
+        }
+      } catch {
+        // silently fail
+      }
+    },
+    [rerender],
+  );
+
+  return { send, abort, getState, markSendComplete, loadTokens };
 };
 
 export const useCreateSession = () => {
   const [creating, setCreating] = useState(false);
 
-  const create = useCallback(async (title?: string) => {
+  const create = useCallback(async (title?: string, directory?: string) => {
     setCreating(true);
     try {
       const client = getClient();
+      // Default to home directory so sessions don't inherit the server's CWD
+      const dir = directory || await getHomeDir();
       const { data } = await client.session.create({
         body: { title: title || "New conversation" },
+        query: { directory: dir },
       });
       return data;
     } finally {

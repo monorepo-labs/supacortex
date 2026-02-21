@@ -29,12 +29,13 @@ export async function POST(req: Request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, sessionId } = await req.json();
+  const { title, sessionId, directory } = await req.json();
 
   try {
     const result = await createConversation({
       title,
       sessionId,
+      directory,
       userId: user.id,
     });
     return NextResponse.json(result);
@@ -52,14 +53,15 @@ export async function PATCH(req: Request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, title, sessionId } = await req.json();
+  const { id, title, sessionId, directory } = await req.json();
 
   if (!id)
     return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const data: { title?: string; sessionId?: string } = {};
+  const data: { title?: string; sessionId?: string; directory?: string } = {};
   if (title) data.title = title;
   if (sessionId) data.sessionId = sessionId;
+  if (directory) data.directory = directory;
 
   if (Object.keys(data).length === 0)
     return NextResponse.json(

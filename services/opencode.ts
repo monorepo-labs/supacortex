@@ -92,24 +92,59 @@ ${ASSISTANT_AGENT}AGENT_EOF`;
 export const startServer = async () => {
   await ensureAgentFile();
   const { Command } = await import("@tauri-apps/plugin-shell");
+
   const command = Command.create("exec-sh", [
     "-c",
-    `export PATH="$HOME/.opencode/bin:$HOME/.local/bin:/usr/local/bin:$PATH" && opencode serve --port ${PORT}`,
+    `export PATH="$HOME/.opencode/bin:$HOME/.local/bin:/usr/local/bin:$PATH" && cd "$HOME" && opencode serve --port ${PORT}`,
   ]);
-  command.on("error", (err) => console.error("[opencode] error:", err));
+
+  let startupError = "";
+  command.on("error", (err) => {
+    console.error("[opencode] spawn error:", err);
+    startupError = String(err);
+  });
   command.stdout.on("data", (line) => console.log("[opencode]", line));
-  command.stderr.on("data", (line) => console.error("[opencode]", line));
+  command.stderr.on("data", (line) => {
+    console.error("[opencode]", line);
+    if (!line.includes("Warning:")) startupError += line + "\n";
+  });
 
   const child = await command.spawn();
+  console.log("[opencode] Spawned process, polling for readiness...");
 
   // Poll until server is ready
-  let retries = 20;
+  let retries = 30;
   while (retries > 0) {
     await new Promise((r) => setTimeout(r, 500));
-    if (await isRunning()) return child;
+    if (await isRunning()) {
+      console.log("[opencode] Server is ready");
+      return child;
+    }
     retries--;
   }
-  throw new Error("OpenCode server failed to start");
+  throw new Error(`OpenCode server failed to start: ${startupError || "timeout after 15s"}`);
+};
+
+let cachedHomeDir: string | null = null;
+
+export const getHomeDir = async (): Promise<string> => {
+  if (cachedHomeDir) return cachedHomeDir;
+  try {
+    const { homeDir } = await import("@tauri-apps/api/path");
+    const home = await homeDir();
+    // homeDir() returns path with trailing slash on some platforms
+    cachedHomeDir = home.endsWith("/") ? home.slice(0, -1) : home;
+  } catch {
+    // Fallback to shell
+    try {
+      const { Command } = await import("@tauri-apps/plugin-shell");
+      const result = await Command.create("exec-sh", ["-c", "echo $HOME"]).execute();
+      cachedHomeDir = result.stdout?.trim() || null;
+    } catch {
+      // ignore
+    }
+  }
+  return cachedHomeDir || "/";
 };
 
 export const OPENCODE_PORT = PORT;

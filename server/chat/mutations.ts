@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 export const createConversation = async (data: {
   title?: string;
   sessionId?: string;
+  directory?: string;
   userId: string;
 }) => {
   const [result] = await db.insert(conversations).values(data).returning();
@@ -13,7 +14,7 @@ export const createConversation = async (data: {
 
 export const updateConversation = async (
   id: string,
-  data: { title?: string; sessionId?: string },
+  data: { title?: string; sessionId?: string; directory?: string },
 ) => {
   return db.update(conversations).set(data).where(eq(conversations.id, id));
 };

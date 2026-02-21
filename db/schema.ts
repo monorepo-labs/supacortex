@@ -121,6 +121,7 @@ export const conversations = pgTable("conversations", {
   id: uuid().primaryKey().defaultRandom(),
   title: text().notNull().default("New conversation"),
   sessionId: text(), // opencode session ID
+  directory: text(), // working directory for this conversation
   userId: text()
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
