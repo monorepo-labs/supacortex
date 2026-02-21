@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type DragEvent } from "react";
+import { useState, useEffect, useRef, type DragEvent } from "react";
 import { FolderPlus } from "lucide-react";
 import {
   Popover,
@@ -132,8 +132,6 @@ export default function ReadersContainer({
     localStorage.setItem("readers-max-visible", String(v));
   };
 
-  if (readers.length === 0) return null;
-
   const handleDragStart = (index: number) => (e: DragEvent) => {
     setDragIndex(index);
     e.dataTransfer.effectAllowed = "move";
@@ -174,9 +172,17 @@ export default function ReadersContainer({
   const maxRows = maxVisible === 4 ? 2 : 3;
   const showSettings = readers.length >= 5;
 
-  // 1 reader: single column
+  // Outer width for the sliding wrapper
+  const innerWidth =
+    readers.length <= 1 ? 480 : 480 * 2 + 8;
+  // Add mr-2 (8px) spacing when readers are open
+  const wrapperWidth = readers.length === 0 ? 0 : innerWidth + 8;
+
+  // Build inner content (null when no readers)
+  let content: React.ReactNode = null;
+
   if (readers.length === 1) {
-    return (
+    content = (
       <div className="shrink-0 my-2 mr-2" style={{ width: 480 }}>
         <Reader
           bookmark={readers[0]}
@@ -186,12 +192,9 @@ export default function ReadersContainer({
         />
       </div>
     );
-  }
-
-  // 2 readers: side by side, full height
-  if (readers.length === 2) {
-    return (
-      <div className="relative shrink-0 flex gap-2 my-2 mr-2" style={{ width: 480 * 2 + 8 }}>
+  } else if (readers.length === 2) {
+    content = (
+      <div className="relative shrink-0 flex gap-2 my-2 mr-2" style={{ width: innerWidth }}>
         {showSettings && <SettingsBar readers={readers} maxVisible={maxVisible} onMaxChange={handleMaxChange} />}
         {readers.map((b, i) => (
           <Reader
@@ -204,15 +207,12 @@ export default function ReadersContainer({
         ))}
       </div>
     );
-  }
-
-  // 3 readers: clockwise — 1st full-height left, 2nd top-right, 3rd bottom-right
-  if (readers.length === 3) {
-    return (
+  } else if (readers.length === 3) {
+    content = (
       <div
         className="relative shrink-0 grid gap-2 my-2 mr-2"
         style={{
-          width: 480 * 2 + 8,
+          width: innerWidth,
           height: fullHeight,
           gridTemplateColumns: "480px 480px",
           gridTemplateRows: "1fr 1fr",
@@ -239,44 +239,80 @@ export default function ReadersContainer({
         />
       </div>
     );
+  } else if (readers.length >= 4) {
+    const rows = Math.ceil(readers.length / 2);
+    const gridTemplateRows = Array(rows)
+      .fill(`minmax(0, calc((100vh - 1rem - ${(maxRows - 1) * 8}px) / ${maxRows}))`)
+      .join(" ");
+
+    content = (
+      <div className="relative shrink-0 my-2 mr-2" style={{ width: innerWidth }}>
+        {showSettings && <SettingsBar readers={readers} maxVisible={maxVisible} onMaxChange={handleMaxChange} />}
+        <div
+          className="overflow-y-auto overflow-x-hidden scrollbar-hide"
+          style={{ maxHeight: fullHeight }}
+        >
+          <div
+            className="grid gap-2"
+            style={{
+              width: innerWidth,
+              gridTemplateColumns: "480px 480px",
+              gridTemplateRows,
+            }}
+          >
+            {readers.map((b, i) => (
+              <Reader
+                key={b.id}
+                bookmark={b}
+                onClose={() => onClose(b.id)}
+                style={{
+                  height: "100%",
+                  width: 480,
+                  ...readerStyle(dragIndex, overIndex, i),
+                }}
+                {...dragProps(i)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // 4+ readers: 2-col grid with overflow
-  const rows = Math.ceil(readers.length / 2);
-  const needsScroll = rows > maxRows;
-  const gridTemplateRows = Array(rows)
-    .fill(`minmax(0, calc((100vh - 1rem - ${(maxRows - 1) * 8}px) / ${maxRows}))`)
-    .join(" ");
+  // Track slide-in animation state
+  const [mounted, setMounted] = useState(false);
+  const [animating, setAnimating] = useState(false);
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (readers.length > 0 && !mountedRef.current) {
+      setAnimating(true);
+      mountedRef.current = true;
+      const rafId = requestAnimationFrame(() => setMounted(true));
+      // Remove overflow-hidden after animation completes (200ms transition)
+      const timerId = setTimeout(() => setAnimating(false), 250);
+      return () => {
+        cancelAnimationFrame(rafId);
+        clearTimeout(timerId);
+      };
+    } else if (readers.length === 0) {
+      mountedRef.current = false;
+      setMounted(false);
+      setAnimating(false);
+    }
+  }, [readers.length]);
+
+  if (readers.length === 0) return null;
 
   return (
-    <div className="relative shrink-0 my-2 mr-2" style={{ width: 480 * 2 + 8 }}>
-      {showSettings && <SettingsBar readers={readers} maxVisible={maxVisible} onMaxChange={handleMaxChange} />}
+    <div
+      className={`shrink-0 ${animating ? "overflow-hidden" : ""}`}
+      style={{ width: wrapperWidth }}
+    >
       <div
-        className="overflow-y-auto overflow-x-hidden scrollbar-hide"
-        style={{ maxHeight: fullHeight }}
+        className="transition-transform duration-200 ease-out"
+        style={{ transform: mounted ? "translateX(0)" : `translateX(100%)` }}
       >
-        <div
-          className="grid gap-2"
-          style={{
-            width: 480 * 2 + 8,
-            gridTemplateColumns: "480px 480px",
-            gridTemplateRows,
-          }}
-        >
-          {readers.map((b, i) => (
-            <Reader
-              key={b.id}
-              bookmark={b}
-              onClose={() => onClose(b.id)}
-              style={{
-                height: "100%",
-                width: 480,
-                ...readerStyle(dragIndex, overIndex, i),
-              }}
-              {...dragProps(i)}
-            />
-          ))}
-        </div>
+        {content}
       </div>
     </div>
   );

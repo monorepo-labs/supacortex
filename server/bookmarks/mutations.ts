@@ -25,28 +25,3 @@ export const updateBookmarkPosition = async (
     .where(eq(bookmarks.id, id));
 };
 
-export const updateGridLayout = async (
-  items: { id: string; gridX: number; gridY: number; gridW: number; gridH: number; gridExpanded?: boolean }[],
-) => {
-  if (items.length === 0) return;
-  const queries = items.map((item) =>
-    db
-      .update(bookmarks)
-      .set({
-        gridX: item.gridX,
-        gridY: item.gridY,
-        gridW: item.gridW,
-        gridH: item.gridH,
-        ...(item.gridExpanded !== undefined && { gridExpanded: item.gridExpanded }),
-      })
-      .where(eq(bookmarks.id, item.id)),
-  );
-  await Promise.all(queries);
-};
-
-export const resetGridLayout = async (userId: string) => {
-  await db
-    .update(bookmarks)
-    .set({ gridX: null, gridY: null, gridW: null, gridH: null, gridExpanded: false })
-    .where(eq(bookmarks.createdBy, userId));
-};
