@@ -23,7 +23,7 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, EyeOff, Link as LinkIcon } from "lucide-react";
+import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, EyeOff, Link as LinkIcon, PanelLeft } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -668,17 +668,17 @@ function ChatPageContent() {
   // Width preset → CSS classes
   const widthClasses = (preset: string) => {
     switch (preset) {
-      case "narrow": return "shrink-0 w-[380px] min-w-[380px]";
+      case "narrow": return "shrink-0 w-[300px] min-w-[300px]";
       case "medium": return "shrink-0 w-[520px] min-w-[520px]";
-      case "wide": return "flex-1 min-w-[640px]";
-      default: return "flex-1 min-w-[640px]";
+      case "wide": return "flex-1 min-w-[800px]";
+      default: return "flex-1 min-w-[800px]";
     }
   };
 
   const renderPanel = (panel: PanelConfig, index: number) => {
     if (panel.type === "chat") {
       return (
-        <main key={panel.id} className={`relative ${widthClasses(panel.widthPreset)} bg-white shadow-card rounded-xl m-2 mt-0 overflow-hidden flex flex-col`}>
+        <main key={panel.id} id={`panel-${panel.id}`} className={`relative ${widthClasses(panel.widthPreset)} bg-white shadow-card rounded-xl m-2 mt-0 overflow-hidden flex flex-col`}>
           {!isTauri && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
               <Monitor size={14} />
@@ -976,7 +976,7 @@ function ChatPageContent() {
 
     if (panel.type === "library") {
       return (
-        <div key={panel.id} className={`${widthClasses(panel.widthPreset)} shrink-0 mb-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
+        <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset)} shrink-0 mb-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
           <GridSearch
             onSearch={setLibrarySearch}
             onRefresh={() => {}}
@@ -1022,7 +1022,7 @@ function ChatPageContent() {
       const bookmark = readerBookmarks.get(panel.bookmarkId);
       if (!bookmark) return null;
       return (
-        <div key={panel.id} className="shrink-0 mb-2 mr-2" style={{ width: 480 }}>
+        <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 mb-2 mr-2" style={{ width: 480 }}>
           <Reader
             bookmark={bookmark}
             onClose={() => handleCloseReader(panel.id)}
@@ -1036,33 +1036,37 @@ function ChatPageContent() {
   };
 
   return (
-    <div className="flex h-screen">
-      <Sidebar
-        activeGroupId={null}
-        onGroupSelect={() => {}}
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={setUserCollapsedOverride}
-        sidebarTab="ask"
-        onSidebarTabChange={(tab) => {
-          if (tab === "library") router.push("/app/library");
+    <div className="flex flex-col h-screen">
+      <WorkspaceTabBar
+        panels={panels}
+        readerBookmarks={readerBookmarks}
+        onTogglePanel={togglePanel}
+        onRemovePanel={removePanel}
+        onReorderPanels={reorderPanels}
+        onCycleWidth={cycleWidth}
+        hasPanel={hasPanel}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => setUserCollapsedOverride((prev) => !prev)}
+        onTabClick={(panelId) => {
+          const el = document.getElementById(`panel-${panelId}`);
+          el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
         }}
-        activeConversationId={conversationId}
-        onConversationSelect={handleConversationSelect}
-        onNewConversation={handleNewConversation}
       />
-      <div className="flex-1 flex flex-col min-w-0">
-        <WorkspaceTabBar
-          panels={panels}
-          readerBookmarks={readerBookmarks}
-          onTogglePanel={togglePanel}
-          onRemovePanel={removePanel}
-          onReorderPanels={reorderPanels}
-          onCycleWidth={cycleWidth}
-          hasPanel={hasPanel}
+      <div className="flex flex-1 min-h-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+        <Sidebar
+          activeGroupId={null}
+          onGroupSelect={() => {}}
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setUserCollapsedOverride}
+          sidebarTab="ask"
+          onSidebarTabChange={(tab) => {
+            if (tab === "library") router.push("/app/library");
+          }}
+          activeConversationId={conversationId}
+          onConversationSelect={handleConversationSelect}
+          onNewConversation={handleNewConversation}
         />
-        <div className="flex flex-1 min-h-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-          {panels.map(renderPanel)}
-        </div>
+        {panels.map(renderPanel)}
       </div>
     </div>
   );
@@ -1325,7 +1329,7 @@ function TabIcon({ panel, bookmark }: { panel: PanelConfig; bookmark?: BookmarkD
   if (panel.type === "chat") return <MessageCircle size={13} className="shrink-0" />;
   if (panel.type === "library") return <BookOpen size={13} className="shrink-0" />;
   if (panel.type === "reader" && bookmark) {
-    if (bookmark.type === "tweet") {
+    if (bookmark.type === "tweet" || bookmark.type === "article") {
       return (
         <svg viewBox="0 0 24 24" className="size-3.5 shrink-0">
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="currentColor" />
@@ -1360,6 +1364,9 @@ function WorkspaceTabBar({
   onReorderPanels,
   onCycleWidth,
   hasPanel,
+  sidebarCollapsed,
+  onToggleSidebar,
+  onTabClick,
 }: {
   panels: PanelConfig[];
   readerBookmarks: Map<string, BookmarkData>;
@@ -1368,49 +1375,77 @@ function WorkspaceTabBar({
   onReorderPanels: (from: number, to: number) => void;
   onCycleWidth: (id: string) => void;
   hasPanel: (type: "chat" | "library" | "reader") => boolean;
+  sidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
+  onTabClick: (panelId: string) => void;
 }) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  const dragStartX = useRef(0);
+  const didDrag = useRef(false);
+  const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+  const handlePointerDown = (index: number) => (e: React.PointerEvent) => {
+    // Only left button
+    if (e.button !== 0) return;
     setDragIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(index));
+    dragStartX.current = e.clientX;
+    didDrag.current = false;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const handleDragOver = (index: number) => (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (dragIndex !== null && index !== dragIndex) {
-      setOverIndex(index);
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (dragIndex === null) return;
+    if (Math.abs(e.clientX - dragStartX.current) > 5) {
+      didDrag.current = true;
     }
+    // Find which tab we're over
+    const x = e.clientX;
+    for (let i = 0; i < tabRefs.current.length; i++) {
+      const el = tabRefs.current[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right) {
+        setOverIndex(i !== dragIndex ? i : null);
+        return;
+      }
+    }
+    setOverIndex(null);
   };
 
-  const handleDrop = (index: number) => (e: React.DragEvent) => {
-    e.preventDefault();
-    if (dragIndex !== null && dragIndex !== index) {
-      onReorderPanels(dragIndex, index);
+  const handlePointerUp = () => {
+    if (dragIndex !== null && overIndex !== null && dragIndex !== overIndex) {
+      onReorderPanels(dragIndex, overIndex);
     }
     setDragIndex(null);
     setOverIndex(null);
   };
 
-  const handleDragEnd = () => {
-    setDragIndex(null);
-    setOverIndex(null);
-  };
-
-  const tabLabel = (panel: PanelConfig, bookmark?: BookmarkData) => {
-    if (panel.type === "chat") return "Chat";
-    if (panel.type === "library") return "Library";
-    if (bookmark) return bookmark.title ?? bookmark.author ?? "Bookmark";
-    return "Bookmark";
+  const tabLabel = (panel: PanelConfig, bookmark?: BookmarkData): string | null => {
+    if (panel.type === "chat") return null;
+    if (panel.type === "library") return null;
+    if (!bookmark) return "Bookmark";
+    if (bookmark.type === "tweet" || bookmark.type === "article") {
+      const author = bookmark.author ? `@${bookmark.author}` : "";
+      const snippet = bookmark.content?.slice(0, 40) ?? "";
+      if (author && snippet) return `${author} · ${snippet}`;
+      return author || snippet || "Tweet";
+    }
+    return bookmark.title ?? bookmark.author ?? "Bookmark";
   };
 
   const widthLabel = (preset: string) => preset === "narrow" ? "S" : preset === "medium" ? "M" : "L";
 
   return (
     <div className="flex items-end gap-0 pl-2 pt-2 pr-2 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+      <button
+        type="button"
+        onClick={onToggleSidebar}
+        className="flex items-center justify-center rounded-t-lg px-2 py-1.5 mr-1 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
+        title={sidebarCollapsed ? "Show sidebar (⌥S)" : "Hide sidebar (⌥S)"}
+      >
+        <PanelLeft size={14} />
+      </button>
       {panels.map((panel, index) => {
         const bookmark = panel.bookmarkId ? readerBookmarks.get(panel.bookmarkId) : undefined;
         const isDragging = dragIndex === index;
@@ -1419,21 +1454,23 @@ function WorkspaceTabBar({
         return (
           <div
             key={panel.id}
-            draggable
-            onDragStart={handleDragStart(index)}
-            onDragOver={handleDragOver(index)}
-            onDrop={handleDrop(index)}
-            onDragEnd={handleDragEnd}
-            className={`group/tab flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs cursor-grab active:cursor-grabbing transition-all max-w-[200px] ${
+            ref={(el) => { tabRefs.current[index] = el; }}
+            onPointerDown={handlePointerDown(index)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onClick={() => { if (!didDrag.current) onTabClick(panel.id); }}
+            className={`group/tab flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs cursor-grab active:cursor-grabbing transition-all max-w-[200px] touch-none ${
               isDragging ? "opacity-40" : ""
             } ${
               isOver ? "bg-zinc-200/60" : "bg-zinc-100/60 hover:bg-zinc-100"
             } ${panel.type === "reader" ? "mr-px" : "mr-px"}`}
           >
             <TabIcon panel={panel} bookmark={bookmark} />
-            <span className="truncate text-zinc-600 select-none">
-              {tabLabel(panel, bookmark)}
-            </span>
+            {tabLabel(panel, bookmark) && (
+              <span className="truncate text-zinc-600 select-none">
+                {tabLabel(panel, bookmark)}
+              </span>
+            )}
             <div className="flex items-center gap-0 ml-auto shrink-0 opacity-0 group-hover/tab:opacity-100 transition-opacity">
               <button
                 type="button"
