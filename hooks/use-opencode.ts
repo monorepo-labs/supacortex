@@ -272,6 +272,7 @@ export const useSendMessage = () => {
         agent?: string;
         files?: Array<{ url: string; mime: string; filename?: string }>;
         directory?: string;
+        bookmarkSystem?: string;
       },
     ) => {
       // Create a promise that resolves when session.idle fires
@@ -313,6 +314,9 @@ export const useSendMessage = () => {
         if (options?.directory) {
           const dirInstruction = `IMPORTANT: Your working directory for this conversation is ${options.directory}. Always \`cd ${options.directory}\` before running any shell commands.`;
           system = system ? `${system}\n\n${dirInstruction}` : dirInstruction;
+        }
+        if (options?.bookmarkSystem) {
+          system = system ? `${system}\n\n${options.bookmarkSystem}` : options.bookmarkSystem;
         }
 
         await client.session.promptAsync({

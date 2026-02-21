@@ -193,12 +193,18 @@ export const getBookmarkById = async (bookmarkId: string, userId: string) => {
       url: bookmarks.url,
       content: bookmarks.content,
       author: bookmarks.author,
+      mediaUrls: bookmarks.mediaUrls,
       isRead: bookmarks.isRead,
       tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
+      groupIds: sql<
+        string[]
+      >`coalesce(array_agg(${bookmarkGroups.groupId}) filter (where ${bookmarkGroups.groupId} is not null), '{}')`,
     })
     .from(bookmarks)
-    .where(and(eq(bookmarks.id, bookmarkId), eq(bookmarks.createdBy, userId)));
+    .leftJoin(bookmarkGroups, eq(bookmarks.id, bookmarkGroups.bookmarkId))
+    .where(and(eq(bookmarks.id, bookmarkId), eq(bookmarks.createdBy, userId)))
+    .groupBy(bookmarks.id);
   return result;
 };
 

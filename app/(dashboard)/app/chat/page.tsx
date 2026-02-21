@@ -4,6 +4,7 @@ import { Suspense, useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useConversations,
   useMessages,
@@ -22,7 +23,18 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon } from "lucide-react";
+import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import BookmarkPickerPanel from "@/app/components/BookmarkPickerPanel";
+import ReadersContainer from "@/app/components/ReadersContainer";
+import type { BookmarkData } from "@/app/components/BookmarkNode";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import type { ChatStatus, FileUIPart } from "ai";
 import {
   Conversation,
@@ -99,7 +111,7 @@ function ChatPageContent() {
   const { mutate: updateConversation } = useUpdateConversation();
   const { mutateAsync: saveMessage } = useSaveMessage();
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [userCollapsedOverride, setUserCollapsedOverride] = useState<boolean | null>(null);
   const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
     () => {
       if (typeof window === "undefined") return null;
@@ -125,6 +137,59 @@ function ChatPageContent() {
   // Per-conversation directory (for folder selector)
   const [conversationDirs, setConversationDirs] = useState<Map<string, string>>(new Map());
   const activeDir = conversationDirs.get(conversationId ?? "new") ?? null;
+
+  // Bookmark picker state
+  const [selectedBookmarks, setSelectedBookmarks] = useState<BookmarkData[]>([]);
+  const [bookmarkPickerOpen, setBookmarkPickerOpen] = useState(false);
+
+  const handleToggleBookmark = useCallback((bookmark: BookmarkData) => {
+    setSelectedBookmarks((prev) => {
+      const exists = prev.some((b) => b.id === bookmark.id);
+      return exists ? prev.filter((b) => b.id !== bookmark.id) : [...prev, bookmark];
+    });
+  }, []);
+
+  // Reader panels for bookmark attachments (same pattern as library page)
+  const [openReaders, setOpenReaders] = useState<BookmarkData[]>([]);
+
+  const handleOpenReader = useCallback((bookmark: BookmarkData) => {
+    setOpenReaders((prev) => {
+      if (prev.length === 0) return [bookmark];
+      const next = [...prev];
+      next[next.length - 1] = bookmark;
+      return next;
+    });
+  }, []);
+
+  const handleOpenInNewPanel = useCallback((bookmark: BookmarkData) => {
+    setOpenReaders((prev) => {
+      if (prev.some((r) => r.id === bookmark.id)) return prev;
+      return [...prev, bookmark];
+    });
+  }, []);
+
+  const handleCloseReader = useCallback((id: string) => {
+    setOpenReaders((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  const handleReorderReaders = useCallback((fromIndex: number, toIndex: number) => {
+    setOpenReaders((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
+  // Auto-collapse sidebar when picker or readers are open
+  const autoCollapsed = bookmarkPickerOpen || openReaders.length >= 2;
+  const sidebarCollapsed = userCollapsedOverride ?? autoCollapsed;
+
+  useEffect(() => {
+    if (!bookmarkPickerOpen && openReaders.length === 0) {
+      setUserCollapsedOverride(null);
+    }
+  }, [bookmarkPickerOpen, openReaders.length]);
 
   // Seed directory from DB conversation
   useEffect(() => {
@@ -201,7 +266,7 @@ function ChatPageContent() {
 
   // Core send logic — sends one message and processes queue after
   const doSend = useCallback(
-    async (text: string, files?: FileUIPart[]) => {
+    async (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
       let currentConversationId = conversationId;
       let sessionId: string | undefined;
       const dir = conversationDirs.get(conversationId ?? "new") ?? undefined;
@@ -261,15 +326,26 @@ function ChatPageContent() {
       }
 
       // Save user message to DB in background
+      // Build combined attachments for DB
+      const dbAttachments = [
+        ...(files?.map((f) => ({
+          url: f.url,
+          filename: f.filename,
+          mediaType: f.mediaType,
+        })) ?? []),
+        ...(bookmarks?.map((b) => ({
+          bookmarkId: b.id,
+          bookmarkTitle: b.title ?? (b.content ? b.content.slice(0, 120) : null),
+          bookmarkUrl: b.url,
+          bookmarkType: b.type,
+        })) ?? []),
+      ];
+
       saveMessage({
         conversationId: currentConversationId,
         role: "user",
         content: text,
-        attachments: files?.map((f) => ({
-          url: f.url,
-          filename: f.filename,
-          mediaType: f.mediaType,
-        })),
+        attachments: dbAttachments.length > 0 ? dbAttachments : undefined,
       });
 
       // Build file parts for opencode
@@ -278,6 +354,13 @@ function ChatPageContent() {
         mime: f.mediaType ?? "application/octet-stream",
         filename: f.filename,
       }));
+
+      // Build bookmark system prompt
+      let bookmarkSystem: string | undefined;
+      if (bookmarks && bookmarks.length > 0) {
+        const ids = bookmarks.map((b) => b.id).join(", ");
+        bookmarkSystem = `The user has attached ${bookmarks.length} bookmark(s) from their library. Bookmark IDs: ${ids}. Use \`scx bookmarks list --json\` to fetch the full content of these bookmarks when answering.`;
+      }
 
       // Send to opencode
       const responseText = await sendMessage(
@@ -294,6 +377,7 @@ function ChatPageContent() {
           agent: "assistant",
           files: fileParts,
           directory: dir,
+          bookmarkSystem,
         },
       );
 
@@ -335,11 +419,11 @@ function ChatPageContent() {
 
   // Process queue: send current message, then drain any queued messages
   const processQueue = useCallback(
-    async (convKey: string, text: string, files?: FileUIPart[]) => {
+    async (convKey: string, text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
       sendingKeysRef.current.add(convKey);
       setPendingSendTick((t) => t + 1);
 
-      await doSend(text, files);
+      await doSend(text, files, bookmarks);
 
       // Drain queued messages for this conversation
       const queue = queuesRef.current.get(convKey);
@@ -368,32 +452,42 @@ function ChatPageContent() {
   );
 
   const handleSend = useCallback(
-    (text: string, files?: FileUIPart[]) => {
+    (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
       if (!text.trim() || !connected) return;
 
       const convKey = conversationId ?? "new";
 
       if (sendingKeysRef.current.has(convKey)) {
-        // Currently streaming in this conversation — queue the message
+        // Currently streaming in this conversation — queue the message (text only)
         const queue = queuesRef.current.get(convKey) ?? [];
         queue.push(text);
         queuesRef.current.set(convKey, queue);
         setQueueLength(queue.length);
       } else {
-        // No active stream for this conversation — show user message and send immediately
+        // Build attachments for the local message
+        const msgAttachments = [
+          ...(files?.map((f) => ({
+            url: f.url,
+            filename: f.filename,
+            mediaType: f.mediaType,
+          })) ?? []),
+          ...(bookmarks?.map((b) => ({
+            bookmarkId: b.id,
+            bookmarkTitle: b.title ?? (b.content ? b.content.slice(0, 120) : null),
+            bookmarkUrl: b.url,
+            bookmarkType: b.type,
+          })) ?? []),
+        ];
+
         addLocalMessage(convKey, {
           id: `temp-user-${Date.now()}`,
           conversationId: convKey,
           role: "user",
           content: text,
           createdAt: new Date().toISOString(),
-          attachments: files?.map((f) => ({
-            url: f.url,
-            filename: f.filename,
-            mediaType: f.mediaType,
-          })),
+          attachments: msgAttachments.length > 0 ? msgAttachments : undefined,
         });
-        processQueue(convKey, text, files);
+        processQueue(convKey, text, files, bookmarks);
       }
     },
     [connected, conversationId, addLocalMessage, processQueue],
@@ -401,18 +495,24 @@ function ChatPageContent() {
 
   const handleSubmit = useCallback(
     (message: { text: string; files: FileUIPart[] }) => {
-      handleSend(message.text, message.files.length > 0 ? message.files : undefined);
+      const bookmarks = selectedBookmarks.length > 0 ? [...selectedBookmarks] : undefined;
+      handleSend(message.text, message.files.length > 0 ? message.files : undefined, bookmarks);
+      setSelectedBookmarks([]);
     },
-    [handleSend],
+    [handleSend, selectedBookmarks],
   );
 
   const handleNewConversation = useCallback(() => {
+    setSelectedBookmarks([]);
+    setBookmarkPickerOpen(false);
     router.replace("/app/chat");
   }, [router]);
 
   const handleConversationSelect = useCallback(
     (id: string) => {
       if (id === conversationId) return;
+      setSelectedBookmarks([]);
+      setBookmarkPickerOpen(false);
       router.replace(`/app/chat?id=${id}`);
     },
     [conversationId, router],
@@ -487,7 +587,7 @@ function ChatPageContent() {
         activeGroupId={null}
         onGroupSelect={() => {}}
         collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
+        onCollapsedChange={setUserCollapsedOverride}
         sidebarTab="ask"
         onSidebarTabChange={(tab) => {
           if (tab === "library") router.push("/app/library");
@@ -496,7 +596,7 @@ function ChatPageContent() {
         onConversationSelect={handleConversationSelect}
         onNewConversation={handleNewConversation}
       />
-      <main className="relative flex-1 bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
+      <main className="relative flex-1 min-w-[480px] bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
         {!isTauri && (
           <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
             <Monitor size={14} />
@@ -521,7 +621,7 @@ function ChatPageContent() {
             ) : (
               <>
                 {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} />
+                  <MessageBubble key={msg.id} message={msg} onOpenBookmark={handleOpenReader} onOpenBookmarkInNewPanel={handleOpenInNewPanel} />
                 ))}
                 {showThinking && (
                   <div className="flex justify-start py-2">
@@ -575,6 +675,7 @@ function ChatPageContent() {
                 <TooltipProvider>
                   <PromptInput onSubmit={handleSubmit} globalDrop>
                     <AttachmentPreviews />
+                    <BookmarkChips bookmarks={selectedBookmarks} onRemove={(id) => setSelectedBookmarks((prev) => prev.filter((b) => b.id !== id))} />
                     <PromptInputTextarea placeholder="Ask anything..." />
                     <PromptInputFooter>
                       <PromptInputTools>
@@ -582,6 +683,10 @@ function ChatPageContent() {
                           <PromptInputActionMenuTrigger tooltip="Attach" />
                           <PromptInputActionMenuContent>
                             <PromptInputActionAddAttachments />
+                            <DropdownMenuItem onClick={() => setBookmarkPickerOpen(true)}>
+                              <Bookmark className="size-4 mr-2" />
+                              Add bookmarks
+                            </DropdownMenuItem>
                           </PromptInputActionMenuContent>
                         </PromptInputActionMenu>
                         {(() => {
@@ -783,19 +888,44 @@ function ChatPageContent() {
           </div>
         )}
       </main>
+
+      {bookmarkPickerOpen && (
+        <BookmarkPickerPanel
+          onClose={() => setBookmarkPickerOpen(false)}
+          selectedBookmarks={selectedBookmarks}
+          onToggle={handleToggleBookmark}
+          onOpenInPanel={handleOpenInNewPanel}
+        />
+      )}
+
+      <ReadersContainer
+        readers={openReaders}
+        onClose={handleCloseReader}
+        onReorder={handleReorderReaders}
+      />
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { message: ChatMessage; onOpenBookmark: (bookmark: BookmarkData) => void; onOpenBookmarkInNewPanel: (bookmark: BookmarkData) => void }) {
   if (message.role === "user") {
+    const bookmarkAtts = message.attachments?.filter((a): a is Extract<ChatAttachment, { bookmarkId: string }> => "bookmarkId" in a) ?? [];
+    const fileAtts = message.attachments?.filter((a): a is Extract<ChatAttachment, { url: string }> => "url" in a) ?? [];
+
     return (
       <div className="flex justify-end">
         <div className="max-w-[80%] space-y-2">
-          {message.attachments && message.attachments.length > 0 && (
+          {fileAtts.length > 0 && (
             <div className="flex flex-wrap gap-2 justify-end">
-              {message.attachments.map((att, i) => (
-                <MessageAttachment key={i} attachment={att} />
+              {fileAtts.map((att, i) => (
+                <FileAttachmentCard key={i} attachment={att} />
+              ))}
+            </div>
+          )}
+          {bookmarkAtts.length > 0 && (
+            <div className="flex flex-wrap gap-2 justify-end">
+              {bookmarkAtts.map((att) => (
+                <BookmarkAttachmentCard key={att.bookmarkId} attachment={att} onOpen={onOpenBookmark} onOpenInNewPanel={onOpenBookmarkInNewPanel} />
               ))}
             </div>
           )}
@@ -818,7 +948,99 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function MessageAttachment({ attachment }: { attachment: ChatAttachment }) {
+function BookmarkAttachmentCard({ attachment, onOpen, onOpenInNewPanel }: {
+  attachment: Extract<ChatAttachment, { bookmarkId: string }>;
+  onOpen: (bookmark: BookmarkData) => void;
+  onOpenInNewPanel: (bookmark: BookmarkData) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const fetchAndOpen = useCallback(async (handler: (b: BookmarkData) => void) => {
+    if (loading) return;
+
+    // Check tanstack cache first
+    const cacheKey = ["bookmark", attachment.bookmarkId];
+    const cached = queryClient.getQueryData<BookmarkData>(cacheKey);
+    if (cached) {
+      handler(cached);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/bookmarks?id=${attachment.bookmarkId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.id) {
+        queryClient.setQueryData(cacheKey, data);
+        handler(data as BookmarkData);
+      }
+    } catch {
+      window.open(attachment.bookmarkUrl, "_blank");
+    } finally {
+      setLoading(false);
+    }
+  }, [attachment.bookmarkId, attachment.bookmarkUrl, loading, queryClient]);
+
+  const domain = (() => {
+    try { return new URL(attachment.bookmarkUrl).hostname.replace("www.", ""); } catch { return ""; }
+  })();
+  const typeLabel = attachment.bookmarkType === "tweet" ? "Tweet" : attachment.bookmarkType === "link" ? "Link" : attachment.bookmarkType;
+  const displayText = attachment.bookmarkTitle ?? "Bookmark";
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey) {
+              fetchAndOpen(onOpenInNewPanel);
+            } else {
+              fetchAndOpen(onOpen);
+            }
+          }}
+          className="relative w-56 rounded-xl border border-zinc-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden text-left cursor-pointer select-none"
+        >
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+            </div>
+          )}
+          <div className="px-3.5 py-3 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 uppercase tracking-wide">
+                {typeLabel}
+              </span>
+            </div>
+            <p className="text-sm font-medium text-zinc-800 line-clamp-2 leading-snug">
+              {displayText}
+            </p>
+            {domain && (
+              <p className="text-xs text-zinc-400 truncate">{domain}</p>
+            )}
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem onClick={() => fetchAndOpen(onOpenInNewPanel)} className="gap-2">
+          <PanelRight size={14} />
+          Open in New Panel
+          <ContextMenuShortcut>⌘ <MousePointerClick size={12} /></ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => window.open(attachment.bookmarkUrl, "_blank")}
+          className="gap-2"
+        >
+          <ExternalLink size={14} />
+          {attachment.bookmarkType === "tweet" ? "View on Twitter" : "Visit link"}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function FileAttachmentCard({ attachment }: { attachment: Extract<ChatAttachment, { url: string }> }) {
   const isImage = attachment.mediaType?.startsWith("image/");
 
   if (isImage) {
@@ -884,6 +1106,41 @@ function AttachmentPreviews() {
               type="button"
               onClick={() => attachments.remove(file.id)}
               className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-zinc-800 text-white opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+        );
+      })}
+    </PromptInputHeader>
+  );
+}
+
+function BookmarkChips({ bookmarks, onRemove }: { bookmarks: BookmarkData[]; onRemove: (id: string) => void }) {
+  if (bookmarks.length === 0) return null;
+
+  return (
+    <PromptInputHeader className="p-2 gap-2">
+      {bookmarks.map((b) => {
+        const domain = (() => {
+          try { return new URL(b.url).hostname.replace("www.", ""); } catch { return ""; }
+        })();
+        return (
+          <div
+            key={b.id}
+            className="group relative inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs"
+          >
+            <Bookmark className="size-3.5 text-blue-500 shrink-0" />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-zinc-700 max-w-[120px]">
+                {b.title ?? "Bookmark"}
+              </p>
+              <p className="text-blue-400 text-[10px]">{b.type}{domain ? ` · ${domain}` : ""}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onRemove(b.id)}
+              className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-blue-600 text-white opacity-0 transition-opacity group-hover:opacity-100"
             >
               <X className="size-3" />
             </button>
