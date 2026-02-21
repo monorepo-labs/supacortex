@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type DragEvent } from "react";
+import { useState, useEffect, useRef, type DragEvent } from "react";
 import { FolderPlus } from "lucide-react";
 import {
   Popover,
@@ -282,9 +282,11 @@ export default function ReadersContainer({
   // Track slide-in animation state
   const [mounted, setMounted] = useState(false);
   const [animating, setAnimating] = useState(false);
+  const mountedRef = useRef(false);
   useEffect(() => {
-    if (readers.length > 0 && !mounted) {
+    if (readers.length > 0 && !mountedRef.current) {
       setAnimating(true);
+      mountedRef.current = true;
       const rafId = requestAnimationFrame(() => setMounted(true));
       // Remove overflow-hidden after animation completes (200ms transition)
       const timerId = setTimeout(() => setAnimating(false), 250);
@@ -293,10 +295,11 @@ export default function ReadersContainer({
         clearTimeout(timerId);
       };
     } else if (readers.length === 0) {
+      mountedRef.current = false;
       setMounted(false);
       setAnimating(false);
     }
-  }, [readers.length, mounted]);
+  }, [readers.length]);
 
   if (readers.length === 0) return null;
 
