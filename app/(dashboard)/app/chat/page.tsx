@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
@@ -71,7 +71,7 @@ You have access to the \`scx\` CLI tool. For full usage of any command, run \`sc
 
 ### Authentication
 
-Before using scx commands, check if the user is logged in by running \`scx whoami\`.
+On the first use of scx in a conversation, check if the user is logged in by running \`scx whoami\`. NEVER share the API key from the output with the user. Once confirmed, don't check again — you have the context.
 If not logged in, run \`scx login\` in the background — it will output a URL. Share that URL with the user and ask them to open it in their browser to approve the login. Then retry the command.
 
 ### Common commands
@@ -158,6 +158,31 @@ function ChatPageContent() {
   const pendingMessages = conversationId
     ? pendingMessagesMap.get(conversationId) ?? []
     : pendingMessagesMap.get("new") ?? [];
+
+  // Prune pending messages that DB has caught up with
+  useEffect(() => {
+    if (!conversationId || !dbMessages?.length) return;
+    const pending = pendingMessagesMap.get(conversationId);
+    if (!pending?.length) return;
+
+    const remaining = pending.filter(
+      (pm) =>
+        !dbMessages.some(
+          (db) => db.content === pm.content && db.role === pm.role,
+        ),
+    );
+    if (remaining.length < pending.length) {
+      setPendingMessagesMap((prev) => {
+        const next = new Map(prev);
+        if (remaining.length === 0) {
+          next.delete(conversationId);
+        } else {
+          next.set(conversationId, remaining);
+        }
+        return next;
+      });
+    }
+  }, [conversationId, dbMessages, pendingMessagesMap]);
 
   // DB messages + any pending optimistic messages (deduped)
   const messages = [
@@ -284,18 +309,11 @@ function ChatPageContent() {
       const responseText = await responsePromise;
 
       if (responseText) {
+        // Save to DB — await so it's persisted before we hide the streaming view
         await saveMessage({
           conversationId: currentConversationId,
           role: "assistant",
           content: responseText,
-        });
-
-        addPending(currentConversationId, {
-          id: `temp-assistant-${Date.now()}`,
-          conversationId: currentConversationId,
-          role: "assistant",
-          content: responseText,
-          createdAt: new Date().toISOString(),
         });
       }
 
