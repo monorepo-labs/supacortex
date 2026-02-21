@@ -1,37 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import ReactGridLayout, { verticalCompactor } from "react-grid-layout";
-import type { Layout } from "react-grid-layout";
-import "react-grid-layout/css/styles.css";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { sileo } from "sileo";
 import BookmarkCard from "./BookmarkCard";
 import BulkActions from "./BulkActions";
 import type { BookmarkData } from "./BookmarkNode";
-import { useUpdateGridLayout } from "@/hooks/use-bookmarks";
 
-const ROW_HEIGHT = 30;
-const MARGIN = 24;
-const CONTAINER_PAD = 24;
-const MIN_H = 3;
 const TARGET_CARD_WIDTH = 260;
-
-/** Convert pixel height to grid row units */
-function pxToH(px: number): number {
-  return Math.max(MIN_H, Math.ceil((px + MARGIN) / (ROW_HEIGHT + MARGIN)));
-}
-
-/** How many columns fit at the target card width */
-function calcCols(gridWidth: number): number {
-  const usable = gridWidth - 2 * CONTAINER_PAD + MARGIN;
-  return Math.max(1, Math.floor(usable / (TARGET_CARD_WIDTH + MARGIN)));
-}
-
-/** Pixel width of one column card */
-function cardPxWidth(gridWidth: number, cols: number): number {
-  const colPx = (gridWidth - 2 * CONTAINER_PAD - (cols - 1) * MARGIN) / cols;
-  return colPx;
-}
+const GAP = 24;
+const PAD = 24;
 
 export default function LibraryGridView({
   bookmarks,
@@ -56,117 +33,14 @@ export default function LibraryGridView({
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
 }) {
-  const { mutate: saveLayout } = useUpdateGridLayout();
-  const [layout, setLayout] = useState<Layout>([]);
-  const [measured, setMeasured] = useState(false);
-  const [dragEnabled, setDragEnabled] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [textSelectable, setTextSelectable] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const lastDragTimeRef = useRef(0);
   const selectModeRef = useRef(false);
-  const [gridWidth, setGridWidth] = useState(0);
-
-  const cols = gridWidth > 0 ? calcCols(gridWidth) : 4;
-  const prevColsRef = useRef(cols);
-
-  // Track bookmark IDs to detect when the dataset changes (e.g. switching groups)
-  const prevBookmarkIdsRef = useRef("");
-
-  // Measure width from scroll container
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setGridWidth(entry.contentRect.width);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  // Measure all cards off-screen, then build layout with real heights
-  useEffect(() => {
-    if (gridWidth <= 0 || bookmarks.length === 0 || !measureRef.current) return;
-
-    // Wait for measure container to paint
-    requestAnimationFrame(() => {
-      const container = measureRef.current;
-      if (!container) return;
-
-      const heights = new Map<string, number>();
-      const cards = container.querySelectorAll<HTMLElement>("[data-bookmark-id]");
-      cards.forEach((card) => {
-        const id = card.dataset.bookmarkId!;
-        heights.set(id, pxToH(card.offsetHeight));
-      });
-
-      const colsChanged = prevColsRef.current !== cols;
-      prevColsRef.current = cols;
-
-      // Detect if the set of bookmarks changed (group switch, search change, etc.)
-      const currentIds = bookmarks.map((b) => b.id).join(",");
-      const idsChanged = prevBookmarkIdsRef.current !== currentIds;
-      prevBookmarkIdsRef.current = currentIds;
-
-      setLayout((prev) => {
-        // When cols change or dataset changes, ignore previous positions — re-flow everything
-        const usePrev = !colsChanged && !idsChanged;
-        const existing = usePrev ? new Map(prev.map((item) => [item.i, item])) : null;
-
-        // Track the max Y so new items from next pages go below existing ones
-        let maxY = 0;
-        if (existing) {
-          existing.forEach((item) => {
-            maxY = Math.max(maxY, item.y + item.h);
-          });
-        }
-
-        return bookmarks.map((b, i) => {
-          const measuredH = heights.get(b.id) ?? 6;
-          const ex = existing?.get(b.id);
-          if (ex) {
-            return { ...ex, h: measuredH, minH: MIN_H };
-          }
-          // New item — place below existing content, respecting array order among new items
-          const newIndex = existing ? i - existing.size : i;
-          return {
-            i: b.id,
-            x: newIndex % cols,
-            y: maxY + Math.floor(newIndex / cols) * measuredH,
-            w: 1,
-            h: measuredH,
-            minH: MIN_H,
-          };
-        });
-      });
-
-      setMeasured(true);
-    });
-  }, [bookmarks, gridWidth, cols]);
-
-  const bookmarkMap = useMemo(
-    () => new Map(bookmarks.map((b) => [b.id, b])),
-    [bookmarks],
-  );
-
-  const persistLayout = useCallback(
-    (newLayout: Layout) => {
-      const items = newLayout.map((item) => ({
-        id: item.i,
-        gridX: item.x,
-        gridY: item.y,
-        gridW: item.w,
-        gridH: item.h,
-      }));
-      saveLayout(items);
-    },
-    [saveLayout],
-  );
 
   const handleOpenReader = useCallback(
     (bookmark: BookmarkData) => {
-      if (Date.now() - lastDragTimeRef.current < 200) return;
       if (!bookmark._optimistic) onOpenReader(bookmark);
     },
     [onOpenReader],
@@ -204,7 +78,7 @@ export default function LibraryGridView({
         }
       }
       selectModeRef.current = active;
-      setDragEnabled(!active);
+      setTextSelectable(active);
     };
     window.addEventListener("keydown", update);
     window.addEventListener("keyup", update);
@@ -258,17 +132,28 @@ export default function LibraryGridView({
         ? "No bookmarks yet."
         : null;
 
-  // Compute card pixel width for measuring
-  const measureWidth = gridWidth > 0 ? cardPxWidth(gridWidth, cols) : 300;
-
-  const children = placeholder || !measured
-    ? null
-    : layout
-        .map((item) => {
-          const bookmark = bookmarkMap.get(item.i);
-          if (!bookmark) return null;
-          return (
-            <div key={item.i}>
+  return (
+    <div
+      ref={scrollRef}
+      className="relative h-full w-full overflow-y-auto overflow-x-hidden scrollbar-none"
+    >
+      {placeholder ? (
+        <div className="flex h-full items-center justify-center text-zinc-400">
+          {placeholder}
+        </div>
+      ) : (
+        <div
+          className="p-6"
+          style={{
+            columnWidth: `${TARGET_CARD_WIDTH}px`,
+            columnGap: `${GAP}px`,
+          }}
+        >
+          {bookmarks.map((bookmark) => (
+            <div
+              key={bookmark.id}
+              className="break-inside-avoid mb-6"
+            >
               <BookmarkCard
                 bookmark={bookmark}
                 expanded={false}
@@ -279,73 +164,15 @@ export default function LibraryGridView({
                     ? () => onOpenInNewPanel(bookmark)
                     : undefined
                 }
-                textSelectable={!dragEnabled}
+                textSelectable={textSelectable}
                 isSelected={selectedIds.has(bookmark.id)}
                 isOpenInReader={openReaderIds?.has(bookmark.id)}
                 onSelect={handleSelect}
               />
             </div>
-          );
-        })
-        .filter(Boolean);
-
-  return (
-    <div
-      ref={scrollRef}
-      className="relative h-full w-full overflow-y-auto overflow-x-hidden scrollbar-none"
-    >
-      {/* Hidden off-screen container for measuring card heights */}
-      <div
-        ref={measureRef}
-        aria-hidden
-        className="absolute pointer-events-none"
-        style={{ left: -9999, top: 0, width: measureWidth, visibility: "hidden" }}
-      >
-        {bookmarks.map((b) => (
-          <div key={b.id} data-bookmark-id={b.id}>
-            <BookmarkCard
-              bookmark={b}
-              expanded={false}
-              onToggleExpand={() => {}}
-              onClick={() => {}}
-            />
-          </div>
-        ))}
-      </div>
-
-      {placeholder ? (
-        <div className="flex h-full items-center justify-center text-zinc-400">
-          {placeholder}
+          ))}
         </div>
-      ) : gridWidth > 0 && children ? (
-        <ReactGridLayout
-          layout={layout}
-          onDragStop={(_layout) => {
-            setLayout(_layout);
-            lastDragTimeRef.current = Date.now();
-          }}
-          onResizeStop={(_layout) => {
-            setLayout(_layout);
-          }}
-          width={gridWidth}
-          gridConfig={{
-            cols,
-            rowHeight: ROW_HEIGHT,
-            margin: [24, 24] as [number, number],
-            containerPadding: [24, 24] as [number, number],
-          }}
-          dragConfig={{
-            enabled: dragEnabled,
-          }}
-          resizeConfig={{
-            enabled: true,
-            handles: ["w", "e", "s"],
-          }}
-          compactor={verticalCompactor}
-        >
-          {children}
-        </ReactGridLayout>
-      ) : null}
+      )}
 
       {/* Infinite scroll sentinel */}
       <div ref={sentinelRef} className="h-1" />

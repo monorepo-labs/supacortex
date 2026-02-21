@@ -79,37 +79,6 @@ export const useUpdateBookmarkPosition = () => {
   });
 };
 
-export const useUpdateGridLayout = () => {
-  return useMutation({
-    mutationFn: async (layout: { id: string; gridX: number; gridY: number; gridW: number; gridH: number; gridExpanded?: boolean }[]) => {
-      const res = await fetch(`/api/bookmarks`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ layout }),
-      });
-      if (!res.ok) throw new Error("Failed to update grid layout");
-      return res.json();
-    },
-  });
-};
-
-export const useResetGridLayout = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/bookmarks`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resetGrid: true }),
-      });
-      if (!res.ok) throw new Error("Failed to reset grid layout");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
-    },
-  });
-};
 
 export const useDeleteBookmark = () => {
   const queryClient = useQueryClient();
