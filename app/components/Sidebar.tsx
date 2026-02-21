@@ -23,7 +23,6 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { sileo } from "sileo";
 import {
@@ -216,6 +215,30 @@ function GroupItem({
   );
 }
 
+function groupConversationsByDate(conversations: Conversation[]) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const last7Days = new Date(today.getTime() - 7 * 86400000);
+
+  const groups: { label: string; items: Conversation[] }[] = [
+    { label: "Today", items: [] },
+    { label: "Yesterday", items: [] },
+    { label: "Last 7 days", items: [] },
+    { label: "Older", items: [] },
+  ];
+
+  for (const c of conversations) {
+    const d = new Date(c.updatedAt);
+    if (d >= today) groups[0].items.push(c);
+    else if (d >= yesterday) groups[1].items.push(c);
+    else if (d >= last7Days) groups[2].items.push(c);
+    else groups[3].items.push(c);
+  }
+
+  return groups.filter((g) => g.items.length > 0);
+}
+
 export default function Sidebar({
   activeGroupId,
   onGroupSelect,
@@ -345,7 +368,10 @@ export default function Sidebar({
         />
 
         {/* Toggle + Avatar */}
-        <div className="flex w-52 items-center justify-between px-3 pt-1" onMouseDown={handleDrag}>
+        <div
+          className="flex w-52 items-center justify-between px-3 pt-1"
+          onMouseDown={handleDrag}
+        >
           <button
             onClick={() => onCollapsedChange(true)}
             className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
@@ -433,7 +459,9 @@ export default function Sidebar({
                     <RefreshCw size={12} className="animate-spin shrink-0" />
                     <span>
                       Syncing...{" "}
-                      {resumeTime ? `next batch at ${resumeTime}` : "resuming soon"}
+                      {resumeTime
+                        ? `next batch at ${resumeTime}`
+                        : "resuming soon"}
                     </span>
                   </div>
                 ) : (
@@ -473,38 +501,51 @@ export default function Sidebar({
                 <Plus size={14} />
                 New Chat
               </Button>
-              <ul className="flex flex-col gap-0.5">
-                {conversations?.map((conversation: Conversation) => (
-                  <li key={conversation.id}>
-                    <ContextMenu>
-                      <ContextMenuTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={() => onConversationSelect?.(conversation.id)}
-                          className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer ${
-                            activeConversationId === conversation.id
-                              ? "text-zinc-900 bg-black/5"
-                              : "text-zinc-600 hover:text-zinc-900"
-                          }`}
-                        >
-                          <ChatBubbleLeftIcon className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                          <span className="truncate">{conversation.title}</span>
-                        </button>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent className="w-48">
-                        <ContextMenuItem
-                          variant="destructive"
-                          className="gap-2"
-                          onClick={() => deleteConversation(conversation.id)}
-                        >
-                          <Trash2 size={14} />
-                          Delete conversation
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  </li>
+              {conversations &&
+                groupConversationsByDate(conversations).map((group) => (
+                  <div key={group.label}>
+                    <p className="text-[11px] font-medium text-zinc-400 px-2 pt-3 pb-1">
+                      {group.label}
+                    </p>
+                    <ul className="flex flex-col gap-0.5">
+                      {group.items.map((conversation) => (
+                        <li key={conversation.id}>
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onConversationSelect?.(conversation.id)
+                                }
+                                className={`flex w-full items-center rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+                                  activeConversationId === conversation.id
+                                    ? "text-zinc-900"
+                                    : "text-zinc-400 hover:text-zinc-900"
+                                }`}
+                              >
+                                <span className="truncate">
+                                  {conversation.title}
+                                </span>
+                              </button>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-48">
+                              <ContextMenuItem
+                                variant="destructive"
+                                className="gap-2"
+                                onClick={() =>
+                                  deleteConversation(conversation.id)
+                                }
+                              >
+                                <Trash2 size={14} />
+                                Delete conversation
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
             </nav>
           </>
         )}
