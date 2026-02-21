@@ -492,7 +492,8 @@ export default function Sidebar({
         ) : (
           <>
             {/* Conversations */}
-            <nav className="mt-2 flex-1 w-52 px-3 overflow-y-auto">
+            <div className="relative mt-2 flex-1 w-52 min-h-0">
+              <nav className="h-full px-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               <Button
                 onClick={() => onNewConversation?.()}
                 variant="ghost"
@@ -546,7 +547,9 @@ export default function Sidebar({
                     </ul>
                   </div>
                 ))}
-            </nav>
+              </nav>
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-background to-transparent" />
+            </div>
           </>
         )}
       </aside>
