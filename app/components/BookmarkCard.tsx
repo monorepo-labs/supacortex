@@ -48,6 +48,7 @@ export default function BookmarkCard({
   isOpenInReader,
   onSelect,
   className,
+  contextMenuExtra,
 }: {
   bookmark: BookmarkData;
   expanded: boolean;
@@ -60,6 +61,7 @@ export default function BookmarkCard({
   isOpenInReader?: boolean;
   onSelect?: (id: string) => void;
   className?: string;
+  contextMenuExtra?: React.ReactNode;
 }) {
   const { mutate: remove } = useDeleteBookmark();
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -389,6 +391,7 @@ export default function BookmarkCard({
                 </ContextMenuShortcut>
               </ContextMenuItem>
             )}
+            {contextMenuExtra}
             <ContextMenuItem
               onClick={(e) => {
                 e.stopPropagation();

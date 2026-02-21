@@ -1,21 +1,24 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, MessageSquarePlus } from "lucide-react";
 import { useBookmarks } from "@/hooks/use-bookmarks";
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
 import BookmarkCard from "./BookmarkCard";
 import type { BookmarkData } from "./BookmarkNode";
 
 export default function BookmarkPickerPanel({
   onClose,
   selectedBookmarks,
-  onToggle,
-  onOpenInPanel,
+  onAttach,
+  onOpenReader,
+  onOpenInNewPanel,
 }: {
   onClose: () => void;
   selectedBookmarks: BookmarkData[];
-  onToggle: (bookmark: BookmarkData) => void;
-  onOpenInPanel: (bookmark: BookmarkData) => void;
+  onAttach: (bookmark: BookmarkData) => void;
+  onOpenReader: (bookmark: BookmarkData) => void;
+  onOpenInNewPanel: (bookmark: BookmarkData) => void;
 }) {
   const [search, setSearch] = useState("");
   const selectedIds = new Set(selectedBookmarks.map((b) => b.id));
@@ -98,10 +101,25 @@ export default function BookmarkPickerPanel({
                   bookmark={bookmark}
                   expanded={false}
                   onToggleExpand={() => {}}
-                  onClick={() => onToggle(bookmark)}
+                  onClick={() => onOpenReader(bookmark)}
                   isSelected={selectedIds.has(bookmark.id)}
-                  onSelect={() => onToggle(bookmark)}
-                  onOpenInNewPanel={() => onOpenInPanel(bookmark)}
+                  onSelect={() => onAttach(bookmark)}
+                  onOpenInNewPanel={() => onOpenInNewPanel(bookmark)}
+                  contextMenuExtra={
+                    <>
+                      <ContextMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAttach(bookmark);
+                        }}
+                        className="gap-2"
+                      >
+                        <MessageSquarePlus size={14} />
+                        {selectedIds.has(bookmark.id) ? "Remove from chat" : "Attach to chat"}
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                    </>
+                  }
                 />
               </div>
             ))}

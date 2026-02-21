@@ -141,6 +141,7 @@ function ChatPageContent() {
   // Bookmark picker state
   const [selectedBookmarks, setSelectedBookmarks] = useState<BookmarkData[]>([]);
   const [bookmarkPickerOpen, setBookmarkPickerOpen] = useState(false);
+  const [chatHidden, setChatHidden] = useState(false);
 
   const handleToggleBookmark = useCallback((bookmark: BookmarkData) => {
     setSelectedBookmarks((prev) => {
@@ -181,15 +182,15 @@ function ChatPageContent() {
     });
   }, []);
 
-  // Auto-collapse sidebar when picker or readers are open
-  const autoCollapsed = bookmarkPickerOpen || openReaders.length >= 2;
+  // Auto-collapse sidebar when 2+ readers are open
+  const autoCollapsed = openReaders.length >= 2;
   const sidebarCollapsed = userCollapsedOverride ?? autoCollapsed;
 
   useEffect(() => {
-    if (!bookmarkPickerOpen && openReaders.length === 0) {
+    if (openReaders.length === 0) {
       setUserCollapsedOverride(null);
     }
-  }, [bookmarkPickerOpen, openReaders.length]);
+  }, [openReaders.length]);
 
   // Seed directory from DB conversation
   useEffect(() => {
@@ -571,6 +572,26 @@ function ChatPageContent() {
     }
   }, [conversationId, updateConversation]);
 
+  // Keyboard shortcuts: ⌥S sidebar, ⌥B bookmarks, ⌥E chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+
+      if (e.code === "KeyS") {
+        e.preventDefault();
+        setUserCollapsedOverride((prev) => prev === null ? !autoCollapsed : !prev);
+      } else if (e.code === "KeyB") {
+        e.preventDefault();
+        setBookmarkPickerOpen((prev) => !prev);
+      } else if (e.code === "KeyE") {
+        e.preventDefault();
+        setChatHidden((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [autoCollapsed]);
+
   const showThinking = isSending && !streamedText;
   const showStreaming = streamedText && isSending;
   // Show thinking below streamed text during tool calls (has text, sending, but not actively streaming)
@@ -582,7 +603,7 @@ function ChatPageContent() {
   const usedTokens = tokens.input + tokens.output + tokens.reasoning;
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
       <Sidebar
         activeGroupId={null}
         onGroupSelect={() => {}}
@@ -596,7 +617,7 @@ function ChatPageContent() {
         onConversationSelect={handleConversationSelect}
         onNewConversation={handleNewConversation}
       />
-      <main className="relative flex-1 min-w-[480px] bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
+      {!chatHidden && <main className="relative flex-1 min-w-[480px] bg-white shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
         {!isTauri && (
           <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
             <Monitor size={14} />
@@ -887,14 +908,15 @@ function ChatPageContent() {
             </p>
           </div>
         )}
-      </main>
+      </main>}
 
       {bookmarkPickerOpen && (
         <BookmarkPickerPanel
           onClose={() => setBookmarkPickerOpen(false)}
           selectedBookmarks={selectedBookmarks}
-          onToggle={handleToggleBookmark}
-          onOpenInPanel={handleOpenInNewPanel}
+          onAttach={handleToggleBookmark}
+          onOpenReader={handleOpenReader}
+          onOpenInNewPanel={handleOpenInNewPanel}
         />
       )}
 
