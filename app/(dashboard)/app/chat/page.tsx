@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback, useEffect } from "react";
+import { Suspense, useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
@@ -142,58 +142,37 @@ function ChatPageContent() {
     },
   );
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  // Per-conversation optimistic messages (keyed by conversationId)
-  const [pendingMessagesMap, setPendingMessagesMap] = useState<
+
+  // Local-first messages: keyed by conversationId, "new" for unsaved convos
+  // This is the source of truth for the active session. DB is only for loading old convos.
+  const [localMessages, setLocalMessages] = useState<
     Map<string, ChatMessage[]>
   >(new Map());
 
-  // Local flag for instant "Thinking..." on new conversations (before conversationId exists)
+  // Local flag for instant "Thinking..." before conversationId exists
   const [pendingSend, setPendingSend] = useState(false);
 
   // Per-conversation streaming state
   const { isSending: hookSending, isStreaming, streamedText } = getState(conversationId);
   const isSending = hookSending || pendingSend;
 
-  // Pending messages for the active conversation (or "new" temp key)
-  const pendingMessages = conversationId
-    ? pendingMessagesMap.get(conversationId) ?? []
-    : pendingMessagesMap.get("new") ?? [];
-
-  // Prune pending messages that DB has caught up with
+  // Seed local messages from DB when switching to a conversation we don't have locally
+  const seededRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!conversationId || !dbMessages?.length) return;
-    const pending = pendingMessagesMap.get(conversationId);
-    if (!pending?.length) return;
+    if (seededRef.current.has(conversationId)) return;
+    seededRef.current.add(conversationId);
+    setLocalMessages((prev) => {
+      if (prev.has(conversationId)) return prev;
+      const next = new Map(prev);
+      next.set(conversationId, [...dbMessages]);
+      return next;
+    });
+  }, [conversationId, dbMessages]);
 
-    const remaining = pending.filter(
-      (pm) =>
-        !dbMessages.some(
-          (db) => db.content === pm.content && db.role === pm.role,
-        ),
-    );
-    if (remaining.length < pending.length) {
-      setPendingMessagesMap((prev) => {
-        const next = new Map(prev);
-        if (remaining.length === 0) {
-          next.delete(conversationId);
-        } else {
-          next.set(conversationId, remaining);
-        }
-        return next;
-      });
-    }
-  }, [conversationId, dbMessages, pendingMessagesMap]);
-
-  // DB messages + any pending optimistic messages (deduped)
-  const messages = [
-    ...(dbMessages ?? []),
-    ...pendingMessages.filter(
-      (pm) =>
-        !(dbMessages ?? []).some(
-          (db) => db.content === pm.content && db.role === pm.role,
-        ),
-    ),
-  ];
+  // Messages for the active conversation
+  const localKey = conversationId ?? "new";
+  const messages = localMessages.get(localKey) ?? [];
 
   // ChatStatus for PromptInputSubmit
   const chatStatus: ChatStatus = isStreaming
@@ -202,9 +181,9 @@ function ChatPageContent() {
       ? "submitted"
       : "ready";
 
-  const addPending = useCallback(
+  const addLocalMessage = useCallback(
     (convId: string, msg: ChatMessage) => {
-      setPendingMessagesMap((prev) => {
+      setLocalMessages((prev) => {
         const next = new Map(prev);
         next.set(convId, [...(next.get(convId) ?? []), msg]);
         return next;
@@ -224,9 +203,9 @@ function ChatPageContent() {
       let sessionId: string | undefined;
       let isNewSession = false;
 
-      // Show user message instantly — use "new" temp key if no conversation yet
+      // Show user message instantly
       const tempKey = currentConversationId ?? "new";
-      addPending(tempKey, {
+      addLocalMessage(tempKey, {
         id: `temp-user-${Date.now()}`,
         conversationId: tempKey,
         role: "user",
@@ -247,17 +226,19 @@ function ChatPageContent() {
         });
         currentConversationId = conversation.id;
 
-        // Move pending messages from "new" to the real conversation ID
-        setPendingMessagesMap((prev) => {
+        // Move local messages from "new" to the real conversation ID
+        setLocalMessages((prev) => {
           const next = new Map(prev);
           const msgs = next.get("new") ?? [];
           next.delete("new");
-          next.set(currentConversationId!, msgs.map((m) => ({
-            ...m,
-            conversationId: currentConversationId!,
-          })));
+          next.set(
+            currentConversationId!,
+            msgs.map((m) => ({ ...m, conversationId: currentConversationId! })),
+          );
           return next;
         });
+        // Mark as seeded so DB doesn't overwrite
+        seededRef.current.add(currentConversationId);
       } else {
         const conv = conversations?.find(
           (c) => c.id === currentConversationId,
@@ -276,14 +257,14 @@ function ChatPageContent() {
         }
       }
 
-      // Save user message to DB (don't await — keep UI fast)
+      // Save user message to DB in background
       saveMessage({
         conversationId: currentConversationId,
         role: "user",
         content: text,
       });
 
-      // Send to opencode — start the call so it registers streaming state synchronously
+      // Send to opencode — registers streaming state synchronously before first await
       const responsePromise = sendMessage(
         currentConversationId,
         sessionId,
@@ -299,18 +280,27 @@ function ChatPageContent() {
         },
       );
 
-      // Navigate to the new conversation after streaming state is registered
-      // (avoids blink — getState(newId) will return isSending: true)
+      // Navigate after streaming state is registered (no blink)
+      // Navigate after streaming state is registered (no blink)
+      // Keep pendingSend true — it clears at the end with markSendComplete
       if (!conversationId && currentConversationId) {
-        setPendingSend(false);
         router.replace(`/app/chat?id=${currentConversationId}`);
       }
 
       const responseText = await responsePromise;
 
       if (responseText) {
-        // Save to DB — await so it's persisted before we hide the streaming view
-        await saveMessage({
+        // Add assistant message to local state immediately
+        addLocalMessage(currentConversationId, {
+          id: `msg-assistant-${Date.now()}`,
+          conversationId: currentConversationId,
+          role: "assistant",
+          content: responseText,
+          createdAt: new Date().toISOString(),
+        });
+
+        // Persist to DB in background
+        saveMessage({
           conversationId: currentConversationId,
           role: "assistant",
           content: responseText,
@@ -324,7 +314,7 @@ function ChatPageContent() {
       connected,
       conversationId,
       conversations,
-      addPending,
+      addLocalMessage,
       createSession,
       createConversation,
       updateConversation,
@@ -416,8 +406,9 @@ function ChatPageContent() {
             className="max-w-3xl mx-auto w-full px-4 py-6"
             scrollClassName="scrollbar-light"
           >
-            {messages.length === 0 && !showThinking ? (
+            {messages.length === 0 ? (
               <ConversationEmptyState
+                className={isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}
                 title="Start a conversation"
                 description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
               />
