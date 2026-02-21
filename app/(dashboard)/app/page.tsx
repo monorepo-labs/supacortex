@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AppPage() {
-  redirect("/app/library");
+  redirect("/app/chat");
 }

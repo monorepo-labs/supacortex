@@ -665,20 +665,24 @@ function ChatPageContent() {
   const contextMaxTokens = activeModel?.contextLimit ?? 200000;
   const usedTokens = tokens.input + tokens.output + tokens.reasoning;
 
-  // Width preset → CSS classes
-  const widthClasses = (preset: string) => {
-    switch (preset) {
-      case "narrow": return "shrink-0 w-[300px] min-w-[300px]";
-      case "medium": return "shrink-0 w-[520px] min-w-[520px]";
-      case "wide": return "flex-1 min-w-[800px]";
-      default: return "flex-1 min-w-[800px]";
+  // Width preset → CSS classes (per panel type)
+  const widthClasses = (preset: string, panelType?: string) => {
+    if (preset === "wide") return "flex-1 min-w-[800px]";
+    if (preset === "narrow") {
+      return panelType === "chat"
+        ? "shrink-0 w-[340px] min-w-[340px]"
+        : "shrink-0 w-[300px] min-w-[300px]";
     }
+    // medium
+    return panelType === "chat"
+      ? "shrink-0 w-[600px] min-w-[600px]"
+      : "shrink-0 w-[520px] min-w-[520px]";
   };
 
   const renderPanel = (panel: PanelConfig, index: number) => {
     if (panel.type === "chat") {
       return (
-        <main key={panel.id} id={`panel-${panel.id}`} className={`relative ${widthClasses(panel.widthPreset)} bg-white shadow-card rounded-xl m-2 mt-0 overflow-hidden flex flex-col`}>
+        <main key={panel.id} id={`panel-${panel.id}`} className={`relative ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl m-2 mt-0 overflow-hidden flex flex-col`}>
           {!isTauri && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
               <Monitor size={14} />
@@ -976,7 +980,7 @@ function ChatPageContent() {
 
     if (panel.type === "library") {
       return (
-        <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset)} shrink-0 mb-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
+        <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset, "library")} shrink-0 mb-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
           <GridSearch
             onSearch={setLibrarySearch}
             onRefresh={() => {}}
@@ -1036,7 +1040,7 @@ function ChatPageContent() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen overflow-hidden">
       <WorkspaceTabBar
         panels={panels}
         readerBookmarks={readerBookmarks}
@@ -1379,47 +1383,64 @@ function WorkspaceTabBar({
   onToggleSidebar: () => void;
   onTabClick: (panelId: string) => void;
 }) {
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
+  const overIndexRef = useRef<number | null>(null);
   const dragStartX = useRef(0);
   const didDrag = useRef(false);
   const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Minimal state: only triggers re-render for visual drag indicator
+  const [dragVisual, setDragVisual] = useState<{ drag: number; over: number } | null>(null);
+
   const handlePointerDown = (index: number) => (e: React.PointerEvent) => {
-    // Only left button
     if (e.button !== 0) return;
-    setDragIndex(index);
+    dragIndexRef.current = index;
+    overIndexRef.current = null;
     dragStartX.current = e.clientX;
     didDrag.current = false;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (dragIndex === null) return;
-    if (Math.abs(e.clientX - dragStartX.current) > 5) {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragIndexRef.current === null) return;
+    if (!didDrag.current && Math.abs(e.clientX - dragStartX.current) > 5) {
       didDrag.current = true;
     }
-    // Find which tab we're over
+    if (!didDrag.current) return;
+
+    // Find which tab we're over using hit-testing
     const x = e.clientX;
+    let newOver: number | null = null;
     for (let i = 0; i < tabRefs.current.length; i++) {
       const el = tabRefs.current[i];
       if (!el) continue;
       const rect = el.getBoundingClientRect();
-      if (x >= rect.left && x <= rect.right) {
-        setOverIndex(i !== dragIndex ? i : null);
-        return;
+      if (x >= rect.left && x <= rect.right && i !== dragIndexRef.current) {
+        newOver = i;
+        break;
       }
     }
-    setOverIndex(null);
-  };
 
-  const handlePointerUp = () => {
-    if (dragIndex !== null && overIndex !== null && dragIndex !== overIndex) {
-      onReorderPanels(dragIndex, overIndex);
+    if (newOver !== overIndexRef.current) {
+      overIndexRef.current = newOver;
+      setDragVisual(
+        newOver !== null
+          ? { drag: dragIndexRef.current, over: newOver }
+          : null,
+      );
     }
-    setDragIndex(null);
-    setOverIndex(null);
-  };
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    const from = dragIndexRef.current;
+    const to = overIndexRef.current;
+    if (from !== null && to !== null && from !== to) {
+      onReorderPanels(from, to);
+    }
+    dragIndexRef.current = null;
+    overIndexRef.current = null;
+    setDragVisual(null);
+  }, [onReorderPanels]);
 
   const tabLabel = (panel: PanelConfig, bookmark?: BookmarkData): string | null => {
     if (panel.type === "chat") return null;
@@ -1437,7 +1458,10 @@ function WorkspaceTabBar({
   const widthLabel = (preset: string) => preset === "narrow" ? "S" : preset === "medium" ? "M" : "L";
 
   return (
-    <div className="flex items-end gap-0 pl-2 pt-2 pr-2 shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+    <div
+      className="flex items-end gap-0 pt-2 pr-2 shrink-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+      style={{ paddingLeft: sidebarCollapsed ? 80 : 216 }}
+    >
       <button
         type="button"
         onClick={onToggleSidebar}
@@ -1448,8 +1472,8 @@ function WorkspaceTabBar({
       </button>
       {panels.map((panel, index) => {
         const bookmark = panel.bookmarkId ? readerBookmarks.get(panel.bookmarkId) : undefined;
-        const isDragging = dragIndex === index;
-        const isOver = overIndex === index;
+        const isDragging = dragVisual?.drag === index;
+        const isOver = dragVisual?.over === index;
 
         return (
           <div
