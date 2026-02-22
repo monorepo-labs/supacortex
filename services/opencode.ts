@@ -93,9 +93,11 @@ export const startServer = async () => {
   await ensureAgentFile();
   const { Command } = await import("@tauri-apps/plugin-shell");
 
+  // Source user's shell profile to get full PATH (nvm, bun, etc.)
+  // macOS apps launched from Finder don't inherit shell env
   const command = Command.create("exec-sh", [
     "-c",
-    `export PATH="$HOME/.opencode/bin:$HOME/.local/bin:/usr/local/bin:$PATH" && cd "$HOME" && opencode serve --port ${PORT}`,
+    `source "$HOME/.zshrc" 2>/dev/null || source "$HOME/.bashrc" 2>/dev/null || source "$HOME/.profile" 2>/dev/null; export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$PATH" && cd "$HOME" && opencode serve --port ${PORT}`,
   ]);
 
   let startupError = "";
