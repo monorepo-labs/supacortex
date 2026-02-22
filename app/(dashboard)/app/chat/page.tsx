@@ -4,26 +4,25 @@ import { Suspense, useState, useCallback, useRef, useEffect, useDeferredValue, u
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
-import { useQueryClient } from "@tanstack/react-query";
 import {
-  useConversations,
-  useMessages,
-  useCreateConversation,
-  useUpdateConversation,
-  useSaveMessage,
   type ChatMessage,
   type ChatAttachment,
 } from "@/hooks/use-chat";
 import {
   useOpenCode,
+  useOpenCodeSessions,
   useCreateSession,
   useSendMessage,
   useProviders,
+  useSessionMessages,
   type ProviderModel,
 } from "@/hooks/use-opencode";
+import { extractScxRefs, stripScxRefs } from "@/lib/scx-refs";
+import { useBookmarksByIds } from "@/hooks/use-bookmark-by-id";
+import InlineBookmarkCard from "@/app/components/InlineBookmarkCard";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, Link as LinkIcon, PanelLeft } from "lucide-react";
+import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, MessageSquarePlus, Link as LinkIcon, PanelLeft } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -45,12 +44,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  ContextMenu,
-  ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import Reader from "@/app/components/Reader";
 import GridSearch from "@/app/components/GridSearch";
@@ -131,11 +126,7 @@ function ChatPageContent() {
   } = useSendMessage();
   const { providers, defaultModel } = useProviders(connected);
 
-  const { data: conversations } = useConversations();
-  const { data: dbMessages } = useMessages(conversationId);
-  const { mutateAsync: createConversation } = useCreateConversation();
-  const { mutate: updateConversation } = useUpdateConversation();
-  const { mutateAsync: saveMessage } = useSaveMessage();
+  const { sessions, refetch: refetchSessions } = useOpenCodeSessions(connected);
 
   const [userCollapsedOverride, setUserCollapsedOverride] = useState<boolean | null>(null);
   const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
@@ -309,46 +300,46 @@ function ChatPageContent() {
     [selectedBookmarks],
   );
 
-  // Seed directory from DB conversation
+  // Seed directory from opencode session
   useEffect(() => {
-    if (!conversationId || !conversations) return;
-    const conv = conversations.find((c) => c.id === conversationId);
-    if (conv?.directory && !conversationDirs.has(conversationId)) {
+    if (!conversationId || !sessions.length) return;
+    const session = sessions.find((s) => s.id === conversationId);
+    if (session?.directory && !conversationDirs.has(conversationId)) {
       setConversationDirs((prev) => {
         const next = new Map(prev);
-        next.set(conversationId, conv.directory!);
+        next.set(conversationId, session.directory);
         return next;
       });
     }
-  }, [conversationId, conversations, conversationDirs]);
+  }, [conversationId, sessions, conversationDirs]);
 
   // Per-conversation streaming state (isSending derived below after sendingKeysRef)
   const { isSending: hookSending, isStreaming, streamedText, tokens } = getState(conversationId);
 
-  // Seed local messages from DB when switching to a conversation we don't have locally
+  // Seed local messages from opencode when switching to a conversation
   const seededRef = useRef<Set<string>>(new Set());
+  const { messages: sessionMessages } = useSessionMessages(conversationId, connected);
   useEffect(() => {
-    if (!conversationId || !dbMessages?.length) return;
+    if (!conversationId || !sessionMessages?.length) return;
     if (seededRef.current.has(conversationId)) return;
     seededRef.current.add(conversationId);
     setLocalMessages((prev) => {
       if (prev.has(conversationId)) return prev;
       const next = new Map(prev);
-      next.set(conversationId, [...dbMessages]);
+      next.set(conversationId, [...sessionMessages]);
       return next;
     });
-  }, [conversationId, dbMessages]);
+  }, [conversationId, sessionMessages]);
 
   // Load token usage from session on conversation switch (survives page reload)
+  // conversationId IS the sessionId now
   const tokensLoadedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!conversationId || !connected || !conversations) return;
+    if (!conversationId || !connected) return;
     if (tokensLoadedRef.current.has(conversationId)) return;
-    const conv = conversations.find((c) => c.id === conversationId);
-    if (!conv?.sessionId) return;
     tokensLoadedRef.current.add(conversationId);
-    loadTokens(conversationId, conv.sessionId);
-  }, [conversationId, connected, conversations, loadTokens]);
+    loadTokens(conversationId, conversationId);
+  }, [conversationId, connected, loadTokens]);
 
   // Messages for the active conversation
   const localKey = conversationId ?? "new";
@@ -387,26 +378,20 @@ function ChatPageContent() {
       : "ready";
 
   // Core send logic — sends one message and returns the conversation ID used
+  // conversationId IS the opencode sessionId (no separate DB conversation)
   const doSend = useCallback(
     async (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[], overrideConversationId?: string): Promise<string | undefined> => {
       let currentConversationId = overrideConversationId ?? conversationId;
-      let sessionId: string | undefined;
       const dir = conversationDirs.get(currentConversationId ?? "new") ?? undefined;
 
-      // If no conversation, create one
+      // If no conversation, create an opencode session
       if (!currentConversationId) {
-        const session = await createSession(text.slice(0, 50), dir);
+        const titleText = stripScxRefs(text).slice(0, 50) || "New conversation";
+        const session = await createSession(titleText, dir);
         if (!session) return;
-        sessionId = session.id;
+        currentConversationId = session.id;
 
-        const conversation = await createConversation({
-          title: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
-          sessionId: session.id,
-          directory: dir,
-        });
-        currentConversationId = conversation.id;
-
-        // Move local messages from "new" to the real conversation ID
+        // Move local messages from "new" to the session ID
         setLocalMessages((prev) => {
           const next = new Map(prev);
           const msgs = next.get("new") ?? [];
@@ -417,7 +402,7 @@ function ChatPageContent() {
           );
           return next;
         });
-        // Move directory from "new" to real conversation ID
+        // Move directory from "new" to session ID
         setConversationDirs((prev) => {
           const newDir = prev.get("new");
           if (!newDir) return prev;
@@ -430,46 +415,8 @@ function ChatPageContent() {
         activeConvIdRef.current = currentConversationId;
 
         router.replace(`/app/chat?id=${currentConversationId}`);
-      } else {
-        const conv = conversations?.find(
-          (c) => c.id === currentConversationId,
-        );
-        sessionId = conv?.sessionId ?? undefined;
-
-        if (!sessionId) {
-          const session = await createSession(text.slice(0, 50), dir);
-          if (!session) return;
-          sessionId = session.id;
-
-          updateConversation({
-            id: currentConversationId,
-            sessionId: session.id,
-          });
-        }
+        refetchSessions();
       }
-
-      // Save user message to DB in background
-      // Build combined attachments for DB
-      const dbAttachments = [
-        ...(files?.map((f) => ({
-          url: f.url,
-          filename: f.filename,
-          mediaType: f.mediaType,
-        })) ?? []),
-        ...(bookmarks?.map((b) => ({
-          bookmarkId: b.id,
-          bookmarkTitle: b.title ?? (b.content ? b.content.slice(0, 120) : null),
-          bookmarkUrl: b.url,
-          bookmarkType: b.type,
-        })) ?? []),
-      ];
-
-      saveMessage({
-        conversationId: currentConversationId,
-        role: "user",
-        content: text,
-        attachments: dbAttachments.length > 0 ? dbAttachments : undefined,
-      });
 
       // Build file parts for opencode
       const fileParts = files?.map((f) => ({
@@ -485,10 +432,10 @@ function ChatPageContent() {
         bookmarkSystem = `The user has attached ${bookmarks.length} bookmark(s) from their library. Bookmark IDs: ${ids}. Use \`scx bookmarks list --json\` to fetch the full content of these bookmarks when answering.`;
       }
 
-      // Send to opencode
+      // Send to opencode (sessionId === conversationId)
       const responseText = await sendMessage(
         currentConversationId,
-        sessionId,
+        currentConversationId,
         text,
         {
           model: selectedModel
@@ -512,12 +459,6 @@ function ChatPageContent() {
           content: responseText,
           createdAt: new Date().toISOString(),
         });
-
-        saveMessage({
-          conversationId: currentConversationId,
-          role: "assistant",
-          content: responseText,
-        });
       } else {
         console.warn("[chat] responseText was empty — assistant message not saved");
       }
@@ -527,17 +468,14 @@ function ChatPageContent() {
     },
     [
       conversationId,
-      conversations,
       conversationDirs,
       addLocalMessage,
       createSession,
-      createConversation,
-      updateConversation,
-      saveMessage,
       sendMessage,
       markSendComplete,
       selectedModel,
       router,
+      refetchSessions,
     ],
   );
 
@@ -578,41 +516,47 @@ function ChatPageContent() {
 
   const handleSend = useCallback(
     (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
-      if (!text.trim() || !connected) return;
+      if ((!text.trim() && !bookmarks?.length) || !connected) return;
 
       const convKey = conversationId ?? "new";
 
       if (sendingKeysRef.current.has(convKey)) {
-        // Currently streaming in this conversation — queue the message (text only)
+        // Currently streaming — queue the message with scx tokens baked in
+        let queueText = text;
+        if (bookmarks?.length) {
+          const tokens = bookmarks.map((b) => `scx:${b.id}`).join(" ");
+          queueText = queueText.trim() ? `${queueText}\n\n${tokens}` : tokens;
+        }
         const queue = queuesRef.current.get(convKey) ?? [];
-        queue.push(text);
+        queue.push(queueText);
         queuesRef.current.set(convKey, queue);
         setQueueLength(queue.length);
       } else {
-        // Build attachments for the local message
-        const msgAttachments = [
-          ...(files?.map((f) => ({
-            url: f.url,
-            filename: f.filename,
-            mediaType: f.mediaType,
-          })) ?? []),
-          ...(bookmarks?.map((b) => ({
-            bookmarkId: b.id,
-            bookmarkTitle: b.title ?? (b.content ? b.content.slice(0, 120) : null),
-            bookmarkUrl: b.url,
-            bookmarkType: b.type,
-          })) ?? []),
-        ];
+        // Inject scx:ID tokens for bookmarks into message text
+        let messageText = text;
+        if (bookmarks?.length) {
+          const tokens = bookmarks.map((b) => `scx:${b.id}`).join(" ");
+          messageText = messageText.trim()
+            ? `${messageText}\n\n${tokens}`
+            : tokens;
+        }
+
+        // Build file attachments only (bookmarks are now inline tokens)
+        const fileAttachments = files?.map((f) => ({
+          url: f.url,
+          filename: f.filename,
+          mediaType: f.mediaType,
+        }));
 
         addLocalMessage(convKey, {
           id: `temp-user-${Date.now()}`,
           conversationId: convKey,
           role: "user",
-          content: text,
+          content: messageText,
           createdAt: new Date().toISOString(),
-          attachments: msgAttachments.length > 0 ? msgAttachments : undefined,
+          attachments: fileAttachments?.length ? fileAttachments : undefined,
         });
-        processQueue(convKey, text, files, bookmarks);
+        processQueue(convKey, messageText, files, bookmarks);
       }
     },
     [connected, conversationId, addLocalMessage, processQueue],
@@ -685,14 +629,11 @@ function ChatPageContent() {
           next.set(key, selected);
           return next;
         });
-        if (conversationId) {
-          updateConversation({ id: conversationId, directory: selected });
-        }
       }
     } catch (err) {
       console.error("[chat] Failed to open directory picker:", err);
     }
-  }, [conversationId, updateConversation]);
+  }, [conversationId]);
 
   // Keyboard shortcuts: ⌥S sidebar, ⌥B library, ⌥E chat
   useEffect(() => {
@@ -862,9 +803,6 @@ function ChatPageContent() {
                                           next.delete(key);
                                           return next;
                                         });
-                                        if (conversationId) {
-                                          updateConversation({ id: conversationId, directory: undefined });
-                                        }
                                       }}
                                       className="rounded-full p-0.5 text-muted-foreground hover:bg-zinc-200 transition-colors"
                                     >
@@ -1130,6 +1068,8 @@ function ChatPageContent() {
           activeConversationId={conversationId}
           onConversationSelect={handleConversationSelect}
           onNewConversation={handleNewConversation}
+          opencodeSessions={sessions}
+          opencodeConnected={connected}
         />
         {panels.map(renderPanel)}
       </div>
@@ -1138,10 +1078,12 @@ function ChatPageContent() {
 }
 
 function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { message: ChatMessage; onOpenBookmark: (bookmark: BookmarkData) => void; onOpenBookmarkInNewPanel: (bookmark: BookmarkData) => void }) {
-  if (message.role === "user") {
-    const bookmarkAtts = message.attachments?.filter((a): a is Extract<ChatAttachment, { bookmarkId: string }> => "bookmarkId" in a) ?? [];
-    const fileAtts = message.attachments?.filter((a): a is Extract<ChatAttachment, { url: string }> => "url" in a) ?? [];
+  const refs = extractScxRefs(message.content);
+  const displayText = stripScxRefs(message.content);
+  const { data: bookmarkMap, isLoading: bookmarksLoading } = useBookmarksByIds(refs);
+  const fileAtts = message.attachments?.filter((a): a is Extract<ChatAttachment, { url: string }> => "url" in a) ?? [];
 
+  if (message.role === "user") {
     return (
       <div className="flex justify-end">
         <div className="max-w-[80%] space-y-2">
@@ -1152,123 +1094,59 @@ function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { 
               ))}
             </div>
           )}
-          {bookmarkAtts.length > 0 && (
+          {refs.length > 0 && (
             <div className="flex flex-wrap gap-2 justify-end">
-              {bookmarkAtts.map((att) => (
-                <BookmarkAttachmentCard key={att.bookmarkId} attachment={att} onOpen={onOpenBookmark} onOpenInNewPanel={onOpenBookmarkInNewPanel} />
+              {refs.map((id) => (
+                <InlineBookmarkCard
+                  key={id}
+                  bookmarkId={id}
+                  bookmarkData={bookmarkMap?.[id]}
+                  isLoading={bookmarksLoading}
+                  onOpen={onOpenBookmark}
+                  onOpenInNewPanel={onOpenBookmarkInNewPanel}
+                />
               ))}
             </div>
           )}
-          <div className="rounded-2xl rounded-br-md bg-zinc-100 px-4 py-2.5 text-sm text-zinc-900">
-            {message.content}
-          </div>
+          {displayText && (
+            <div className="rounded-2xl rounded-br-md bg-zinc-100 px-4 py-2.5 text-sm text-zinc-900">
+              {displayText}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
+  const assistantText = refs.length > 0 ? displayText : message.content;
+
   return (
     <div className="flex justify-start">
-      <div className="max-w-[80%] text-sm text-zinc-800">
-        <div className="prose prose-sm prose-zinc max-w-none">
-          <Streamdown>{message.content}</Streamdown>
+      <div className="max-w-[80%] space-y-2">
+        {refs.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {refs.map((id) => (
+              <InlineBookmarkCard
+                key={id}
+                bookmarkId={id}
+                bookmarkData={bookmarkMap?.[id]}
+                isLoading={bookmarksLoading}
+                onOpen={onOpenBookmark}
+                onOpenInNewPanel={onOpenBookmarkInNewPanel}
+              />
+            ))}
+          </div>
+        )}
+        <div className="text-sm text-zinc-800">
+          <div className="prose prose-sm prose-zinc max-w-none">
+            <Streamdown>{assistantText}</Streamdown>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function BookmarkAttachmentCard({ attachment, onOpen, onOpenInNewPanel }: {
-  attachment: Extract<ChatAttachment, { bookmarkId: string }>;
-  onOpen: (bookmark: BookmarkData) => void;
-  onOpenInNewPanel: (bookmark: BookmarkData) => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const queryClient = useQueryClient();
-
-  const fetchAndOpen = useCallback(async (handler: (b: BookmarkData) => void) => {
-    if (loading) return;
-
-    // Check tanstack cache first
-    const cacheKey = ["bookmark", attachment.bookmarkId];
-    const cached = queryClient.getQueryData<BookmarkData>(cacheKey);
-    if (cached) {
-      handler(cached);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/bookmarks?id=${attachment.bookmarkId}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data?.id) {
-        queryClient.setQueryData(cacheKey, data);
-        handler(data as BookmarkData);
-      }
-    } catch {
-      window.open(attachment.bookmarkUrl, "_blank");
-    } finally {
-      setLoading(false);
-    }
-  }, [attachment.bookmarkId, attachment.bookmarkUrl, loading, queryClient]);
-
-  const domain = (() => {
-    try { return new URL(attachment.bookmarkUrl).hostname.replace("www.", ""); } catch { return ""; }
-  })();
-  const typeLabel = attachment.bookmarkType === "tweet" ? "Tweet" : attachment.bookmarkType === "link" ? "Link" : attachment.bookmarkType;
-  const displayText = attachment.bookmarkTitle ?? "Bookmark";
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          onClick={(e) => {
-            if (e.metaKey || e.ctrlKey) {
-              fetchAndOpen(onOpenInNewPanel);
-            } else {
-              fetchAndOpen(onOpen);
-            }
-          }}
-          className="relative w-56 rounded-xl border border-zinc-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden text-left cursor-pointer select-none"
-        >
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
-            </div>
-          )}
-          <div className="px-3.5 py-3 space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 uppercase tracking-wide">
-                {typeLabel}
-              </span>
-            </div>
-            <p className="text-sm font-medium text-zinc-800 line-clamp-2 leading-snug">
-              {displayText}
-            </p>
-            {domain && (
-              <p className="text-xs text-zinc-400 truncate">{domain}</p>
-            )}
-          </div>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-56">
-        <ContextMenuItem onClick={() => fetchAndOpen(onOpenInNewPanel)} className="gap-2">
-          <PanelRight size={14} />
-          Open in New Panel
-          <ContextMenuShortcut>⌘ <MousePointerClick size={12} /></ContextMenuShortcut>
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => window.open(attachment.bookmarkUrl, "_blank")}
-          className="gap-2"
-        >
-          <ExternalLink size={14} />
-          {attachment.bookmarkType === "tweet" ? "View on Twitter" : "Visit link"}
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
-  );
-}
 
 function FileAttachmentCard({ attachment }: { attachment: Extract<ChatAttachment, { url: string }> }) {
   const isImage = attachment.mediaType?.startsWith("image/");
