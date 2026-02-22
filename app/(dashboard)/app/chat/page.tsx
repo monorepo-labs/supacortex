@@ -23,7 +23,7 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, EyeOff, Link as LinkIcon, PanelLeft } from "lucide-react";
+import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, Link as LinkIcon, PanelLeft } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -1487,8 +1487,8 @@ function WorkspaceTabBar({
   }, [onReorderPanels]);
 
   const tabLabel = (panel: PanelConfig, bookmark?: BookmarkData): string | null => {
-    if (panel.type === "chat") return null;
-    if (panel.type === "library") return null;
+    if (panel.type === "chat") return "Chat";
+    if (panel.type === "library") return "Library";
     if (!bookmark) return "Bookmark";
     if (bookmark.type === "tweet" || bookmark.type === "article") {
       const author = bookmark.author ? `@${bookmark.author}` : "";
@@ -1527,7 +1527,7 @@ function WorkspaceTabBar({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onClick={() => { if (!didDrag.current) onTabClick(panel.id); }}
-            className={`group/tab flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs cursor-grab active:cursor-grabbing transition-all max-w-[200px] touch-none ${
+            className={`group/tab relative flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs cursor-grab active:cursor-grabbing transition-all max-w-[200px] touch-none ${
               isDragging ? "opacity-40" : ""
             } ${
               isOver ? "bg-zinc-200/60" : "bg-zinc-100/60 hover:bg-zinc-100"
@@ -1539,7 +1539,7 @@ function WorkspaceTabBar({
                 {tabLabel(panel, bookmark)}
               </span>
             )}
-            <div className="flex items-center gap-0 ml-auto shrink-0 opacity-0 group-hover/tab:opacity-100 transition-opacity">
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0 opacity-0 group-hover/tab:opacity-100 transition-opacity bg-inherit rounded">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); console.log("[tab] size button clicked:", panel.id, panel.widthPreset); onCycleWidth(panel.id); }}
@@ -1548,24 +1548,21 @@ function WorkspaceTabBar({
               >
                 {widthLabel(panel.widthPreset)}
               </button>
-              {panel.type === "chat" || panel.type === "library" ? (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onTogglePanel(panel.type as "chat" | "library"); }}
-                  className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
-                  title={`Hide ${panel.type}`}
-                >
-                  <EyeOff size={11} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onRemovePanel(panel.id); }}
-                  className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
-                >
-                  <X size={11} />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (panel.type === "chat" || panel.type === "library") {
+                    onTogglePanel(panel.type);
+                  } else {
+                    onRemovePanel(panel.id);
+                  }
+                }}
+                className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
+                title={panel.type === "chat" || panel.type === "library" ? `Hide ${panel.type}` : "Close"}
+              >
+                <X size={11} />
+              </button>
             </div>
           </div>
         );
