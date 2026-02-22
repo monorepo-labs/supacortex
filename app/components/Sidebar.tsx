@@ -22,6 +22,14 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { sileo } from "sileo";
 import {
   useGroups,
@@ -355,6 +363,7 @@ export default function Sidebar({
   const { data: syncStatus } = useSyncStatus(!!twitterAccount);
 
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
   const sessions = opencodeSessions ?? [];
 
   const isInterrupted = syncStatus?.status === "interrupted";
@@ -407,8 +416,8 @@ export default function Sidebar({
     if (syncStatus?.status === "none") {
       setShowDateFilter(true);
     } else {
-      // Incremental sync — no modal needed
-      triggerSync();
+      // Incremental sync — show confirmation
+      setShowSyncConfirm(true);
     }
   };
 
@@ -437,9 +446,6 @@ export default function Sidebar({
         className="flex h-full shrink-0 flex-col bg-background tauri:bg-transparent overflow-hidden transition-[width] duration-200 ease-out"
         style={{ width: collapsed ? 0 : 208 }}
       >
-        {/* Spacer for desktop app traffic lights area */}
-        <div className="hidden tauri:block h-[var(--titlebar-height,0px)] w-52 shrink-0" />
-
         {sidebarTab === "library" ? (
           <>
             {/* Groups */}
@@ -527,12 +533,46 @@ export default function Sidebar({
               <nav className="h-full px-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               <Button
                 onClick={() => onNewConversation?.()}
-                variant="ghost"
-                className="w-full justify-start text-zinc-500"
+                variant="link"
+                className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
               >
                 <Plus size={14} />
                 New Chat
               </Button>
+              {twitterAccount ? (
+                isInterrupted ? (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-500">
+                    <RefreshCw size={12} className="animate-spin shrink-0" />
+                    <span>
+                      Syncing...{" "}
+                      {resumeTime
+                        ? `next batch at ${resumeTime}`
+                        : "resuming soon"}
+                    </span>
+                  </div>
+                ) : (
+                  <Button
+                    variant="link"
+                    onClick={handleSyncClick}
+                    disabled={isSyncing}
+                    className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
+                  >
+                    {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
+                    <RefreshCw
+                      size={14}
+                      className={isSyncing ? "animate-spin" : ""}
+                    />
+                  </Button>
+                )
+              ) : (
+                <Button
+                  variant="link"
+                  onClick={() => linkTwitter()}
+                  className="w-full justify-between text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
+                >
+                  Connect X <XIcon className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {sessions.length > 0 &&
                 groupSessionsByDate(sessions).map((group) => (
                   <div key={group.label}>
@@ -568,6 +608,30 @@ export default function Sidebar({
         open={showDateFilter}
         onConfirm={handleDateFilterConfirm}
       />
+
+      <Dialog open={showSyncConfirm} onOpenChange={setShowSyncConfirm}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Sync bookmarks?</DialogTitle>
+            <DialogDescription>
+              This will fetch new bookmarks from X since your last sync.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowSyncConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowSyncConfirm(false);
+                triggerSync();
+              }}
+            >
+              Sync
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
