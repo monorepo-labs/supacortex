@@ -108,7 +108,9 @@ export function useWorkspace() {
         console.log("[cycleWidth] panel not found:", id);
         return prev;
       }
-      const order: WidthPreset[] = ["narrow", "medium", "wide"];
+      const order: WidthPreset[] = panel.type === "reader"
+        ? ["medium", "wide"]
+        : ["narrow", "medium", "wide"];
       const nextPreset = order[(order.indexOf(panel.widthPreset) + 1) % order.length];
       console.log(`[cycleWidth] ${panel.type} (${id}): ${panel.widthPreset} → ${nextPreset}`);
       return prev.map((p) => {

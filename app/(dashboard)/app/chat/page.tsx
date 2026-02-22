@@ -727,17 +727,17 @@ function ChatPageContent() {
   // Width preset → CSS classes (per panel type)
   const widthClasses = (preset: string, panelType?: string) => {
     if (preset === "wide") {
-      return panelType === "library"
-        ? "flex-1 min-w-[1200px]"
-        : "flex-1 min-w-[800px]";
+      if (panelType === "library") return "flex-1 min-w-[1200px]";
+      return "flex-1 min-w-[800px]";
     }
     if (preset === "narrow") {
+      if (panelType === "chat") return "shrink-0 w-[360px] min-w-[360px]";
       return "shrink-0 w-[320px] min-w-[320px]";
     }
     // medium
-    return panelType === "chat"
-      ? "shrink-0 w-[600px] min-w-[600px]"
-      : "shrink-0 w-[640px] min-w-[640px]";
+    if (panelType === "chat") return "shrink-0 w-[600px] min-w-[600px]";
+    if (panelType === "reader") return "shrink-0 w-[480px] min-w-[480px]";
+    return "shrink-0 w-[640px] min-w-[640px]";
   };
 
   const renderPanel = (panel: PanelConfig, index: number) => {
@@ -1081,17 +1081,17 @@ function ChatPageContent() {
       const bookmark = readerBookmarks.get(panel.bookmarkId);
       if (!bookmark) {
         return (
-          <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 h-full mr-2 flex items-center justify-center rounded-xl bg-zinc-50 shadow-card" style={{ width: 480 }}>
+          <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset, "reader")} h-full mr-2 flex items-center justify-center rounded-xl bg-zinc-50 shadow-card`}>
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
           </div>
         );
       }
       return (
-        <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 h-full mr-2" style={{ width: 480 }}>
+        <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset, "reader")} h-full mr-2`}>
           <Reader
             bookmark={bookmark}
             onClose={() => handleCloseReader(panel.id)}
-            style={{ height: "100%", width: 480 }}
+            style={{ height: "100%", width: "100%" }}
           />
         </div>
       );
