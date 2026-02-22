@@ -501,16 +501,24 @@ function ChatPageContent() {
       const convKey = conversationId ?? "new";
 
       if (sendingKeysRef.current.has(convKey)) {
-        // Currently streaming in this conversation — queue the message (text only)
+        // Currently streaming — queue the message with scx tokens baked in
+        let queueText = text;
+        if (bookmarks?.length) {
+          const tokens = bookmarks.map((b) => `scx:${b.id}`).join(" ");
+          queueText = queueText.trim() ? `${queueText}\n\n${tokens}` : tokens;
+        }
         const queue = queuesRef.current.get(convKey) ?? [];
-        queue.push(text);
+        queue.push(queueText);
         queuesRef.current.set(convKey, queue);
         setQueueLength(queue.length);
       } else {
         // Inject scx:ID tokens for bookmarks into message text
         let messageText = text;
         if (bookmarks?.length) {
-          messageText += "\n\n" + bookmarks.map((b) => `scx:${b.id}`).join(" ");
+          const tokens = bookmarks.map((b) => `scx:${b.id}`).join(" ");
+          messageText = messageText.trim()
+            ? `${messageText}\n\n${tokens}`
+            : tokens;
         }
 
         // Build file attachments only (bookmarks are now inline tokens)
