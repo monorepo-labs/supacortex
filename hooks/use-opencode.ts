@@ -553,6 +553,13 @@ export const useSessionMessages = (sessionId: string | null, connected: boolean)
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Reset messages immediately on sessionId change to prevent cross-conversation seeding
+  const prevSessionRef = useRef<string | null>(null);
+  if (sessionId !== prevSessionRef.current) {
+    prevSessionRef.current = sessionId;
+    if (sessionId) setMessages(null);
+  }
+
   useEffect(() => {
     if (!sessionId || !connected) return;
 
