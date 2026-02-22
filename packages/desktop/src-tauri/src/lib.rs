@@ -145,6 +145,8 @@ async fn start_sse(app: tauri::AppHandle, url: String) -> Result<(), String> {
           let mut stream = resp.bytes_stream();
           let mut buffer = String::new();
 
+          println!("[opencode-sse] Connected to SSE endpoint");
+
           loop {
             tokio::select! {
               _ = rx.changed() => {
@@ -153,7 +155,8 @@ async fn start_sse(app: tauri::AppHandle, url: String) -> Result<(), String> {
               chunk = stream.next() => {
                 match chunk {
                   Some(Ok(bytes)) => {
-                    buffer.push_str(&String::from_utf8_lossy(&bytes));
+                    let chunk_str = String::from_utf8_lossy(&bytes);
+                    buffer.push_str(&chunk_str);
 
                     // Parse SSE frames (separated by double newlines)
                     while let Some(pos) = buffer.find("\n\n") {
@@ -173,12 +176,9 @@ async fn start_sse(app: tauri::AppHandle, url: String) -> Result<(), String> {
 
                       if !data_lines.is_empty() {
                         let data = data_lines.join("\n");
-                        // Emit as JSON with event name and data
-                        let payload = serde_json::json!({
-                          "event": event_name,
-                          "data": data,
-                        });
-                        let _ = app_handle.emit("opencode-sse-event", payload.to_string());
+                        println!("[opencode-sse] Event: {:?}, data len: {}", event_name, data.len());
+                        // Emit the raw data string directly — the data IS the JSON event object
+                        let _ = app_handle.emit("opencode-sse-event", &data);
                       }
                     }
                   }

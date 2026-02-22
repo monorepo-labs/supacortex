@@ -257,11 +257,15 @@ export const useSendMessage = () => {
         const unlisten = await listen<string>("opencode-sse-event", (event) => {
           if (stopped) return;
           try {
-            const { data } = JSON.parse(event.payload) as { event: string | null; data: string };
-            const parsed = JSON.parse(data);
+            // Rust emits the raw SSE data string which is the JSON event object
+            // Tauri may deliver it as a string (needs parse) or already parsed
+            const parsed = typeof event.payload === "string"
+              ? JSON.parse(event.payload)
+              : event.payload;
+            console.log("[opencode] SSE event:", parsed.type);
             handleSseEvent(parsed as { type: string; properties: Record<string, unknown> });
           } catch (err) {
-            console.error("[opencode] Failed to parse SSE event:", err);
+            console.error("[opencode] Failed to parse SSE event:", err, "payload:", event.payload);
           }
         });
 
