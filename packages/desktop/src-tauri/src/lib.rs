@@ -1,5 +1,15 @@
 use tauri::Manager;
 use tauri::{LogicalPosition, LogicalSize, WebviewBuilder, WebviewUrl};
+use tauri::Emitter;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+/// Global abort handle for the SSE listener
+static SSE_ABORT: std::sync::OnceLock<Arc<Mutex<Option<tokio::sync::watch::Sender<bool>>>>> = std::sync::OnceLock::new();
+
+fn sse_abort() -> &'static Arc<Mutex<Option<tokio::sync::watch::Sender<bool>>>> {
+    SSE_ABORT.get_or_init(|| Arc::new(Mutex::new(None)))
+}
 
 #[tauri::command]
 async fn open_webview(
@@ -56,13 +66,173 @@ async fn resize_webview(
   Ok(())
 }
 
+/// Proxy fetch: makes HTTP requests from Rust to bypass mixed-content blocking.
+/// Used for all opencode API calls (GET, POST, etc.)
+#[tauri::command]
+async fn proxy_fetch(
+  url: String,
+  method: String,
+  body: Option<String>,
+  headers: Option<std::collections::HashMap<String, String>>,
+) -> Result<String, String> {
+  let client = reqwest::Client::new();
+  let mut req = match method.to_uppercase().as_str() {
+    "POST" => client.post(&url),
+    "PUT" => client.put(&url),
+    "DELETE" => client.delete(&url),
+    "PATCH" => client.patch(&url),
+    _ => client.get(&url),
+  };
+
+  if let Some(hdrs) = headers {
+    for (k, v) in hdrs {
+      req = req.header(&k, &v);
+    }
+  }
+
+  if let Some(b) = body {
+    req = req.header("content-type", "application/json");
+    req = req.body(b);
+  }
+
+  let resp = req.send().await.map_err(|e| e.to_string())?;
+  let text = resp.text().await.map_err(|e| e.to_string())?;
+  Ok(text)
+}
+
+/// Start SSE listener: connects to the opencode /event endpoint from Rust,
+/// parses SSE frames, and emits each event to the frontend via Tauri events.
+#[tauri::command]
+async fn start_sse(app: tauri::AppHandle, url: String) -> Result<(), String> {
+  // Stop any existing SSE listener
+  {
+    let mut guard = sse_abort().lock().await;
+    if let Some(tx) = guard.take() {
+      let _ = tx.send(true);
+    }
+  }
+
+  let (tx, mut rx) = tokio::sync::watch::channel(false);
+  {
+    let mut guard = sse_abort().lock().await;
+    *guard = Some(tx);
+  }
+
+  let app_handle = app.clone();
+
+  tokio::spawn(async move {
+    loop {
+      // Check if we should stop
+      if *rx.borrow() {
+        break;
+      }
+
+      match reqwest::Client::new()
+        .get(&url)
+        .header("accept", "text/event-stream")
+        .header("cache-control", "no-cache")
+        .send()
+        .await
+      {
+        Ok(resp) => {
+          if !resp.status().is_success() {
+            let _ = app_handle.emit("opencode-sse-error", format!("SSE HTTP {}", resp.status()));
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            continue;
+          }
+
+          use futures_util::StreamExt;
+          let mut stream = resp.bytes_stream();
+          let mut buffer = String::new();
+
+          loop {
+            tokio::select! {
+              _ = rx.changed() => {
+                if *rx.borrow() { break; }
+              }
+              chunk = stream.next() => {
+                match chunk {
+                  Some(Ok(bytes)) => {
+                    buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+                    // Parse SSE frames (separated by double newlines)
+                    while let Some(pos) = buffer.find("\n\n") {
+                      let frame = buffer[..pos].to_string();
+                      buffer = buffer[pos + 2..].to_string();
+
+                      let mut data_lines = Vec::new();
+                      let mut event_name = None;
+
+                      for line in frame.lines() {
+                        if let Some(d) = line.strip_prefix("data:") {
+                          data_lines.push(d.trim_start().to_string());
+                        } else if let Some(e) = line.strip_prefix("event:") {
+                          event_name = Some(e.trim_start().to_string());
+                        }
+                      }
+
+                      if !data_lines.is_empty() {
+                        let data = data_lines.join("\n");
+                        // Emit as JSON with event name and data
+                        let payload = serde_json::json!({
+                          "event": event_name,
+                          "data": data,
+                        });
+                        let _ = app_handle.emit("opencode-sse-event", payload.to_string());
+                      }
+                    }
+                  }
+                  Some(Err(e)) => {
+                    let _ = app_handle.emit("opencode-sse-error", e.to_string());
+                    break;
+                  }
+                  None => {
+                    // Stream ended
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+        Err(e) => {
+          let _ = app_handle.emit("opencode-sse-error", e.to_string());
+        }
+      }
+
+      // Check abort before reconnecting
+      if *rx.borrow() {
+        break;
+      }
+
+      // Reconnect after delay
+      tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+  });
+
+  Ok(())
+}
+
+/// Stop the SSE listener
+#[tauri::command]
+async fn stop_sse() -> Result<(), String> {
+  let mut guard = sse_abort().lock().await;
+  if let Some(tx) = guard.take() {
+    let _ = tx.send(true);
+  }
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_http::init())
-    .invoke_handler(tauri::generate_handler![open_webview, close_webview, resize_webview])
+    .invoke_handler(tauri::generate_handler![
+      open_webview, close_webview, resize_webview,
+      proxy_fetch, start_sse, stop_sse
+    ])
     .setup(|app| {
       let window = app.get_webview_window("main").unwrap();
 

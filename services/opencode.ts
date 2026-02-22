@@ -2,46 +2,47 @@ import {
   createOpencodeClient,
   type OpencodeClient,
 } from "@opencode-ai/sdk/client";
+import { invoke } from "@tauri-apps/api/core";
 
 const PORT = 3837;
+const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 let clientInstance: OpencodeClient | null = null;
-let tauriFetch: typeof globalThis.fetch | null = null;
 
-const getTauriFetch = async (): Promise<typeof globalThis.fetch> => {
-  if (tauriFetch) return tauriFetch;
-  try {
-    const { fetch } = await import("@tauri-apps/plugin-http");
-    tauriFetch = fetch as unknown as typeof globalThis.fetch;
-    return tauriFetch;
-  } catch {
-    return globalThis.fetch;
+/**
+ * Fetch that routes through Tauri's Rust proxy_fetch command.
+ * Bypasses mixed-content blocking (HTTPS page → HTTP localhost).
+ */
+const tauriFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const method = init?.method || "GET";
+  const body = init?.body ? String(init.body) : undefined;
+
+  let headers: Record<string, string> | undefined;
+  if (init?.headers) {
+    headers = {};
+    if (init.headers instanceof Headers) {
+      init.headers.forEach((v, k) => { headers![k] = v; });
+    } else if (Array.isArray(init.headers)) {
+      for (const [k, v] of init.headers) headers[k] = v;
+    } else {
+      headers = init.headers as Record<string, string>;
+    }
   }
-};
+
+  const text = await invoke("proxy_fetch", { url, method, body, headers }) as string;
+
+  return new Response(text, {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}) as typeof globalThis.fetch;
 
 export const getClient = (): OpencodeClient => {
   if (!clientInstance) {
     clientInstance = createOpencodeClient({
-      baseUrl: `http://127.0.0.1:${PORT}`,
-      // Tauri fetch is injected async after first getTauriFetch() call
-      // For initial creation, use global fetch (works in dev/web)
-      ...(tauriFetch ? { fetch: tauriFetch } : {}),
-    });
-  }
-  return clientInstance;
-};
-
-// Reinitialize client with Tauri fetch after it's loaded
-const ensureTauriClient = async () => {
-  const fetch = await getTauriFetch();
-  if (fetch !== globalThis.fetch && clientInstance) {
-    // Recreate client with Tauri fetch
-    clientInstance = null;
-  }
-  if (!clientInstance) {
-    clientInstance = createOpencodeClient({
-      baseUrl: `http://127.0.0.1:${PORT}`,
-      fetch,
+      baseUrl: BASE_URL,
+      fetch: tauriFetch,
     });
   }
   return clientInstance;
@@ -49,7 +50,7 @@ const ensureTauriClient = async () => {
 
 export const isRunning = async (): Promise<boolean> => {
   try {
-    const client = await ensureTauriClient();
+    const client = getClient();
     await client.session.list();
     return true;
   } catch {
@@ -166,10 +167,8 @@ export const getHomeDir = async (): Promise<string> => {
   try {
     const { homeDir } = await import("@tauri-apps/api/path");
     const home = await homeDir();
-    // homeDir() returns path with trailing slash on some platforms
     cachedHomeDir = home.endsWith("/") ? home.slice(0, -1) : home;
   } catch {
-    // Fallback to shell
     try {
       const { Command } = await import("@tauri-apps/plugin-shell");
       const result = await Command.create("exec-sh", ["-c", "echo $HOME"]).execute();

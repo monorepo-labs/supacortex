@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getClient, isRunning, startServer, getHomeDir } from "@/services/opencode";
+import { getClient, isRunning, startServer, getHomeDir, OPENCODE_PORT } from "@/services/opencode";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { Session } from "@opencode-ai/sdk/client";
 
 export const useOpenCode = () => {
@@ -133,7 +135,109 @@ export const useSendMessage = () => {
     [],
   );
 
-  // Start the shared SSE listener (idempotent — only one runs at a time)
+  /** Process a single SSE event object (shared between Tauri and SDK paths) */
+  const handleSseEvent = useCallback((evt: { type: string; properties: Record<string, unknown> }) => {
+    if (evt.type === "message.part.delta") {
+      const props = evt.properties as {
+        sessionID: string;
+        delta: string;
+        field: string;
+      };
+      if (props.field !== "text") return;
+
+      const convId = sessionToConvRef.current.get(props.sessionID);
+      if (!convId) return;
+
+      const state = streamsRef.current.get(convId);
+      if (!state || !state.isSending) return;
+
+      state.isStreaming = true;
+      state.streamedText += props.delta;
+      rerender();
+    }
+
+    // Track token usage from assistant message updates
+    if (evt.type === "message.updated") {
+      const props = evt.properties as {
+        info: {
+          role: string;
+          sessionID: string;
+          tokens?: { input: number; output: number; reasoning: number; cache: { read: number; write: number } };
+          cost?: number;
+        };
+      };
+      if (props.info.role === "assistant" && props.info.tokens) {
+        const convId = sessionToConvRef.current.get(props.info.sessionID);
+        if (convId) {
+          const state = streamsRef.current.get(convId);
+          if (state) {
+            const cur = {
+              input: props.info.tokens.input,
+              output: props.info.tokens.output,
+              reasoning: props.info.tokens.reasoning,
+              cacheRead: props.info.tokens.cache.read,
+              cacheWrite: props.info.tokens.cache.write,
+              cost: props.info.cost ?? 0,
+            };
+            const prev = state.lastMsgTokens;
+            state.tokens = {
+              input: state.tokens.input + (cur.input - prev.input),
+              output: state.tokens.output + (cur.output - prev.output),
+              reasoning: state.tokens.reasoning + (cur.reasoning - prev.reasoning),
+              cacheRead: state.tokens.cacheRead + (cur.cacheRead - prev.cacheRead),
+              cacheWrite: state.tokens.cacheWrite + (cur.cacheWrite - prev.cacheWrite),
+              cost: state.tokens.cost + (cur.cost - prev.cost),
+            };
+            state.lastMsgTokens = cur;
+            rerender();
+          }
+        }
+      }
+    }
+
+    // session.status busy → cancel any pending idle timeout
+    if (evt.type === "session.status") {
+      const props = evt.properties as {
+        sessionID: string;
+        status: { type: string };
+      };
+      const convId = sessionToConvRef.current.get(props.sessionID);
+      if (!convId) return;
+      const state = streamsRef.current.get(convId);
+      if (!state) return;
+
+      if (props.status.type === "busy") {
+        if (state.idleTimeout) {
+          clearTimeout(state.idleTimeout);
+          state.idleTimeout = null;
+        }
+      }
+    }
+
+    // session.idle — debounce: only resolve if no busy follows within 500ms
+    if (evt.type === "session.idle") {
+      const props = evt.properties as { sessionID: string };
+      const convId = sessionToConvRef.current.get(props.sessionID);
+      if (!convId) return;
+
+      const state = streamsRef.current.get(convId);
+      if (!state) return;
+
+      if (state.idleTimeout) {
+        clearTimeout(state.idleTimeout);
+      }
+
+      state.idleTimeout = setTimeout(() => {
+        state.idleTimeout = null;
+        state.isStreaming = false;
+        state.resolve?.(state.streamedText);
+        state.resolve = null;
+        rerender();
+      }, 500);
+    }
+  }, [rerender]);
+
+  // Start the shared SSE listener via Tauri Rust proxy (idempotent)
   const ensureListener = useCallback(() => {
     if (listenerRef.current?.active) return;
 
@@ -148,131 +252,42 @@ export const useSendMessage = () => {
     listenerRef.current = listener;
 
     (async () => {
-      while (!stopped) {
-        try {
-          const client = getClient();
-          const { stream } = await client.event.subscribe();
-
-          for await (const event of stream) {
-            if (stopped) break;
-
-            const evt = event as {
-              type: string;
-              properties: Record<string, unknown>;
-            };
-
-            if (evt.type === "message.part.delta") {
-              const props = evt.properties as {
-                sessionID: string;
-                delta: string;
-                field: string;
-              };
-              if (props.field !== "text") continue;
-
-              const convId = sessionToConvRef.current.get(props.sessionID);
-              if (!convId) continue;
-
-              const state = streamsRef.current.get(convId);
-              if (!state || !state.isSending) continue;
-
-              state.isStreaming = true;
-              state.streamedText += props.delta;
-              rerender();
-            }
-
-            // Track token usage from assistant message updates
-            if (evt.type === "message.updated") {
-              const props = evt.properties as {
-                info: {
-                  role: string;
-                  sessionID: string;
-                  tokens?: { input: number; output: number; reasoning: number; cache: { read: number; write: number } };
-                  cost?: number;
-                };
-              };
-              if (props.info.role === "assistant" && props.info.tokens) {
-                const convId = sessionToConvRef.current.get(props.info.sessionID);
-                if (convId) {
-                  const state = streamsRef.current.get(convId);
-                  if (state) {
-                    const cur = {
-                      input: props.info.tokens.input,
-                      output: props.info.tokens.output,
-                      reasoning: props.info.tokens.reasoning,
-                      cacheRead: props.info.tokens.cache.read,
-                      cacheWrite: props.info.tokens.cache.write,
-                      cost: props.info.cost ?? 0,
-                    };
-                    const prev = state.lastMsgTokens;
-                    // Add only the delta from the last update (message.updated sends cumulative per-message)
-                    state.tokens = {
-                      input: state.tokens.input + (cur.input - prev.input),
-                      output: state.tokens.output + (cur.output - prev.output),
-                      reasoning: state.tokens.reasoning + (cur.reasoning - prev.reasoning),
-                      cacheRead: state.tokens.cacheRead + (cur.cacheRead - prev.cacheRead),
-                      cacheWrite: state.tokens.cacheWrite + (cur.cacheWrite - prev.cacheWrite),
-                      cost: state.tokens.cost + (cur.cost - prev.cost),
-                    };
-                    state.lastMsgTokens = cur;
-                    rerender();
-                  }
-                }
-              }
-            }
-
-            // session.status busy → cancel any pending idle timeout
-            if (evt.type === "session.status") {
-              const props = evt.properties as {
-                sessionID: string;
-                status: { type: string };
-              };
-              const convId = sessionToConvRef.current.get(props.sessionID);
-              if (!convId) continue;
-              const state = streamsRef.current.get(convId);
-              if (!state) continue;
-
-              if (props.status.type === "busy") {
-                // Session became busy again (e.g. tool call) — cancel idle timeout
-                if (state.idleTimeout) {
-                  clearTimeout(state.idleTimeout);
-                  state.idleTimeout = null;
-                }
-              }
-            }
-
-            // session.idle — debounce: only resolve if no busy follows within 500ms
-            if (evt.type === "session.idle") {
-              const props = evt.properties as { sessionID: string };
-              const convId = sessionToConvRef.current.get(props.sessionID);
-              if (!convId) continue;
-
-              const state = streamsRef.current.get(convId);
-              if (!state) continue;
-
-              // Clear any existing timeout
-              if (state.idleTimeout) {
-                clearTimeout(state.idleTimeout);
-              }
-
-              state.idleTimeout = setTimeout(() => {
-                state.idleTimeout = null;
-                state.isStreaming = false;
-                state.resolve?.(state.streamedText);
-                state.resolve = null;
-                rerender();
-              }, 500);
-            }
+      try {
+        // Listen for SSE events from Rust
+        const unlisten = await listen<string>("opencode-sse-event", (event) => {
+          if (stopped) return;
+          try {
+            const { data } = JSON.parse(event.payload) as { event: string | null; data: string };
+            const parsed = JSON.parse(data);
+            handleSseEvent(parsed as { type: string; properties: Record<string, unknown> });
+          } catch (err) {
+            console.error("[opencode] Failed to parse SSE event:", err);
           }
-        } catch (err) {
-          console.error("[opencode] SSE listener error, reconnecting:", err);
-          if (!stopped) {
-            // Brief pause before reconnecting
-            await new Promise((r) => setTimeout(r, 1000));
-          }
-        }
+        });
+
+        // Listen for SSE errors
+        const unlistenErr = await listen<string>("opencode-sse-error", (event) => {
+          console.error("[opencode] SSE error from Rust:", event.payload);
+        });
+
+        // Start the SSE connection in Rust
+        await invoke("start_sse", { url: `http://127.0.0.1:${OPENCODE_PORT}/event` });
+        console.log("[opencode] SSE started via Tauri proxy");
+
+        // Store cleanup
+        const origStop = listener.stop;
+        listener.stop = () => {
+          origStop();
+          unlisten();
+          unlistenErr();
+          invoke("stop_sse").catch(() => {});
+        };
+      } catch (err) {
+        console.error("[opencode] Failed to start Tauri SSE:", err);
+        listener.active = false;
       }
     })();
-  }, [rerender]);
+  }, [rerender, handleSseEvent]);
 
   const send = useCallback(
     async (
