@@ -38,11 +38,7 @@ import {
   useSyncTwitter,
   useSyncStatus,
 } from "@/hooks/use-twitter";
-import {
-  useConversations,
-  useDeleteConversation,
-  type Conversation,
-} from "@/hooks/use-chat";
+import type { Session } from "@opencode-ai/sdk/client";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
 import UserMenu from "./UserMenu";
 import SyncDateFilterModal from "./SyncDateFilterModal";
@@ -215,25 +211,27 @@ function GroupItem({
   );
 }
 
-function groupConversationsByDate(conversations: Conversation[]) {
+function groupSessionsByDate(sessions: Session[]) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86400000);
   const last7Days = new Date(today.getTime() - 7 * 86400000);
 
-  const groups: { label: string; items: Conversation[] }[] = [
+  const groups: { label: string; items: Session[] }[] = [
     { label: "Today", items: [] },
     { label: "Yesterday", items: [] },
     { label: "Last 7 days", items: [] },
     { label: "Older", items: [] },
   ];
 
-  for (const c of conversations) {
-    const d = new Date(c.updatedAt);
-    if (d >= today) groups[0].items.push(c);
-    else if (d >= yesterday) groups[1].items.push(c);
-    else if (d >= last7Days) groups[2].items.push(c);
-    else groups[3].items.push(c);
+  const sorted = [...sessions].sort((a, b) => b.time.updated - a.time.updated);
+
+  for (const s of sorted) {
+    const d = new Date(s.time.updated);
+    if (d >= today) groups[0].items.push(s);
+    else if (d >= yesterday) groups[1].items.push(s);
+    else if (d >= last7Days) groups[2].items.push(s);
+    else groups[3].items.push(s);
   }
 
   return groups.filter((g) => g.items.length > 0);
@@ -250,6 +248,8 @@ export default function Sidebar({
   onConversationSelect,
   onNewConversation,
   workspaceControls,
+  opencodeSessions,
+  opencodeConnected,
 }: {
   activeGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
@@ -261,6 +261,8 @@ export default function Sidebar({
   onConversationSelect?: (id: string) => void;
   onNewConversation?: () => void;
   workspaceControls?: React.ReactNode;
+  opencodeSessions?: Session[];
+  opencodeConnected?: boolean;
 }) {
   const handleDrag = useTauriDrag();
   const { data: groups } = useGroups();
@@ -272,8 +274,7 @@ export default function Sidebar({
   const { data: syncStatus } = useSyncStatus(!!twitterAccount);
 
   const [showDateFilter, setShowDateFilter] = useState(false);
-  const { data: conversations } = useConversations();
-  const { mutate: deleteConversation } = useDeleteConversation();
+  const sessions = opencodeSessions ?? [];
 
   const isInterrupted = syncStatus?.status === "interrupted";
   const resumeTime = syncStatus?.rateLimitResetsAt
@@ -504,46 +505,30 @@ export default function Sidebar({
                 <Plus size={14} />
                 New Chat
               </Button>
-              {conversations &&
-                groupConversationsByDate(conversations).map((group) => (
+              {sessions.length > 0 &&
+                groupSessionsByDate(sessions).map((group) => (
                   <div key={group.label}>
                     <p className="text-[11px] font-medium text-zinc-400 px-2 pt-3 pb-1">
                       {group.label}
                     </p>
                     <ul className="flex flex-col gap-0.5">
-                      {group.items.map((conversation) => (
-                        <li key={conversation.id}>
-                          <ContextMenu>
-                            <ContextMenuTrigger asChild>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onConversationSelect?.(conversation.id)
-                                }
-                                className={`flex w-full items-center rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
-                                  activeConversationId === conversation.id
-                                    ? "text-zinc-900"
-                                    : "text-zinc-400 hover:text-zinc-900"
-                                }`}
-                              >
-                                <span className="truncate">
-                                  {conversation.title}
-                                </span>
-                              </button>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent className="w-48">
-                              <ContextMenuItem
-                                variant="destructive"
-                                className="gap-2"
-                                onClick={() =>
-                                  deleteConversation(conversation.id)
-                                }
-                              >
-                                <Trash2 size={14} />
-                                Delete conversation
-                              </ContextMenuItem>
-                            </ContextMenuContent>
-                          </ContextMenu>
+                      {group.items.map((session) => (
+                        <li key={session.id}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onConversationSelect?.(session.id)
+                            }
+                            className={`flex w-full items-center rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+                              activeConversationId === session.id
+                                ? "text-zinc-900"
+                                : "text-zinc-400 hover:text-zinc-900"
+                            }`}
+                          >
+                            <span className="truncate">
+                              {session.title || "Untitled"}
+                            </span>
+                          </button>
                         </li>
                       ))}
                     </ul>

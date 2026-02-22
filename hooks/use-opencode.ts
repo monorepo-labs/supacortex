@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getClient, isRunning, startServer, getHomeDir } from "@/services/opencode";
 import type { Session } from "@opencode-ai/sdk/client";
+import type { ChatMessage } from "@/hooks/use-chat";
+
+export type { Session } from "@opencode-ai/sdk/client";
 
 export const useOpenCode = () => {
   const [connected, setConnected] = useState(false);
@@ -56,6 +59,9 @@ export const useOpenCode = () => {
 
 export const useOpenCodeSessions = (connected: boolean) => {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [tick, setTick] = useState(0);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     if (!connected) return;
@@ -71,9 +77,9 @@ export const useOpenCodeSessions = (connected: boolean) => {
     };
 
     fetchSessions();
-  }, [connected]);
+  }, [connected, tick]);
 
-  return sessions;
+  return { sessions, refetch };
 };
 
 export interface TokenUsage {
@@ -519,6 +525,64 @@ export interface ProviderInfo {
   name: string;
   models: ProviderModel[];
 }
+
+export const useSessionMessages = (sessionId: string | null, connected: boolean) => {
+  const [messages, setMessages] = useState<ChatMessage[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId || !connected) {
+      setMessages(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchMessages = async () => {
+      setLoading(true);
+      try {
+        const client = getClient();
+        const { data } = await client.session.messages({
+          path: { id: sessionId },
+        });
+        if (cancelled || !data || !Array.isArray(data)) return;
+
+        const mapped: ChatMessage[] = data
+          .map((msg) => {
+            const m = msg as {
+              info: { id: string; role: string; time: { created: number } };
+              parts: Array<{ type: string; text?: string }>;
+            };
+            if (m.info.role !== "user" && m.info.role !== "assistant") return null;
+            const content = m.parts
+              .filter((p) => p.type === "text" && p.text)
+              .map((p) => p.text!)
+              .join("\n");
+            if (!content) return null;
+            return {
+              id: m.info.id,
+              conversationId: sessionId,
+              role: m.info.role as "user" | "assistant",
+              content,
+              createdAt: new Date(m.info.time.created).toISOString(),
+            };
+          })
+          .filter((m): m is ChatMessage => m !== null);
+
+        setMessages(mapped);
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchMessages();
+    return () => { cancelled = true; };
+  }, [sessionId, connected]);
+
+  return { messages, loading };
+};
 
 export const useProviders = (connected: boolean) => {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
