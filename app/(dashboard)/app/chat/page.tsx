@@ -709,7 +709,7 @@ function ChatPageContent() {
             >
               {messages.length === 0 ? (
                 <ConversationEmptyState
-                  className={isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}
+                  className={`min-h-full ${isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}`}
                   title="Start a conversation"
                   description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
                 />
