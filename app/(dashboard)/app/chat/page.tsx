@@ -203,6 +203,38 @@ function ChatPageContent() {
     removePanel(panelId);
   }, [removePanel]);
 
+  // Hydrate reader bookmark data for panels restored from localStorage
+  const hydratedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const missing = panels.filter(
+      (p) => p.type === "reader" && p.bookmarkId && !readerBookmarks.has(p.bookmarkId) && !hydratedRef.current.has(p.bookmarkId),
+    );
+    if (missing.length === 0) return;
+    missing.forEach((p) => hydratedRef.current.add(p.bookmarkId!));
+    Promise.all(
+      missing.map(async (p) => {
+        try {
+          const res = await fetch(`/api/bookmarks?id=${p.bookmarkId}`);
+          if (!res.ok) return null;
+          const data = await res.json();
+          return data?.id ? (data as BookmarkData) : null;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((results) => {
+      setReaderBookmarks((prev) => {
+        const next = new Map(prev);
+        results.forEach((b) => { if (b) next.set(b.id, b); });
+        return next;
+      });
+      // Remove panels whose bookmarks couldn't be fetched
+      results.forEach((b, i) => {
+        if (!b) removePanel(missing[i].id);
+      });
+    });
+  }, [panels, readerBookmarks, removePanel]);
+
   const sidebarCollapsed = userCollapsedOverride ?? false;
 
   // Library panel state
@@ -1024,7 +1056,13 @@ function ChatPageContent() {
 
     if (panel.type === "reader" && panel.bookmarkId) {
       const bookmark = readerBookmarks.get(panel.bookmarkId);
-      if (!bookmark) return null;
+      if (!bookmark) {
+        return (
+          <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 mb-2 mr-2 flex items-center justify-center rounded-xl bg-zinc-50 shadow-card" style={{ width: 480, height: "calc(100vh - 1rem - 36px)" }}>
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+          </div>
+        );
+      }
       return (
         <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 mb-2 mr-2" style={{ width: 480 }}>
           <Reader
