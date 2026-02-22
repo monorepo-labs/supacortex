@@ -41,10 +41,13 @@ const tauriFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     }
   }
 
-  const text = await invoke("proxy_fetch", { url, method, body, headers }) as string;
+  const result = await invoke("proxy_fetch", { url, method, body, headers }) as string;
 
-  return new Response(text, {
-    status: 200,
+  // Rust returns JSON envelope: { status: number, body: string }
+  const envelope = JSON.parse(result) as { status: number; body: string };
+
+  return new Response(envelope.body, {
+    status: envelope.status,
     headers: { "content-type": "application/json" },
   });
 }) as typeof globalThis.fetch;

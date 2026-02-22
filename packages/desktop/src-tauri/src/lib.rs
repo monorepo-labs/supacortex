@@ -67,7 +67,7 @@ async fn resize_webview(
 }
 
 /// Proxy fetch: makes HTTP requests from Rust to bypass mixed-content blocking.
-/// Used for all opencode API calls (GET, POST, etc.)
+/// Returns JSON with status code and body so the frontend can construct a proper Response.
 #[tauri::command]
 async fn proxy_fetch(
   url: String,
@@ -90,14 +90,25 @@ async fn proxy_fetch(
     }
   }
 
-  if let Some(b) = body {
+  if let Some(ref b) = body {
     req = req.header("content-type", "application/json");
-    req = req.body(b);
+    req = req.body(b.clone());
   }
 
+  println!("[proxy_fetch] {} {} body={}", method, url, body.as_deref().unwrap_or("none").chars().take(200).collect::<String>());
+
   let resp = req.send().await.map_err(|e| e.to_string())?;
-  let text = resp.text().await.map_err(|e| e.to_string())?;
-  Ok(text)
+  let status = resp.status().as_u16();
+  let resp_body = resp.text().await.map_err(|e| e.to_string())?;
+
+  println!("[proxy_fetch] {} {} → {} ({}b)", method, url, status, resp_body.len());
+
+  // Return JSON envelope so frontend can reconstruct a proper Response with correct status
+  let envelope = serde_json::json!({
+    "status": status,
+    "body": resp_body,
+  });
+  Ok(envelope.to_string())
 }
 
 /// Start SSE listener: connects to the opencode /event endpoint from Rust,
