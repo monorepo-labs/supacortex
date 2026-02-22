@@ -5,6 +5,9 @@
   "windows": [
     "main"
   ],
+  "remote": {
+    "urls": ["https://*.supacortex.ai/*", "https://supacortex.ai/*"]
+  },
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
