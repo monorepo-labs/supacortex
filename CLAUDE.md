@@ -83,6 +83,14 @@ Content types: **tweets and links only**. No images, videos, or other media type
 - Server with public API
 - CLI tool that uses the API
 
+## Worktrees
+
+After entering a worktree, always symlink env files from the project root:
+```bash
+ln -sf /Users/yogesh/Documents/supercortex/.env.local .env.local 2>/dev/null || true
+ln -sf /Users/yogesh/Documents/supercortex/.env .env 2>/dev/null || true
+```
+
 ## Workflow
 
 Yogesh is learning to code. He writes the code, Max (Claude) guides and explains. Max writes code only when asked. Max handles package installation and config scaffolding.
