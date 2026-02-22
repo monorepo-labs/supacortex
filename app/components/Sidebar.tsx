@@ -508,20 +508,20 @@ export default function Sidebar({
                     disabled={isSyncing}
                     className="w-full justify-start text-zinc-500 hover:text-zinc-600"
                   >
-                    {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
                     <RefreshCw
                       size={14}
                       className={isSyncing ? "animate-spin" : ""}
                     />
+                    {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
                   </Button>
                 )
               ) : (
                 <Button
                   variant="link"
                   onClick={() => linkTwitter()}
-                  className="w-full justify-between text-zinc-500 hover:text-zinc-600"
+                  className="w-full justify-start text-zinc-500 hover:text-zinc-600"
                 >
-                  Connect X <XIcon className="h-3.5 w-3.5" />
+                  <XIcon className="h-3.5 w-3.5" /> Connect X
                 </Button>
               )}
             </div>
@@ -557,20 +557,20 @@ export default function Sidebar({
                     disabled={isSyncing}
                     className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
                   >
-                    {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
                     <RefreshCw
                       size={14}
                       className={isSyncing ? "animate-spin" : ""}
                     />
+                    {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
                   </Button>
                 )
               ) : (
                 <Button
                   variant="link"
                   onClick={() => linkTwitter()}
-                  className="w-full justify-between text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
+                  className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
                 >
-                  Connect X <XIcon className="h-3.5 w-3.5" />
+                  <XIcon className="h-3.5 w-3.5" /> Connect X
                 </Button>
               )}
               {sessions.length > 0 &&
