@@ -360,7 +360,7 @@ export default function Sidebar({
         </button>
       )}
       <aside
-        className="flex h-screen shrink-0 flex-col bg-background tauri:bg-transparent overflow-hidden transition-[width] duration-200 ease-out"
+        className="flex h-full shrink-0 flex-col bg-background tauri:bg-transparent overflow-hidden transition-[width] duration-200 ease-out"
         style={{ width: collapsed ? 0 : 208 }}
       >
         {/* Drag region for desktop app (traffic lights area) */}

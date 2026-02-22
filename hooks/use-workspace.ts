@@ -104,13 +104,18 @@ export function useWorkspace() {
   const cycleWidth = useCallback((id: string) => {
     setPanels((prev) => {
       const panel = prev.find((p) => p.id === id);
-      if (!panel) return prev;
+      if (!panel) {
+        console.log("[cycleWidth] panel not found:", id);
+        return prev;
+      }
       const order: WidthPreset[] = ["narrow", "medium", "wide"];
       const nextPreset = order[(order.indexOf(panel.widthPreset) + 1) % order.length];
+      console.log(`[cycleWidth] ${panel.type} (${id}): ${panel.widthPreset} → ${nextPreset}`);
       return prev.map((p) => {
         if (p.id === id) return { ...p, widthPreset: nextPreset };
         // Demote other wide panels
         if (nextPreset === "wide" && p.widthPreset === "wide") {
+          console.log(`[cycleWidth] demoting ${p.type} (${p.id}) from wide → medium`);
           return { ...p, widthPreset: "medium" };
         }
         return p;

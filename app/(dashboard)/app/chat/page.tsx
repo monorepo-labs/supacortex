@@ -23,7 +23,7 @@ import {
 } from "@/hooks/use-opencode";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { Monitor, ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, EyeOff, Link as LinkIcon, PanelLeft } from "lucide-react";
+import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, PanelRight, ExternalLink, MousePointerClick, MessageSquarePlus, BookOpen, MessageCircle, EyeOff, Link as LinkIcon, PanelLeft } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -706,30 +706,24 @@ function ChatPageContent() {
 
   // Width preset → CSS classes (per panel type)
   const widthClasses = (preset: string, panelType?: string) => {
-    if (preset === "wide") return "flex-1 min-w-[800px]";
+    if (preset === "wide") {
+      return panelType === "library"
+        ? "flex-1 min-w-[1200px]"
+        : "flex-1 min-w-[800px]";
+    }
     if (preset === "narrow") {
-      return panelType === "chat"
-        ? "shrink-0 w-[340px] min-w-[340px]"
-        : "shrink-0 w-[300px] min-w-[300px]";
+      return "shrink-0 w-[320px] min-w-[320px]";
     }
     // medium
     return panelType === "chat"
       ? "shrink-0 w-[600px] min-w-[600px]"
-      : "shrink-0 w-[520px] min-w-[520px]";
+      : "shrink-0 w-[640px] min-w-[640px]";
   };
 
   const renderPanel = (panel: PanelConfig, index: number) => {
     if (panel.type === "chat") {
       return (
-        <main key={panel.id} id={`panel-${panel.id}`} className={`relative ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl m-2 mt-0 overflow-hidden flex flex-col`}>
-          {!isTauri && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
-              <Monitor size={14} />
-              <span>
-                AI chat requires the desktop app. Download it to chat with AI.
-              </span>
-            </div>
-          )}
+        <main key={panel.id} id={`panel-${panel.id}`} className={`relative h-full ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col`}>
 
           {/* Messages area */}
           <Conversation className="flex-1">
@@ -1021,7 +1015,7 @@ function ChatPageContent() {
 
     if (panel.type === "library") {
       return (
-        <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset, "library")} shrink-0 mb-2 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
+        <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset, "library")} h-full shrink-0 mr-2 shadow-card rounded-xl overflow-hidden bg-zinc-50 flex flex-col`}>
           <GridSearch
             onSearch={setLibrarySearch}
             onRefresh={() => {}}
@@ -1067,17 +1061,17 @@ function ChatPageContent() {
       const bookmark = readerBookmarks.get(panel.bookmarkId);
       if (!bookmark) {
         return (
-          <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 mb-2 mr-2 flex items-center justify-center rounded-xl bg-zinc-50 shadow-card" style={{ width: 480, height: "calc(100vh - 1rem - 36px)" }}>
+          <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 h-full mr-2 flex items-center justify-center rounded-xl bg-zinc-50 shadow-card" style={{ width: 480 }}>
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
           </div>
         );
       }
       return (
-        <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 mb-2 mr-2" style={{ width: 480 }}>
+        <div key={panel.id} id={`panel-${panel.id}`} className="shrink-0 h-full mr-2" style={{ width: 480 }}>
           <Reader
             bookmark={bookmark}
             onClose={() => handleCloseReader(panel.id)}
-            style={{ height: "calc(100vh - 1rem - 36px)", width: 480 }}
+            style={{ height: "100%", width: 480 }}
           />
         </div>
       );
@@ -1103,7 +1097,7 @@ function ChatPageContent() {
           el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
         }}
       />
-      <div className="flex flex-1 min-h-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+      <div className="flex flex-1 min-h-0 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         <Sidebar
           activeGroupId={null}
           onGroupSelect={() => {}}
@@ -1441,6 +1435,9 @@ function WorkspaceTabBar({
 
   const handlePointerDown = (index: number) => (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    // Don't start drag from button clicks (size toggle, close, etc.)
+    const target = e.target as HTMLElement;
+    if (target.closest("button")) return;
     dragIndexRef.current = index;
     overIndexRef.current = null;
     dragStartX.current = e.clientX;
@@ -1545,7 +1542,7 @@ function WorkspaceTabBar({
             <div className="flex items-center gap-0 ml-auto shrink-0 opacity-0 group-hover/tab:opacity-100 transition-opacity">
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onCycleWidth(panel.id); }}
+                onClick={(e) => { e.stopPropagation(); console.log("[tab] size button clicked:", panel.id, panel.widthPreset); onCycleWidth(panel.id); }}
                 className="rounded px-1 py-0.5 text-[9px] font-medium text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
                 title={`Resize (${panel.widthPreset})`}
               >
