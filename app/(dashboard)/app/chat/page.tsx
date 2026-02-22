@@ -350,6 +350,10 @@ function ChatPageContent() {
   const sendingKeysRef = useRef<Set<string>>(new Set());
   const [queueLength, setQueueLength] = useState(0);
 
+  // Track the active conversation ID for abort (survives stale closures)
+  const activeConvIdRef = useRef<string | null>(conversationId);
+  if (conversationId) activeConvIdRef.current = conversationId;
+
   // Derive isSending for current conversation (uses sendingKeysRef + pendingSendTick for reactivity)
   void pendingSendTick; // consumed for reactivity
   const pendingSend = sendingKeysRef.current.has(conversationId ?? "new");
@@ -362,10 +366,10 @@ function ChatPageContent() {
       ? "submitted"
       : "ready";
 
-  // Core send logic — sends one message and processes queue after
+  // Core send logic — sends one message and returns the conversation ID used
   const doSend = useCallback(
-    async (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
-      let currentConversationId = conversationId;
+    async (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[], overrideConversationId?: string): Promise<string | undefined> => {
+      let currentConversationId = overrideConversationId ?? conversationId;
       let sessionId: string | undefined;
       const dir = conversationDirs.get(conversationId ?? "new") ?? undefined;
 
@@ -403,6 +407,7 @@ function ChatPageContent() {
           return next;
         });
         seededRef.current.add(currentConversationId);
+        activeConvIdRef.current = currentConversationId;
 
         router.replace(`/app/chat?id=${currentConversationId}`);
       } else {
@@ -498,6 +503,7 @@ function ChatPageContent() {
       }
 
       markSendComplete(currentConversationId);
+      return currentConversationId;
     },
     [
       conversationId,
@@ -521,15 +527,16 @@ function ChatPageContent() {
       sendingKeysRef.current.add(convKey);
       setPendingSendTick((t) => t + 1);
 
-      await doSend(text, files, bookmarks);
+      // First send — may create a new conversation, returns the real ID
+      const resolvedId = await doSend(text, files, bookmarks);
 
       // Drain queued messages for this conversation
       const queue = queuesRef.current.get(convKey);
       while (queue && queue.length > 0) {
         const next = queue.shift()!;
         setQueueLength(queue.length);
-        // Show queued user message now that it's being sent
-        const activeConvId = conversationId ?? convKey;
+        // Use the resolved conversation ID (not the stale closure value)
+        const activeConvId = resolvedId ?? convKey;
         addLocalMessage(activeConvId, {
           id: `temp-user-${Date.now()}`,
           conversationId: activeConvId,
@@ -538,7 +545,7 @@ function ChatPageContent() {
           createdAt: new Date().toISOString(),
         });
         setPendingSendTick((t) => t + 1);
-        await doSend(next);
+        await doSend(next, undefined, undefined, resolvedId);
       }
 
       sendingKeysRef.current.delete(convKey);
@@ -546,7 +553,7 @@ function ChatPageContent() {
       setPendingSendTick((t) => t + 1);
       setQueueLength(0);
     },
-    [doSend, conversationId, addLocalMessage],
+    [doSend, addLocalMessage],
   );
 
   const handleSend = useCallback(
@@ -986,8 +993,10 @@ function ChatPageContent() {
                         </PromptInputTools>
                         <PromptInputSubmit
                           status={chatStatus}
-                          onStop={() =>
-                            conversationId && abort(conversationId)
+                          onStop={() => {
+                            const id = conversationId ?? activeConvIdRef.current;
+                            if (id) abort(id);
+                          }
                           }
                         />
                       </PromptInputFooter>
