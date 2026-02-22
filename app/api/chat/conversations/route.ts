@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/get-user";
-import { getConversationsForUser } from "@/server/chat/queries";
+import { getConversationsForUser, getConversationForUser } from "@/server/chat/queries";
 import {
   createConversation,
   updateConversation,
@@ -58,10 +58,14 @@ export async function PATCH(req: Request) {
   if (!id)
     return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const data: { title?: string; sessionId?: string; directory?: string } = {};
+  const conv = await getConversationForUser(id, user.id);
+  if (!conv)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const data: { title?: string; sessionId?: string; directory?: string | null } = {};
   if (title) data.title = title;
   if (sessionId) data.sessionId = sessionId;
-  if (directory) data.directory = directory;
+  if (directory !== undefined) data.directory = directory ?? null;
 
   if (Object.keys(data).length === 0)
     return NextResponse.json(
@@ -90,6 +94,10 @@ export async function DELETE(req: Request) {
 
   if (!id)
     return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const conv = await getConversationForUser(id, user.id);
+  if (!conv)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
     await deleteConversation(id);

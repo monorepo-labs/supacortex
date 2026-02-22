@@ -14,7 +14,7 @@ export const createConversation = async (data: {
 
 export const updateConversation = async (
   id: string,
-  data: { title?: string; sessionId?: string; directory?: string },
+  data: { title?: string; sessionId?: string; directory?: string | null },
 ) => {
   return db.update(conversations).set(data).where(eq(conversations.id, id));
 };

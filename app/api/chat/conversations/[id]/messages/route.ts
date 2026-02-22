@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/get-user";
-import { getMessagesForConversation } from "@/server/chat/queries";
+import { getMessagesForConversation, getConversationForUser } from "@/server/chat/queries";
 import { createMessage } from "@/server/chat/mutations";
 
 export async function GET(
@@ -12,6 +12,10 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+
+  const conv = await getConversationForUser(id, user.id);
+  if (!conv)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
     const result = await getMessagesForConversation(id);
@@ -34,6 +38,11 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+
+  const conv = await getConversationForUser(id, user.id);
+  if (!conv)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const { role, content, attachments } = await req.json();
 
   if (!role || !content)

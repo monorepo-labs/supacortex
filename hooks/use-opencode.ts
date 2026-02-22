@@ -281,7 +281,8 @@ export const useSendMessage = () => {
         resolveStream = resolve;
       });
 
-      // Register state
+      // Register state — preserve existing token usage from previous messages
+      const existingTokens = streamsRef.current.get(conversationId)?.tokens ?? emptyTokens;
       streamsRef.current.set(conversationId, {
         isSending: true,
         isStreaming: true,
@@ -289,7 +290,7 @@ export const useSendMessage = () => {
         sessionId,
         resolve: resolveStream!,
         idleTimeout: null,
-        tokens: emptyTokens,
+        tokens: existingTokens,
       });
       sessionToConvRef.current.set(sessionId, conversationId);
       rerender();
