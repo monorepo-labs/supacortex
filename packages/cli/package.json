@@ -1,6 +1,6 @@
 {
   "name": "@supacortex/cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Supacortex CLI — your second brain from the terminal",
   "type": "module",
   "bin": {
