@@ -12,21 +12,32 @@ let clientInstance: OpencodeClient | null = null;
 /**
  * Fetch that routes through Tauri's Rust proxy_fetch command.
  * Bypasses mixed-content blocking (HTTPS page → HTTP localhost).
+ * The SDK passes a Request object (not separate url + init).
  */
 const tauriFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-  const method = init?.method || "GET";
-  const body = init?.body ? String(init.body) : undefined;
-
+  let url: string;
+  let method = "GET";
+  let body: string | undefined;
   let headers: Record<string, string> | undefined;
-  if (init?.headers) {
+
+  if (input instanceof Request) {
+    // SDK creates a Request object and passes it directly
+    url = input.url;
+    method = input.method;
+    // Read body from Request — it's a ReadableStream, need to consume it
+    if (input.body) {
+      body = await input.text();
+    }
     headers = {};
-    if (init.headers instanceof Headers) {
-      init.headers.forEach((v, k) => { headers![k] = v; });
-    } else if (Array.isArray(init.headers)) {
-      for (const [k, v] of init.headers) headers[k] = v;
-    } else {
-      headers = init.headers as Record<string, string>;
+    input.headers.forEach((v, k) => { headers![k] = v; });
+  } else {
+    url = typeof input === "string" ? input : input.href;
+    method = init?.method || "GET";
+    body = init?.body ? String(init.body) : undefined;
+    if (init?.headers) {
+      headers = {};
+      const h = new Headers(init.headers);
+      h.forEach((v, k) => { headers![k] = v; });
     }
   }
 
