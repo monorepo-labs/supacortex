@@ -703,17 +703,18 @@ function ChatPageContent() {
 
           {/* Messages area */}
           <Conversation className="flex-1">
+            {messages.length === 0 && (
+              <ConversationEmptyState
+                className={`absolute inset-0 z-10 ${isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}`}
+                title="Start a conversation"
+                description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
+              />
+            )}
             <ConversationContent
               className="max-w-3xl mx-auto w-full px-4 py-6"
               scrollClassName="[&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
             >
-              {messages.length === 0 ? (
-                <ConversationEmptyState
-                  className={`min-h-full ${isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}`}
-                  title="Start a conversation"
-                  description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
-                />
-              ) : (
+              {messages.length > 0 && (
                 <>
                   {messages.map((msg) => (
                     <MessageBubble key={msg.id} message={msg} onOpenBookmark={handleOpenReader} onOpenBookmarkInNewPanel={handleOpenInNewPanel} />
