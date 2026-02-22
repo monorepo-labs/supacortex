@@ -4,6 +4,7 @@ import { Suspense, useState, useCallback, useRef, useEffect, useDeferredValue, u
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
+import { useTauriDrag } from "@/hooks/use-tauri-drag";
 import {
   type ChatMessage,
   type ChatAttachment,
@@ -17,6 +18,7 @@ import {
   useSessionMessages,
   type ProviderModel,
 } from "@/hooks/use-opencode";
+import { getClient } from "@/services/opencode";
 import { extractScxRefs, stripScxRefs } from "@/lib/scx-refs";
 import { useBookmarksByIds } from "@/hooks/use-bookmark-by-id";
 import InlineBookmarkCard from "@/app/components/InlineBookmarkCard";
@@ -127,6 +129,19 @@ function ChatPageContent() {
   const { providers, defaultModel } = useProviders(connected);
 
   const { sessions, refetch: refetchSessions } = useOpenCodeSessions(connected);
+
+  const handleDeleteSession = useCallback(async (id: string) => {
+    try {
+      const client = getClient();
+      await client.session.delete({ path: { id } });
+      refetchSessions();
+      if (conversationId === id) {
+        router.replace("/app/chat");
+      }
+    } catch {
+      // silently fail
+    }
+  }, [refetchSessions, conversationId, router]);
 
   const [userCollapsedOverride, setUserCollapsedOverride] = useState<boolean | null>(null);
   const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
@@ -690,7 +705,7 @@ function ChatPageContent() {
           <Conversation className="flex-1">
             <ConversationContent
               className="max-w-3xl mx-auto w-full px-4 py-6"
-              scrollClassName="scrollbar-light"
+              scrollClassName="[&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
             >
               {messages.length === 0 ? (
                 <ConversationEmptyState
@@ -1070,6 +1085,7 @@ function ChatPageContent() {
           onNewConversation={handleNewConversation}
           opencodeSessions={sessions}
           opencodeConnected={connected}
+          onDeleteSession={handleDeleteSession}
         />
         {panels.map(renderPanel)}
       </div>
@@ -1322,6 +1338,7 @@ function WorkspaceTabBar({
   onToggleSidebar: () => void;
   onTabClick: (panelId: string) => void;
 }) {
+  const handleDrag = useTauriDrag();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -1366,6 +1383,7 @@ function WorkspaceTabBar({
     <div
       className="flex items-center py-1 pr-2 shrink-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
       style={{ paddingLeft: sidebarCollapsed ? 80 : 216 }}
+      onMouseDown={handleDrag}
     >
       <div className="flex gap-0.5 rounded-full bg-black/5 p-0.5">
         <button

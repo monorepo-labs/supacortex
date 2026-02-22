@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import XIcon from "./XIcon";
-import { useTauriDrag } from "@/hooks/use-tauri-drag";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
 import { Button } from "@/components/ui/button";
 import {
@@ -209,6 +208,84 @@ function GroupItem({
   );
 }
 
+function SessionItem({
+  session,
+  isActive,
+  onSelect,
+  onDelete,
+}: {
+  session: Session;
+  isActive: boolean;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  return (
+    <li>
+      <ContextMenu onOpenChange={(open) => { if (!open) setConfirmDelete(false); }}>
+        <ContextMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onSelect(session.id)}
+            className={`flex w-full items-center rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+              isActive
+                ? "text-zinc-900"
+                : "text-zinc-400 hover:text-zinc-900"
+            }`}
+          >
+            <span className="truncate">{session.title || "Untitled"}</span>
+          </button>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          {confirmDelete ? (
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="destructive"
+                size="sm"
+                className="flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(session.id);
+                  document.dispatchEvent(
+                    new KeyboardEvent("keydown", { key: "Escape" }),
+                  );
+                }}
+              >
+                Delete
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmDelete(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <ContextMenuItem
+              variant="destructive"
+              className="gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setConfirmDelete(true);
+              }}
+            >
+              <Trash2 size={14} />
+              Delete conversation
+            </ContextMenuItem>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+    </li>
+  );
+}
+
 /** Convert opencode timestamp to ms — handles both Unix seconds and milliseconds */
 function toMs(ts: number): number {
   return ts < 1e12 ? ts * 1000 : ts;
@@ -253,6 +330,7 @@ export default function Sidebar({
   workspaceControls,
   opencodeSessions,
   opencodeConnected,
+  onDeleteSession,
 }: {
   activeGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
@@ -266,8 +344,8 @@ export default function Sidebar({
   workspaceControls?: React.ReactNode;
   opencodeSessions?: Session[];
   opencodeConnected?: boolean;
+  onDeleteSession?: (id: string) => void;
 }) {
-  const handleDrag = useTauriDrag();
   const { data: groups } = useGroups();
   const { mutate: createGroup } = useCreateGroup();
   const { mutate: deleteGroup } = useDeleteGroup();
@@ -359,11 +437,8 @@ export default function Sidebar({
         className="flex h-full shrink-0 flex-col bg-background tauri:bg-transparent overflow-hidden transition-[width] duration-200 ease-out"
         style={{ width: collapsed ? 0 : 208 }}
       >
-        {/* Drag region for desktop app (traffic lights area) */}
-        <div
-          className="hidden tauri:block h-[var(--titlebar-height,0px)] w-52 shrink-0"
-          onMouseDown={handleDrag}
-        />
+        {/* Spacer for desktop app traffic lights area */}
+        <div className="hidden tauri:block h-[var(--titlebar-height,0px)] w-52 shrink-0" />
 
         {sidebarTab === "library" ? (
           <>
@@ -466,23 +541,13 @@ export default function Sidebar({
                     </p>
                     <ul className="flex flex-col gap-0.5">
                       {group.items.map((session) => (
-                        <li key={session.id}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onConversationSelect?.(session.id)
-                            }
-                            className={`flex w-full items-center rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
-                              activeConversationId === session.id
-                                ? "text-zinc-900"
-                                : "text-zinc-400 hover:text-zinc-900"
-                            }`}
-                          >
-                            <span className="truncate">
-                              {session.title || "Untitled"}
-                            </span>
-                          </button>
-                        </li>
+                        <SessionItem
+                          key={session.id}
+                          session={session}
+                          isActive={activeConversationId === session.id}
+                          onSelect={(id) => onConversationSelect?.(id)}
+                          onDelete={(id) => onDeleteSession?.(id)}
+                        />
                       ))}
                     </ul>
                   </div>

@@ -21,6 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
 import ReadersContainer from "@/app/components/ReadersContainer";
 import { useCreateBookmark } from "@/hooks/use-bookmarks";
+import { useTauriDrag } from "@/hooks/use-tauri-drag";
 import { sileo } from "sileo";
 
 export default function LibraryPage() {
@@ -32,6 +33,7 @@ export default function LibraryPage() {
 }
 
 function LibraryPageContent() {
+  const handleDrag = useTauriDrag();
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeGroupId = searchParams.get("group") || null;
@@ -204,7 +206,13 @@ function LibraryPageContent() {
   }, [addBookmark]);
 
   return (
-    <div className="flex h-screen">
+    <div className="flex flex-col h-screen">
+      {/* Drag region for desktop app (traffic lights area) */}
+      <div
+        className="hidden tauri:block h-[var(--titlebar-height,0px)] shrink-0"
+        onMouseDown={handleDrag}
+      />
+      <div className="flex flex-1 min-h-0">
       <Sidebar
         activeGroupId={activeGroupId}
         onGroupSelect={handleGroupSelect}
@@ -258,6 +266,7 @@ function LibraryPageContent() {
         onClose={handleCloseReader}
         onReorder={handleReorderReaders}
       />
+      </div>
     </div>
   );
 }
