@@ -13,22 +13,35 @@ import type { BookmarkData } from "@/app/components/BookmarkNode";
 export default function InlineBookmarkCard({
   bookmarkId,
   bookmarkData,
+  isLoading,
   onOpen,
   onOpenInNewPanel,
 }: {
   bookmarkId: string;
   bookmarkData?: BookmarkData;
+  isLoading?: boolean;
   onOpen: (bookmark: BookmarkData) => void;
   onOpenInNewPanel: (bookmark: BookmarkData) => void;
 }) {
   // Skeleton while loading
-  if (!bookmarkData) {
+  if (!bookmarkData && isLoading) {
     return (
       <div className="w-56 rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden animate-pulse">
         <div className="px-3.5 py-3 space-y-2">
           <div className="h-3 w-10 rounded bg-zinc-100" />
           <div className="h-4 w-full rounded bg-zinc-100" />
           <div className="h-3 w-20 rounded bg-zinc-100" />
+        </div>
+      </div>
+    );
+  }
+
+  // Not found — query settled but no data
+  if (!bookmarkData) {
+    return (
+      <div className="w-56 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 overflow-hidden">
+        <div className="px-3.5 py-3">
+          <p className="text-xs text-zinc-400">Bookmark not found</p>
         </div>
       </div>
     );

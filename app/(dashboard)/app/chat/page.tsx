@@ -1080,7 +1080,7 @@ function ChatPageContent() {
 function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { message: ChatMessage; onOpenBookmark: (bookmark: BookmarkData) => void; onOpenBookmarkInNewPanel: (bookmark: BookmarkData) => void }) {
   const refs = extractScxRefs(message.content);
   const displayText = stripScxRefs(message.content);
-  const { data: bookmarkMap } = useBookmarksByIds(refs);
+  const { data: bookmarkMap, isLoading: bookmarksLoading } = useBookmarksByIds(refs);
   const fileAtts = message.attachments?.filter((a): a is Extract<ChatAttachment, { url: string }> => "url" in a) ?? [];
 
   if (message.role === "user") {
@@ -1101,6 +1101,7 @@ function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { 
                   key={id}
                   bookmarkId={id}
                   bookmarkData={bookmarkMap?.[id]}
+                  isLoading={bookmarksLoading}
                   onOpen={onOpenBookmark}
                   onOpenInNewPanel={onOpenBookmarkInNewPanel}
                 />
@@ -1129,6 +1130,7 @@ function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { 
                 key={id}
                 bookmarkId={id}
                 bookmarkData={bookmarkMap?.[id]}
+                isLoading={bookmarksLoading}
                 onOpen={onOpenBookmark}
                 onOpenInNewPanel={onOpenBookmarkInNewPanel}
               />
