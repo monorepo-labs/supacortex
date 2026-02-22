@@ -526,15 +526,17 @@ export interface ProviderInfo {
   models: ProviderModel[];
 }
 
+/** Convert opencode timestamp to ms — handles both Unix seconds and milliseconds */
+function toMs(ts: number): number {
+  return ts < 1e12 ? ts * 1000 : ts;
+}
+
 export const useSessionMessages = (sessionId: string | null, connected: boolean) => {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!sessionId || !connected) {
-      setMessages(null);
-      return;
-    }
+    if (!sessionId || !connected) return;
 
     let cancelled = false;
 
@@ -564,7 +566,7 @@ export const useSessionMessages = (sessionId: string | null, connected: boolean)
               conversationId: sessionId,
               role: m.info.role as "user" | "assistant",
               content,
-              createdAt: new Date(m.info.time.created).toISOString(),
+              createdAt: new Date(toMs(m.info.time.created)).toISOString(),
             };
           })
           .filter((m): m is ChatMessage => m !== null);

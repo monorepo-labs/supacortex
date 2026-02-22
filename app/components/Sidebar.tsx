@@ -211,6 +211,11 @@ function GroupItem({
   );
 }
 
+/** Convert opencode timestamp to ms — handles both Unix seconds and milliseconds */
+function toMs(ts: number): number {
+  return ts < 1e12 ? ts * 1000 : ts;
+}
+
 function groupSessionsByDate(sessions: Session[]) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -227,7 +232,7 @@ function groupSessionsByDate(sessions: Session[]) {
   const sorted = [...sessions].sort((a, b) => b.time.updated - a.time.updated);
 
   for (const s of sorted) {
-    const d = new Date(s.time.updated);
+    const d = new Date(toMs(s.time.updated));
     if (d >= today) groups[0].items.push(s);
     else if (d >= yesterday) groups[1].items.push(s);
     else if (d >= last7Days) groups[2].items.push(s);
