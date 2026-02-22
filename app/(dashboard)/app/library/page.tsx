@@ -210,6 +210,10 @@ function LibraryPageContent() {
         onGroupSelect={handleGroupSelect}
         collapsed={sidebarCollapsed}
         onCollapsedChange={handleSidebarCollapsedChange}
+        sidebarTab="library"
+        onSidebarTabChange={(tab) => {
+          if (tab === "ask") router.push("/app/chat");
+        }}
       />
       <main className="relative flex-1 shadow-card rounded-xl m-2 overflow-hidden flex flex-col">
         <GridSearch

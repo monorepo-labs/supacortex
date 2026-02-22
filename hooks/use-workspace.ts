@@ -1,0 +1,165 @@
+"use client";
+
+import { useState, useCallback, useEffect, useRef } from "react";
+
+export type PanelType = "chat" | "library" | "reader";
+export type WidthPreset = "narrow" | "medium" | "wide";
+
+export type PanelConfig = {
+  id: string;
+  type: PanelType;
+  widthPreset: WidthPreset;
+  bookmarkId?: string;
+};
+
+const STORAGE_KEY = "workspace-layout";
+
+const DEFAULT_PANELS: PanelConfig[] = [
+  { id: "panel-chat", type: "chat", widthPreset: "wide" },
+];
+
+function loadPanels(): PanelConfig[] {
+  if (typeof window === "undefined") return DEFAULT_PANELS;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_PANELS;
+}
+
+function savePanels(panels: PanelConfig[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(panels));
+  } catch {
+    // ignore
+  }
+}
+
+let panelCounter = Date.now();
+function generatePanelId(): string {
+  return `panel-${++panelCounter}`;
+}
+
+export function useWorkspace() {
+  const [panels, setPanels] = useState<PanelConfig[]>(loadPanels);
+  const initializedRef = useRef(false);
+
+  // Sync to localStorage on change (skip initial mount)
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      return;
+    }
+    savePanels(panels);
+  }, [panels]);
+
+  const addPanel = useCallback(
+    (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string }) => {
+      setPanels((prev) => [
+        ...prev,
+        {
+          id: generatePanelId(),
+          type,
+          widthPreset: options?.widthPreset ?? "medium",
+          bookmarkId: options?.bookmarkId,
+        },
+      ]);
+    },
+    [],
+  );
+
+  const removePanel = useCallback((id: string) => {
+    setPanels((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const reorderPanels = useCallback((fromIndex: number, toIndex: number) => {
+    setPanels((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const resizePanel = useCallback((id: string, preset: WidthPreset) => {
+    setPanels((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) {
+          // If the new preset is "wide", demote any other wide panel to medium
+          if (preset === "wide" && p.widthPreset === "wide") {
+            return { ...p, widthPreset: "medium" };
+          }
+          return p;
+        }
+        return { ...p, widthPreset: preset };
+      }),
+    );
+  }, []);
+
+  const cycleWidth = useCallback((id: string) => {
+    setPanels((prev) => {
+      const panel = prev.find((p) => p.id === id);
+      if (!panel) return prev;
+      const order: WidthPreset[] = ["narrow", "medium", "wide"];
+      const nextPreset = order[(order.indexOf(panel.widthPreset) + 1) % order.length];
+      return prev.map((p) => {
+        if (p.id === id) return { ...p, widthPreset: nextPreset };
+        // Demote other wide panels
+        if (nextPreset === "wide" && p.widthPreset === "wide") {
+          return { ...p, widthPreset: "medium" };
+        }
+        return p;
+      });
+    });
+  }, []);
+
+  const togglePanel = useCallback((type: PanelType) => {
+    setPanels((prev) => {
+      const existing = prev.find((p) => p.type === type);
+      if (existing) {
+        return prev.filter((p) => p.id !== existing.id);
+      }
+      const defaultPreset: WidthPreset = type === "chat" ? "wide" : "medium";
+      return [
+        // If adding chat, demote any existing wide panel
+        ...(type === "chat"
+          ? prev.map((p) =>
+              p.widthPreset === "wide" ? { ...p, widthPreset: "medium" as WidthPreset } : p,
+            )
+          : prev),
+        {
+          id: type === "chat" ? "panel-chat" : generatePanelId(),
+          type,
+          widthPreset: defaultPreset,
+        },
+      ];
+    });
+  }, []);
+
+  const hasPanel = useCallback(
+    (type: PanelType) => panels.some((p) => p.type === type),
+    [panels],
+  );
+
+  const getPanelsByType = useCallback(
+    (type: PanelType) => panels.filter((p) => p.type === type),
+    [panels],
+  );
+
+  return {
+    panels,
+    addPanel,
+    removePanel,
+    reorderPanels,
+    resizePanel,
+    cycleWidth,
+    togglePanel,
+    hasPanel,
+    getPanelsByType,
+  };
+}

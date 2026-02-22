@@ -23,7 +23,6 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { sileo } from "sileo";
 import {
@@ -39,6 +38,11 @@ import {
   useSyncTwitter,
   useSyncStatus,
 } from "@/hooks/use-twitter";
+import {
+  useConversations,
+  useDeleteConversation,
+  type Conversation,
+} from "@/hooks/use-chat";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
 import UserMenu from "./UserMenu";
 import SyncDateFilterModal from "./SyncDateFilterModal";
@@ -211,16 +215,52 @@ function GroupItem({
   );
 }
 
+function groupConversationsByDate(conversations: Conversation[]) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const last7Days = new Date(today.getTime() - 7 * 86400000);
+
+  const groups: { label: string; items: Conversation[] }[] = [
+    { label: "Today", items: [] },
+    { label: "Yesterday", items: [] },
+    { label: "Last 7 days", items: [] },
+    { label: "Older", items: [] },
+  ];
+
+  for (const c of conversations) {
+    const d = new Date(c.updatedAt);
+    if (d >= today) groups[0].items.push(c);
+    else if (d >= yesterday) groups[1].items.push(c);
+    else if (d >= last7Days) groups[2].items.push(c);
+    else groups[3].items.push(c);
+  }
+
+  return groups.filter((g) => g.items.length > 0);
+}
+
 export default function Sidebar({
   activeGroupId,
   onGroupSelect,
   collapsed,
   onCollapsedChange,
+  sidebarTab = "library",
+  onSidebarTabChange,
+  activeConversationId,
+  onConversationSelect,
+  onNewConversation,
+  workspaceControls,
 }: {
   activeGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  sidebarTab?: "library" | "ask";
+  onSidebarTabChange?: (tab: "library" | "ask") => void;
+  activeConversationId?: string | null;
+  onConversationSelect?: (id: string) => void;
+  onNewConversation?: () => void;
+  workspaceControls?: React.ReactNode;
 }) {
   const handleDrag = useTauriDrag();
   const { data: groups } = useGroups();
@@ -232,7 +272,8 @@ export default function Sidebar({
   const { data: syncStatus } = useSyncStatus(!!twitterAccount);
 
   const [showDateFilter, setShowDateFilter] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<"library" | "ask">("library");
+  const { data: conversations } = useConversations();
+  const { mutate: deleteConversation } = useDeleteConversation();
 
   const isInterrupted = syncStatus?.status === "interrupted";
   const resumeTime = syncStatus?.rateLimitResetsAt
@@ -329,7 +370,10 @@ export default function Sidebar({
         />
 
         {/* Toggle + Avatar */}
-        <div className="flex w-52 items-center justify-between px-3 pt-1" onMouseDown={handleDrag}>
+        <div
+          className="flex w-52 items-center justify-between px-3 pt-1"
+          onMouseDown={handleDrag}
+        >
           <button
             onClick={() => onCollapsedChange(true)}
             className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
@@ -343,7 +387,7 @@ export default function Sidebar({
         <div className="mt-6 w-52 px-3">
           <div className="flex rounded-full bg-black/5 p-0.5">
             <button
-              onClick={() => setSidebarTab("library")}
+              onClick={() => onSidebarTabChange?.("library")}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
                 sidebarTab === "library"
                   ? "bg-white text-zinc-900 shadow-sm"
@@ -353,98 +397,168 @@ export default function Sidebar({
               <BookOpenIcon className="h-3.5 w-3.5" />
               Library
             </button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    disabled
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium text-zinc-400 cursor-not-allowed"
-                  >
-                    <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
-                    AI
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Work in progress</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <button
+              onClick={() => onSidebarTabChange?.("ask")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
+                sidebarTab === "ask"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
+              AI
+            </button>
           </div>
         </div>
 
-        {/* Groups */}
-        <nav className="mt-2 flex-1 w-52 px-3">
-          <Button
-            onClick={handleAddGroup}
-            variant="ghost"
-            className="w-full justify-start text-zinc-500"
-          >
-            <Plus size={14} />
-            New Group
-          </Button>
-          <ul className="flex flex-col gap-0.5">
-            {groups && groups.length > 0 && (
-              <li>
-                <div
-                  onClick={() => onGroupSelect(null)}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
-                    activeGroupId === null
-                      ? " text-zinc-900"
-                      : "text-zinc-600 hover:text-zinc-900"
-                  }`}
-                >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-400">
-                    <RectangleStackIcon className="h-2.5 w-2.5 text-white" />
-                  </span>
-                  <span>All</span>
-                </div>
-              </li>
-            )}
-            {groups?.map((group: Group) => (
-              <GroupItem
-                key={group.id}
-                group={group}
-                isActive={activeGroupId === group.id}
-                onSelect={onGroupSelect}
-                onDelete={handleDeleteGroup}
-              />
-            ))}
-          </ul>
-        </nav>
-
-        {/* Bottom actions */}
-        <div className="w-52 px-3 pb-3 space-y-1">
-          {twitterAccount ? (
-            isInterrupted ? (
-              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-500">
-                <RefreshCw size={12} className="animate-spin shrink-0" />
-                <span>
-                  Syncing...{" "}
-                  {resumeTime ? `next batch at ${resumeTime}` : "resuming soon"}
-                </span>
-              </div>
-            ) : (
+        {sidebarTab === "library" ? (
+          <>
+            {/* Groups */}
+            <nav className="mt-2 flex-1 w-52 px-3">
               <Button
-                variant="link"
-                onClick={handleSyncClick}
-                disabled={isSyncing}
-                className="w-full justify-start text-zinc-500 hover:text-zinc-600"
+                onClick={handleAddGroup}
+                variant="ghost"
+                className="w-full justify-start text-zinc-500"
               >
-                {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
-                <RefreshCw
-                  size={14}
-                  className={isSyncing ? "animate-spin" : ""}
-                />
+                <Plus size={14} />
+                New Group
               </Button>
-            )
-          ) : (
-            <Button
-              variant="link"
-              onClick={() => linkTwitter()}
-              className="w-full justify-between text-zinc-500 hover:text-zinc-600"
-            >
-              Connect X <XIcon className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+              <ul className="flex flex-col gap-0.5">
+                {groups && groups.length > 0 && (
+                  <li>
+                    <div
+                      onClick={() => onGroupSelect(null)}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer ${
+                        activeGroupId === null
+                          ? " text-zinc-900"
+                          : "text-zinc-600 hover:text-zinc-900"
+                      }`}
+                    >
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-400">
+                        <RectangleStackIcon className="h-2.5 w-2.5 text-white" />
+                      </span>
+                      <span>All</span>
+                    </div>
+                  </li>
+                )}
+                {groups?.map((group: Group) => (
+                  <GroupItem
+                    key={group.id}
+                    group={group}
+                    isActive={activeGroupId === group.id}
+                    onSelect={onGroupSelect}
+                    onDelete={handleDeleteGroup}
+                  />
+                ))}
+              </ul>
+            </nav>
+
+            {/* Bottom actions */}
+            <div className="w-52 px-3 pb-3 space-y-1">
+              {twitterAccount ? (
+                isInterrupted ? (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-500">
+                    <RefreshCw size={12} className="animate-spin shrink-0" />
+                    <span>
+                      Syncing...{" "}
+                      {resumeTime
+                        ? `next batch at ${resumeTime}`
+                        : "resuming soon"}
+                    </span>
+                  </div>
+                ) : (
+                  <Button
+                    variant="link"
+                    onClick={handleSyncClick}
+                    disabled={isSyncing}
+                    className="w-full justify-start text-zinc-500 hover:text-zinc-600"
+                  >
+                    {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
+                    <RefreshCw
+                      size={14}
+                      className={isSyncing ? "animate-spin" : ""}
+                    />
+                  </Button>
+                )
+              ) : (
+                <Button
+                  variant="link"
+                  onClick={() => linkTwitter()}
+                  className="w-full justify-between text-zinc-500 hover:text-zinc-600"
+                >
+                  Connect X <XIcon className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Conversations */}
+            <div className="relative mt-2 flex-1 w-52 min-h-0">
+              <nav className="h-full px-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+              <Button
+                onClick={() => onNewConversation?.()}
+                variant="ghost"
+                className="w-full justify-start text-zinc-500"
+              >
+                <Plus size={14} />
+                New Chat
+              </Button>
+              {conversations &&
+                groupConversationsByDate(conversations).map((group) => (
+                  <div key={group.label}>
+                    <p className="text-[11px] font-medium text-zinc-400 px-2 pt-3 pb-1">
+                      {group.label}
+                    </p>
+                    <ul className="flex flex-col gap-0.5">
+                      {group.items.map((conversation) => (
+                        <li key={conversation.id}>
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onConversationSelect?.(conversation.id)
+                                }
+                                className={`flex w-full items-center rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+                                  activeConversationId === conversation.id
+                                    ? "text-zinc-900"
+                                    : "text-zinc-400 hover:text-zinc-900"
+                                }`}
+                              >
+                                <span className="truncate">
+                                  {conversation.title}
+                                </span>
+                              </button>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-48">
+                              <ContextMenuItem
+                                variant="destructive"
+                                className="gap-2"
+                                onClick={() =>
+                                  deleteConversation(conversation.id)
+                                }
+                              >
+                                <Trash2 size={14} />
+                                Delete conversation
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </nav>
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-background to-transparent" />
+            </div>
+            {workspaceControls && (
+              <div className="w-52 px-3 pb-3">
+                {workspaceControls}
+              </div>
+            )}
+          </>
+        )}
       </aside>
 
       <SyncDateFilterModal

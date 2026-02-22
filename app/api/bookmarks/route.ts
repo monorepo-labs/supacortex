@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBookmarksForUser } from "@/server/bookmarks/queries";
+import { getBookmarksForUser, getBookmarkById } from "@/server/bookmarks/queries";
 import { getUser } from "@/lib/get-user";
 import { createBookmark, deleteBookmark, updateBookmarkPosition } from "@/server/bookmarks/mutations";
 import { classifyUrlType } from "@/lib/ingest/url-type";
@@ -30,6 +30,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
   const search = searchParams.get("search") || undefined;
   const groupId = searchParams.get("group") || undefined;
   const limit = searchParams.has("limit") ? Number(searchParams.get("limit")) : undefined;
@@ -37,6 +38,12 @@ export async function GET(req: Request) {
   const type = searchParams.get("type") || undefined;
 
   try {
+    if (id) {
+      const bookmark = await getBookmarkById(id, user.id);
+      if (!bookmark) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json(bookmark);
+    }
+
     const { data, total } = await getBookmarksForUser(user.id, search, groupId, limit, offset, type);
     return NextResponse.json({ data, total });
   } catch (error) {

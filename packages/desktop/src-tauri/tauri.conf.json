@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "ai.supacortex.app",
   "build": {
-    "frontendDist": "https://supacortex.ai/app/library",
-    "devUrl": "http://localhost:3000/app/library"
+    "frontendDist": "https://supacortex.ai/app",
+    "devUrl": "http://localhost:3000/app"
   },
   "app": {
     "macOSPrivateApi": true,

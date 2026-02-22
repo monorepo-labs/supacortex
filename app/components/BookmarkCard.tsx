@@ -45,9 +45,11 @@ export default function BookmarkCard({
   onOpenInNewPanel,
   textSelectable,
   isSelected,
+  isAttachedToChat,
   isOpenInReader,
   onSelect,
   className,
+  contextMenuExtra,
 }: {
   bookmark: BookmarkData;
   expanded: boolean;
@@ -57,9 +59,11 @@ export default function BookmarkCard({
   onOpenInNewPanel?: () => void;
   textSelectable?: boolean;
   isSelected?: boolean;
+  isAttachedToChat?: boolean;
   isOpenInReader?: boolean;
   onSelect?: (id: string) => void;
   className?: string;
+  contextMenuExtra?: React.ReactNode;
 }) {
   const { mutate: remove } = useDeleteBookmark();
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -144,7 +148,7 @@ export default function BookmarkCard({
               : isOpenInReader
                 ? "outline-1 outline-black/20"
                 : ""
-          } ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
+          } ${isAttachedToChat ? "ring-2 ring-blue-400/60" : ""} ${textSelectable ? "cursor-text select-text" : "cursor-pointer select-none"} ${className ?? ""}`}
         >
           {isYouTube ? (
             <>
@@ -389,6 +393,7 @@ export default function BookmarkCard({
                 </ContextMenuShortcut>
               </ContextMenuItem>
             )}
+            {contextMenuExtra}
             <ContextMenuItem
               onClick={(e) => {
                 e.stopPropagation();
