@@ -144,7 +144,7 @@ export default function LibraryGridView({
         </div>
       ) : (
         <div
-          className="p-6"
+          className="px-6 pt-6"
           style={{
             columnWidth: `${TARGET_CARD_WIDTH}px`,
             columnGap: `${GAP}px`,
@@ -153,7 +153,7 @@ export default function LibraryGridView({
           {bookmarks.map((bookmark) => (
             <div
               key={bookmark.id}
-              className="break-inside-avoid mb-6"
+              className="break-inside-avoid pb-6"
             >
               <BookmarkCard
                 bookmark={bookmark}

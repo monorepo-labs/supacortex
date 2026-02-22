@@ -6,11 +6,42 @@ import {
 const PORT = 3837;
 
 let clientInstance: OpencodeClient | null = null;
+let tauriFetch: typeof globalThis.fetch | null = null;
+
+const getTauriFetch = async (): Promise<typeof globalThis.fetch> => {
+  if (tauriFetch) return tauriFetch;
+  try {
+    const { fetch } = await import("@tauri-apps/plugin-http");
+    tauriFetch = fetch as unknown as typeof globalThis.fetch;
+    return tauriFetch;
+  } catch {
+    return globalThis.fetch;
+  }
+};
 
 export const getClient = (): OpencodeClient => {
   if (!clientInstance) {
     clientInstance = createOpencodeClient({
       baseUrl: `http://127.0.0.1:${PORT}`,
+      // Tauri fetch is injected async after first getTauriFetch() call
+      // For initial creation, use global fetch (works in dev/web)
+      ...(tauriFetch ? { fetch: tauriFetch } : {}),
+    });
+  }
+  return clientInstance;
+};
+
+// Reinitialize client with Tauri fetch after it's loaded
+const ensureTauriClient = async () => {
+  const fetch = await getTauriFetch();
+  if (fetch !== globalThis.fetch && clientInstance) {
+    // Recreate client with Tauri fetch
+    clientInstance = null;
+  }
+  if (!clientInstance) {
+    clientInstance = createOpencodeClient({
+      baseUrl: `http://127.0.0.1:${PORT}`,
+      fetch,
     });
   }
   return clientInstance;
@@ -18,7 +49,8 @@ export const getClient = (): OpencodeClient => {
 
 export const isRunning = async (): Promise<boolean> => {
   try {
-    await getClient().session.list();
+    const client = await ensureTauriClient();
+    await client.session.list();
     return true;
   } catch {
     return false;

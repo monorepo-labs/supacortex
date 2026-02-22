@@ -19,6 +19,13 @@
     "core:webview:allow-get-all-webviews",
     "dialog:allow-open",
     {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "http://127.0.0.1:*" },
+        { "url": "http://localhost:*" }
+      ]
+    },
+    {
       "identifier": "shell:allow-execute",
       "allow": [
         {
