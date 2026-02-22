@@ -93,6 +93,8 @@ interface StreamState {
   resolve: ((text: string) => void) | null;
   idleTimeout: ReturnType<typeof setTimeout> | null;
   tokens: TokenUsage;
+  /** Last-seen token values for the current streaming message (for computing deltas) */
+  lastMsgTokens: TokenUsage;
 }
 
 const emptyTokens: TokenUsage = { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
@@ -193,7 +195,7 @@ export const useSendMessage = () => {
                 if (convId) {
                   const state = streamsRef.current.get(convId);
                   if (state) {
-                    state.tokens = {
+                    const cur = {
                       input: props.info.tokens.input,
                       output: props.info.tokens.output,
                       reasoning: props.info.tokens.reasoning,
@@ -201,6 +203,17 @@ export const useSendMessage = () => {
                       cacheWrite: props.info.tokens.cache.write,
                       cost: props.info.cost ?? 0,
                     };
+                    const prev = state.lastMsgTokens;
+                    // Add only the delta from the last update (message.updated sends cumulative per-message)
+                    state.tokens = {
+                      input: state.tokens.input + (cur.input - prev.input),
+                      output: state.tokens.output + (cur.output - prev.output),
+                      reasoning: state.tokens.reasoning + (cur.reasoning - prev.reasoning),
+                      cacheRead: state.tokens.cacheRead + (cur.cacheRead - prev.cacheRead),
+                      cacheWrite: state.tokens.cacheWrite + (cur.cacheWrite - prev.cacheWrite),
+                      cost: state.tokens.cost + (cur.cost - prev.cost),
+                    };
+                    state.lastMsgTokens = cur;
                     rerender();
                   }
                 }
@@ -291,6 +304,7 @@ export const useSendMessage = () => {
         resolve: resolveStream!,
         idleTimeout: null,
         tokens: existingTokens,
+        lastMsgTokens: emptyTokens,
       });
       sessionToConvRef.current.set(sessionId, conversationId);
       rerender();
@@ -454,6 +468,7 @@ export const useSendMessage = () => {
               resolve: null,
               idleTimeout: null,
               tokens: { input: totalInput, output: totalOutput, reasoning: totalReasoning, cacheRead: totalCacheRead, cacheWrite: totalCacheWrite, cost: totalCost },
+              lastMsgTokens: emptyTokens,
             });
           }
           rerender();

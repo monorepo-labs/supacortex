@@ -371,7 +371,7 @@ function ChatPageContent() {
     async (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[], overrideConversationId?: string): Promise<string | undefined> => {
       let currentConversationId = overrideConversationId ?? conversationId;
       let sessionId: string | undefined;
-      const dir = conversationDirs.get(conversationId ?? "new") ?? undefined;
+      const dir = conversationDirs.get(currentConversationId ?? "new") ?? undefined;
 
       // If no conversation, create one
       if (!currentConversationId) {
