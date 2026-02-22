@@ -24,7 +24,7 @@ import { useBookmarksByIds } from "@/hooks/use-bookmark-by-id";
 import InlineBookmarkCard from "@/app/components/InlineBookmarkCard";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, MessageSquarePlus, Link as LinkIcon, PanelLeft } from "lucide-react";
+import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, MessageSquarePlus, Link as LinkIcon, PanelLeft, Paperclip } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -57,7 +57,6 @@ import type { BookmarkData } from "@/app/components/BookmarkNode";
 import { useBookmarks, useCreateBookmark } from "@/hooks/use-bookmarks";
 import { sileo } from "sileo";
 import { useWorkspace, type PanelConfig } from "@/hooks/use-workspace";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import type { ChatStatus, FileUIPart } from "ai";
 import {
   Conversation,
@@ -72,10 +71,7 @@ import {
   PromptInputFooter,
   PromptInputHeader,
   PromptInputTools,
-  PromptInputActionMenu,
-  PromptInputActionMenuTrigger,
-  PromptInputActionMenuContent,
-  PromptInputActionAddAttachments,
+  PromptInputButton,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -775,18 +771,7 @@ function ChatPageContent() {
                       <PromptInputTextarea placeholder="Ask anything..." />
                       <PromptInputFooter>
                         <PromptInputTools>
-                          <PromptInputActionMenu>
-                            <PromptInputActionMenuTrigger tooltip="Attach" />
-                            <PromptInputActionMenuContent>
-                              <PromptInputActionAddAttachments />
-                              <DropdownMenuItem onClick={() => {
-                                if (!hasPanel("library")) togglePanel("library");
-                              }}>
-                                <Bookmark className="size-4 mr-2" />
-                                Add bookmarks
-                              </DropdownMenuItem>
-                            </PromptInputActionMenuContent>
-                          </PromptInputActionMenu>
+                          <AttachFileButton />
                           {(() => {
                             const canChange = messages.length === 0 && !isSending;
                             if (activeDir) {
@@ -1191,6 +1176,18 @@ function FileAttachmentCard({ attachment }: { attachment: Extract<ChatAttachment
         </p>
       </div>
     </div>
+  );
+}
+
+function AttachFileButton() {
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton
+      tooltip="Attach files"
+      onClick={() => attachments.openFileDialog()}
+    >
+      <Paperclip className="size-4" />
+    </PromptInputButton>
   );
 }
 
