@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { PanelLeft, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import XIcon from "./XIcon";
 import { useTauriDrag } from "@/hooks/use-tauri-drag";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
-import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -44,7 +43,6 @@ import {
   type Conversation,
 } from "@/hooks/use-chat";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
-import UserMenu from "./UserMenu";
 import SyncDateFilterModal from "./SyncDateFilterModal";
 import { randomColor, randomGroupName } from "@/lib/group-defaults";
 
@@ -351,14 +349,6 @@ export default function Sidebar({
 
   return (
     <>
-      {collapsed && (
-        <button
-          onClick={() => onCollapsedChange(false)}
-          className="absolute left-3 top-[calc(var(--titlebar-height,0px)+12px)] z-20 rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-        >
-          <PanelLeft size={18} />
-        </button>
-      )}
       <aside
         className="flex h-full shrink-0 flex-col bg-background tauri:bg-transparent overflow-hidden transition-[width] duration-200 ease-out"
         style={{ width: collapsed ? 0 : 208 }}
@@ -369,52 +359,10 @@ export default function Sidebar({
           onMouseDown={handleDrag}
         />
 
-        {/* Toggle + Avatar */}
-        <div
-          className="flex w-52 items-center justify-between px-3 pt-1"
-          onMouseDown={handleDrag}
-        >
-          <button
-            onClick={() => onCollapsedChange(true)}
-            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-          >
-            <PanelLeft size={18} />
-          </button>
-          <UserMenu />
-        </div>
-
-        {/* Tab switcher */}
-        <div className="mt-6 w-52 px-3">
-          <div className="flex rounded-full bg-black/5 p-0.5">
-            <button
-              onClick={() => onSidebarTabChange?.("library")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
-                sidebarTab === "library"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700"
-              }`}
-            >
-              <BookOpenIcon className="h-3.5 w-3.5" />
-              Library
-            </button>
-            <button
-              onClick={() => onSidebarTabChange?.("ask")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors ${
-                sidebarTab === "ask"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700"
-              }`}
-            >
-              <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
-              AI
-            </button>
-          </div>
-        </div>
-
         {sidebarTab === "library" ? (
           <>
             {/* Groups */}
-            <nav className="mt-2 flex-1 w-52 px-3">
+            <nav className="mt-4 flex-1 w-52 px-3">
               <Button
                 onClick={handleAddGroup}
                 variant="ghost"
@@ -494,7 +442,7 @@ export default function Sidebar({
         ) : (
           <>
             {/* Conversations */}
-            <div className="relative mt-2 flex-1 w-52 min-h-0">
+            <div className="relative mt-4 flex-1 w-52 min-h-0">
               <nav className="h-full px-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               <Button
                 onClick={() => onNewConversation?.()}
