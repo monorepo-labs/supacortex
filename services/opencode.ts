@@ -24,9 +24,12 @@ const tauriFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     // SDK creates a Request object and passes it directly
     url = input.url;
     method = input.method;
-    // Read body from Request — it's a ReadableStream, need to consume it
-    if (input.body) {
-      body = await input.text();
+    // Always try to read body for methods that have one
+    try {
+      const text = await input.text();
+      if (text) body = text;
+    } catch {
+      // body may not be readable (GET requests)
     }
     headers = {};
     input.headers.forEach((v, k) => { headers![k] = v; });
@@ -41,7 +44,7 @@ const tauriFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     }
   }
 
-  console.log(`[proxy_fetch] ${method} ${url}`, body ? `body=${body.slice(0, 200)}` : "");
+  console.log(`[proxy_fetch] ${method} ${url}`, body ? `body=${body.slice(0, 200)}` : "(no body)", "headers:", JSON.stringify(headers));
   const result = await invoke("proxy_fetch", { url, method, body, headers }) as string;
 
   // Rust returns JSON envelope: { status: number, body: string }

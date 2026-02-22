@@ -91,7 +91,6 @@ async fn proxy_fetch(
   }
 
   if let Some(ref b) = body {
-    req = req.header("content-type", "application/json");
     req = req.body(b.clone());
   }
 
