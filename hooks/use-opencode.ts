@@ -262,7 +262,6 @@ export const useSendMessage = () => {
             const parsed = typeof event.payload === "string"
               ? JSON.parse(event.payload)
               : event.payload;
-            console.log("[opencode] SSE event:", parsed.type);
             handleSseEvent(parsed as { type: string; properties: Record<string, unknown> });
           } catch (err) {
             console.error("[opencode] Failed to parse SSE event:", err, "payload:", event.payload);

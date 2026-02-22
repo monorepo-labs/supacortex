@@ -94,13 +94,9 @@ async fn proxy_fetch(
     req = req.body(b.clone());
   }
 
-  println!("[proxy_fetch] {} {} body={}", method, url, body.as_deref().unwrap_or("none").chars().take(200).collect::<String>());
-
   let resp = req.send().await.map_err(|e| e.to_string())?;
   let status = resp.status().as_u16();
   let resp_body = resp.text().await.map_err(|e| e.to_string())?;
-
-  println!("[proxy_fetch] {} {} → {} ({}b)", method, url, status, resp_body.len());
 
   // Return JSON envelope so frontend can reconstruct a proper Response with correct status
   let envelope = serde_json::json!({
@@ -155,7 +151,6 @@ async fn start_sse(app: tauri::AppHandle, url: String) -> Result<(), String> {
           let mut stream = resp.bytes_stream();
           let mut buffer = String::new();
 
-          println!("[opencode-sse] Connected to SSE endpoint");
 
           loop {
             tokio::select! {
@@ -186,7 +181,6 @@ async fn start_sse(app: tauri::AppHandle, url: String) -> Result<(), String> {
 
                       if !data_lines.is_empty() {
                         let data = data_lines.join("\n");
-                        println!("[opencode-sse] Event: {:?}, data len: {}", event_name, data.len());
                         // Emit the raw data string directly — the data IS the JSON event object
                         let _ = app_handle.emit("opencode-sse-event", &data);
                       }

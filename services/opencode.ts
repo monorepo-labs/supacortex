@@ -44,12 +44,8 @@ const tauriFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     }
   }
 
-  console.log(`[proxy_fetch] ${method} ${url}`, body ? `body=${body.slice(0, 200)}` : "(no body)", "headers:", JSON.stringify(headers));
   const result = await invoke("proxy_fetch", { url, method, body, headers }) as string;
-
-  // Rust returns JSON envelope: { status: number, body: string }
   const envelope = JSON.parse(result) as { status: number; body: string };
-  console.log(`[proxy_fetch] ${method} ${url} → ${envelope.status} (${envelope.body.length}b)`, envelope.body.slice(0, 300));
 
   // 204/304 responses cannot have a body
   const noBody = envelope.status === 204 || envelope.status === 304;
