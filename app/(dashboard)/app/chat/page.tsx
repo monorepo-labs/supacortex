@@ -366,7 +366,8 @@ function ChatPageContent() {
 
       // If no conversation, create an opencode session
       if (!currentConversationId) {
-        const session = await createSession(text.slice(0, 50), dir);
+        const titleText = stripScxRefs(text).slice(0, 50) || "New conversation";
+        const session = await createSession(titleText, dir);
         if (!session) return;
         currentConversationId = session.id;
 
@@ -495,7 +496,7 @@ function ChatPageContent() {
 
   const handleSend = useCallback(
     (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
-      if (!text.trim() || !connected) return;
+      if ((!text.trim() && !bookmarks?.length) || !connected) return;
 
       const convKey = conversationId ?? "new";
 
