@@ -51,9 +51,11 @@ const tauriFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const envelope = JSON.parse(result) as { status: number; body: string };
   console.log(`[proxy_fetch] ${method} ${url} → ${envelope.status} (${envelope.body.length}b)`, envelope.body.slice(0, 300));
 
-  return new Response(envelope.body, {
+  // 204/304 responses cannot have a body
+  const noBody = envelope.status === 204 || envelope.status === 304;
+  return new Response(noBody ? null : envelope.body, {
     status: envelope.status,
-    headers: { "content-type": "application/json" },
+    headers: noBody ? {} : { "content-type": "application/json" },
   });
 }) as typeof globalThis.fetch;
 
