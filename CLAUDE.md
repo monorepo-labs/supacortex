@@ -86,3 +86,28 @@ Content types: **tweets and links only**. No images, videos, or other media type
 ## Workflow
 
 Yogesh is learning to code. He writes the code, Max (Claude) guides and explains. Max writes code only when asked. Max handles package installation and config scaffolding.
+
+### Development Process (MANDATORY)
+
+**This workflow MUST be followed for every task. No code work without an issue. No merging without review.**
+
+**GitHub Project:** `Supacortex` (project #1, org: `monorepo-labs`)
+- **Status:** Backlog → Ready → In progress → In review → Done
+- **Priority:** P0, P1, P2
+- **Size:** XS, S, M, L, XL
+
+Every task follows this lifecycle:
+
+1. **Create Issue** — Before any code work, create a GitHub issue (`gh issue create`). It auto-attaches to the project board.
+2. **Move to In Progress** — Set the project Status field to "In progress" before starting work.
+   ```bash
+   gh project item-edit --project-id PVT_kwDOD5vh7c4BPZnh --id <ITEM_ID> --field-id PVTSSF_lADOD5vh7c4BPZnhzg90dHw --single-select-option-id 47fc9ee4
+   ```
+3. **Do the work** — Implement on a feature branch.
+4. **Create PR** — Open a PR and link it to the issue (`Closes #N` in the PR body). Move status to "In review".
+5. **Code Review (Devin)** — Devin (AI code reviewer) automatically reviews the PR. After creating the PR:
+   - Share the Devin review URL with the user: `https://app.devin.ai/review/monorepo-labs/supacortex/pull/<PR_NUMBER>`
+   - Poll the PR for review comments every 30 seconds (`gh pr view <number> --comments`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`)
+   - When Devin's review arrives, evaluate each comment — fix legitimate issues, ignore false positives
+   - Push fixes and continue polling until Devin has no more actionable feedback
+6. **Merge** — Only merge when the user explicitly says to. Merge the PR, close the issue, and move status to "Done".
