@@ -1656,37 +1656,52 @@ function useFaviconColor(url: string): { color: string | null; isLight: boolean 
   useEffect(() => {
     const favicon = faviconUrl(url);
     if (!favicon) return;
+    let cancelled = false;
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0);
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        // Sample non-white, non-transparent pixels to find dominant color
-        let r = 0, g = 0, b = 0, count = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          const pr = data[i], pg = data[i + 1], pb = data[i + 2], pa = data[i + 3];
-          if (pa < 128) continue; // skip transparent
-          if (pr > 240 && pg > 240 && pb > 240) continue; // skip near-white
-          if (pr < 15 && pg < 15 && pb < 15) continue; // skip near-black
-          r += pr; g += pg; b += pb; count++;
+    // Fetch favicon via Tauri HTTP plugin to bypass CORS, then extract color
+    import("@tauri-apps/plugin-http").then(({ fetch: tauriFetch }) => {
+      return tauriFetch(favicon, { method: "GET" });
+    }).then((resp) => {
+      if (!resp.ok || cancelled) return;
+      return resp.blob();
+    }).then((blob) => {
+      if (!blob || cancelled) return;
+      const blobUrl = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) { URL.revokeObjectURL(blobUrl); return; }
+          ctx.drawImage(img, 0, 0);
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          // Sample non-white, non-transparent pixels to find dominant color
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            const pr = data[i], pg = data[i + 1], pb = data[i + 2], pa = data[i + 3];
+            if (pa < 128) continue; // skip transparent
+            if (pr > 240 && pg > 240 && pb > 240) continue; // skip near-white
+            if (pr < 15 && pg < 15 && pb < 15) continue; // skip near-black
+            r += pr; g += pg; b += pb; count++;
+          }
+          if (count > 0 && !cancelled) {
+            const avgR = Math.round(r / count), avgG = Math.round(g / count), avgB = Math.round(b / count);
+            const luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB;
+            setResult({ color: `rgb(${avgR}, ${avgG}, ${avgB})`, isLight: luminance > 186 });
+          }
+        } catch {
+          // canvas error, ignore
         }
-        if (count > 0) {
-          const avgR = Math.round(r / count), avgG = Math.round(g / count), avgB = Math.round(b / count);
-          const luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB;
-          setResult({ color: `rgb(${avgR}, ${avgG}, ${avgB})`, isLight: luminance > 186 });
-        }
-      } catch {
-        // CORS or canvas error, ignore
-      }
-    };
-    img.src = favicon;
+        URL.revokeObjectURL(blobUrl);
+      };
+      img.src = blobUrl;
+    }).catch(() => {
+      // fetch failed, fall back to default styling
+    });
+
+    return () => { cancelled = true; };
   }, [url]);
 
   return result;
