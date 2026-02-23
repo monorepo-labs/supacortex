@@ -47,19 +47,6 @@ export const useConversations = () => {
   });
 };
 
-export const useMessages = (conversationId: string | null) => {
-  return useQuery<ChatMessage[]>({
-    queryKey: ["messages", conversationId],
-    queryFn: async () => {
-      const res = await fetch(
-        `/api/chat/conversations/${conversationId}/messages`,
-      );
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      return res.json();
-    },
-    enabled: !!conversationId,
-  });
-};
 
 export const useCreateConversation = () => {
   const queryClient = useQueryClient();
@@ -146,32 +133,3 @@ export const useDeleteConversation = () => {
   });
 };
 
-export const useSaveMessage = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: {
-      conversationId: string;
-      role: string;
-      content: string;
-      attachments?: ChatAttachment[];
-    }) => {
-      const res = await fetch(
-        `/api/chat/conversations/${data.conversationId}/messages`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: data.role, content: data.content, attachments: data.attachments }),
-        },
-      );
-      if (!res.ok) throw new Error("Failed to save message");
-      return res.json();
-    },
-    onSettled: (_data, _err, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["messages", variables.conversationId],
-      });
-      // Refetch conversations so order updates (updatedAt changed)
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-    },
-  });
-};

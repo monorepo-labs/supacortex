@@ -1,5 +1,5 @@
 import { db } from "@/services/db";
-import { conversations, messages } from "@/db/schema";
+import { conversations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export const createConversation = async (data: {
@@ -21,19 +21,4 @@ export const updateConversation = async (
 
 export const deleteConversation = async (id: string) => {
   return db.delete(conversations).where(eq(conversations.id, id));
-};
-
-export const createMessage = async (data: {
-  conversationId: string;
-  role: string;
-  content: string;
-  attachments?: Array<{ url: string; filename?: string; mediaType?: string }>;
-}) => {
-  const [result] = await db.insert(messages).values(data).returning();
-  // Bump conversation updatedAt so newest conversations sort first
-  await db
-    .update(conversations)
-    .set({ updatedAt: new Date() })
-    .where(eq(conversations.id, data.conversationId));
-  return result;
 };
