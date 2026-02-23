@@ -729,7 +729,7 @@ function ChatPageContent() {
   const renderPanel = (panel: PanelConfig, index: number) => {
     if (panel.type === "chat") {
       return (
-        <main ref={chatPanelRef} key={panel.id} id={`panel-${panel.id}`} className={`relative h-full ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col`}>
+        <main ref={chatPanelRef} key={panel.id} id={`panel-${panel.id}`} data-chat-links className={`relative h-full ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col`}>
           <ChatLinkInterceptor containerRef={chatPanelRef} onOpenBrowser={handleOpenBrowser} />
 
           {/* Messages area */}
@@ -1104,7 +1104,7 @@ function ChatPageContent() {
           el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
         }}
       />
-      <div className="flex flex-1 min-h-0 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+      <div data-panel-scroll className="flex flex-1 min-h-0 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         <Sidebar
           activeGroupId={null}
           onGroupSelect={() => {}}
@@ -1623,10 +1623,14 @@ function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string })
     const observer = new ResizeObserver(sync);
     observer.observe(el);
     window.addEventListener("resize", sync);
+    // Sync on horizontal scroll of parent container
+    const scrollParent = el.closest("[data-panel-scroll]");
+    if (scrollParent) scrollParent.addEventListener("scroll", sync);
 
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", sync);
+      if (scrollParent) scrollParent.removeEventListener("scroll", sync);
       invokeTauri("close_webview", { label });
     };
   }, [url, label]);
@@ -1697,7 +1701,7 @@ function ChatLinkInterceptor({ containerRef, onOpenBrowser }: { containerRef: Re
       try {
         const url = new URL(href, window.location.href);
         if (url.origin === window.location.origin) return null;
-        return href;
+        return url.href;
       } catch { return null; }
     };
 
