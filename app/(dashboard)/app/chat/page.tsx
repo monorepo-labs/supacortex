@@ -1610,10 +1610,6 @@ function SortableTab({
 
 // ── Browser Panel ─────────────────────────────────────────────────
 
-function isTauriBrowser(): boolean {
-  return !!(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__;
-}
-
 function invokeTauri(cmd: string, args: Record<string, unknown>) {
   const tauri = (window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, args: Record<string, unknown>) => void } }).__TAURI_INTERNALS__;
   if (tauri) tauri.invoke(cmd, args);
@@ -1624,7 +1620,7 @@ function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string })
   const label = `browser-${panelId}`;
 
   useEffect(() => {
-    if (!isTauriBrowser() || !containerRef.current) return;
+    if (!containerRef.current) return;
 
     const el = containerRef.current;
 
@@ -1651,15 +1647,11 @@ function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string })
     };
   }, [url, label]);
 
-  if (!isTauriBrowser()) {
-    return <iframe src={url} title="Browser" className="flex-1 w-full border-none rounded-b-xl" />;
-  }
-
   return <div ref={containerRef} className="flex-1 w-full rounded-b-xl" />;
 }
 
-function useFaviconColor(url: string): string | null {
-  const [color, setColor] = useState<string | null>(null);
+function useFaviconColor(url: string): { color: string | null; isLight: boolean } {
+  const [result, setResult] = useState<{ color: string | null; isLight: boolean }>({ color: null, isLight: false });
 
   useEffect(() => {
     const favicon = faviconUrl(url);
@@ -1686,7 +1678,9 @@ function useFaviconColor(url: string): string | null {
           r += pr; g += pg; b += pb; count++;
         }
         if (count > 0) {
-          setColor(`rgb(${Math.round(r / count)}, ${Math.round(g / count)}, ${Math.round(b / count)})`);
+          const avgR = Math.round(r / count), avgG = Math.round(g / count), avgB = Math.round(b / count);
+          const luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB;
+          setResult({ color: `rgb(${avgR}, ${avgG}, ${avgB})`, isLight: luminance > 186 });
         }
       } catch {
         // CORS or canvas error, ignore
@@ -1695,7 +1689,7 @@ function useFaviconColor(url: string): string | null {
     img.src = favicon;
   }, [url]);
 
-  return color;
+  return result;
 }
 
 function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string; onClose: () => void }) {
@@ -1703,7 +1697,13 @@ function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string;
     try { return new URL(url).hostname.replace("www.", ""); } catch { return url; }
   })();
 
-  const siteColor = useFaviconColor(url);
+  const { color: siteColor, isLight } = useFaviconColor(url);
+  // For light favicon colors, use dark text; for dark colors, use white text
+  const textMain = siteColor ? (isLight ? "text-zinc-800/90" : "text-white/90") : "text-zinc-500";
+  const textMuted = siteColor ? (isLight ? "text-zinc-700/70" : "text-white/70") : "text-zinc-400";
+  const btnStyle = siteColor
+    ? isLight ? "text-zinc-700/60 hover:bg-black/10 hover:text-zinc-900" : "text-white/60 hover:bg-white/15 hover:text-white"
+    : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600";
 
   const handleOpenExternal = useCallback(() => {
     import("@tauri-apps/plugin-shell").then(({ open }) => open(url)).catch(console.error);
@@ -1716,22 +1716,22 @@ function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string;
         style={siteColor ? { backgroundColor: siteColor, borderColor: "transparent" } : undefined}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Globe size={13} className={`shrink-0 ${siteColor ? "text-white/70" : "text-zinc-400"}`} />
-          <span className={`text-xs truncate ${siteColor ? "text-white/90" : "text-zinc-500"}`} title={url}>
+          <Globe size={13} className={`shrink-0 ${textMuted}`} />
+          <span className={`text-xs truncate ${textMain}`} title={url}>
             {domain}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={handleOpenExternal}
-            className={`rounded-lg p-1.5 transition-colors ${siteColor ? "text-white/60 hover:bg-white/15 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"}`}
+            className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
             title="Open in external browser"
           >
             <ExternalLink size={13} />
           </button>
           <button
             onClick={onClose}
-            className={`rounded-lg p-1.5 transition-colors ${siteColor ? "text-white/60 hover:bg-white/15 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"}`}
+            className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
           >
             <X size={14} />
           </button>
