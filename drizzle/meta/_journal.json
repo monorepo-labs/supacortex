@@ -57,6 +57,13 @@
       "when": 1771831123247,
       "tag": "0007_overjoyed_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771831393236,
+      "tag": "0008_rainy_catseye",
+      "breakpoints": true
     }
   ]
 }
