@@ -279,3 +279,34 @@ html[data-tauri] body {
         0px 1px 1px -0.5px rgba(0, 0, 0, 0.03);
 }
 
+/* Streamdown table — white bg, no top/bottom margin */
+[data-streamdown="table"] {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+.border-collapse.overflow-x-auto.rounded-md.border.border-border.bg-background,
+[data-streamdown="table-header"],
+[data-streamdown="table-header"] tr {
+    background-color: white !important;
+}
+
+/* Streamdown table — thin scrollbar */
+[data-streamdown="table"] {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #d4d4d8 transparent;
+}
+[data-streamdown="table"]::-webkit-scrollbar {
+    height: 4px;
+}
+[data-streamdown="table"]::-webkit-scrollbar-track {
+    background: transparent;
+}
+[data-streamdown="table"]::-webkit-scrollbar-thumb {
+    background: #d4d4d8;
+    border-radius: 9999px;
+}
+

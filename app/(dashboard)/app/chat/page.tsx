@@ -1111,7 +1111,7 @@ function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { 
             </div>
           )}
           {displayText && (
-            <div className="rounded-2xl rounded-br-md bg-zinc-100 px-4 py-2.5 text-sm text-zinc-900">
+            <div className="rounded-2xl rounded-br-md px-4 py-2.5 text-sm text-white" style={{ backgroundColor: "#2b8bf2" }}>
               {displayText}
             </div>
           )}
