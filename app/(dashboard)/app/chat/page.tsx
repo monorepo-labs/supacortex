@@ -15,7 +15,7 @@ import {
   type ProviderModel,
 } from "@/hooks/use-opencode";
 import { getClient, untrackSessionId } from "@/services/opencode";
-import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink } from "lucide-react";
+import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -790,7 +790,7 @@ function WorkspaceTabBar({
             className="flex items-center justify-center rounded-full px-2 py-1.5 text-zinc-500 hover:text-zinc-700 transition-colors"
             title="Open library (⌥B)"
           >
-            <BookOpenIcon className="h-3.5 w-3.5" />
+            <BookOpen size={14} />
           </button>
         )}
         <DndContext
