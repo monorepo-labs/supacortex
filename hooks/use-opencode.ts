@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getClient, isRunning, startServer, getHomeDir, OPENCODE_PORT } from "@/services/opencode";
+import { getClient, isRunning, startServer, getHomeDir, OPENCODE_PORT, trackSessionId, getTrackedSessionIds, untrackSessionId } from "@/services/opencode";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Session } from "@opencode-ai/sdk/client";
@@ -70,9 +70,21 @@ export const useOpenCodeSessions = (connected: boolean) => {
 
     const fetchSessions = async () => {
       try {
+        const ids = await getTrackedSessionIds();
+        if (ids.size === 0) { setSessions([]); return; }
+
         const client = getClient();
-        const { data } = await client.session.list();
-        if (data) setSessions(Object.values(data));
+        const results = await Promise.allSettled(
+          [...ids].map(id => client.session.get({ path: { id } }))
+        );
+
+        const fetched: Session[] = [];
+        for (const result of results) {
+          if (result.status === "fulfilled" && result.value.data) {
+            fetched.push(result.value.data);
+          }
+        }
+        setSessions(fetched);
       } catch {
         // silently fail
       }
@@ -520,6 +532,7 @@ export const useCreateSession = () => {
         body: { title: title || "New conversation" },
         query: { directory: dir },
       });
+      if (data?.id) await trackSessionId(data.id);
       return data;
     } finally {
       setCreating(false);

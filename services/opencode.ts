@@ -198,3 +198,59 @@ export const getHomeDir = async (): Promise<string> => {
 };
 
 export const OPENCODE_PORT = PORT;
+
+// --- Session ID store (persisted in Tauri app data dir) ---
+
+const SESSION_FILE = "sessions.json";
+
+let cachedSessionIds: Set<string> | null = null;
+
+async function readSessionFile(): Promise<string[]> {
+  const { readTextFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
+  try {
+    const raw = await readTextFile(SESSION_FILE, { baseDir: BaseDirectory.AppData });
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+async function ensureAppDataDir(): Promise<void> {
+  const { appDataDir } = await import("@tauri-apps/api/path");
+  const dir = await appDataDir();
+  const { Command } = await import("@tauri-apps/plugin-shell");
+  await Command.create("exec-sh", ["-c", `mkdir -p "${dir}"`]).execute();
+}
+
+async function writeSessionFile(ids: string[]): Promise<void> {
+  const { writeTextFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
+  await ensureAppDataDir();
+  await writeTextFile(SESSION_FILE, JSON.stringify(ids), { baseDir: BaseDirectory.AppData });
+}
+
+export async function getTrackedSessionIds(): Promise<Set<string>> {
+  if (cachedSessionIds) return cachedSessionIds;
+  try {
+    const ids = await readSessionFile();
+    cachedSessionIds = new Set(ids);
+  } catch {
+    cachedSessionIds = new Set();
+  }
+  return cachedSessionIds;
+}
+
+export async function trackSessionId(id: string): Promise<void> {
+  const ids = await getTrackedSessionIds();
+  if (ids.has(id)) return;
+  ids.add(id);
+  cachedSessionIds = ids;
+  await writeSessionFile([...ids]);
+}
+
+export async function untrackSessionId(id: string): Promise<void> {
+  const ids = await getTrackedSessionIds();
+  if (!ids.has(id)) return;
+  ids.delete(id);
+  cachedSessionIds = ids;
+  await writeSessionFile([...ids]);
+}

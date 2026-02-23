@@ -18,7 +18,7 @@ import {
   useSessionMessages,
   type ProviderModel,
 } from "@/hooks/use-opencode";
-import { getClient } from "@/services/opencode";
+import { getClient, untrackSessionId } from "@/services/opencode";
 import { extractScxRefs, stripScxRefs } from "@/lib/scx-refs";
 import { useBookmarksByIds } from "@/hooks/use-bookmark-by-id";
 import InlineBookmarkCard from "@/app/components/InlineBookmarkCard";
@@ -130,6 +130,7 @@ function ChatPageContent() {
     try {
       const client = getClient();
       await client.session.delete({ path: { id } });
+      await untrackSessionId(id);
       refetchSessions();
       if (conversationId === id) {
         router.replace("/app/chat");
