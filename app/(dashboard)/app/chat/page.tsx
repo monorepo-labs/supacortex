@@ -243,9 +243,25 @@ function ChatPageContent() {
   }, [removePanel]);
 
   // Browser panel management
+  const scrollToBrowserRef = useRef(false);
+  const browserPanelIds = panels.filter((p) => p.type === "browser").map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!scrollToBrowserRef.current) return;
+    scrollToBrowserRef.current = false;
+    const browserPanels = panels.filter((p) => p.type === "browser");
+    const last = browserPanels[browserPanels.length - 1];
+    if (last) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`panel-${last.id}`);
+        el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+      });
+    }
+  }, [browserPanelIds, panels]);
+
   const handleOpenBrowser = useCallback((url: string) => {
     // Don't open duplicate for same URL
     if (panels.some((p) => p.type === "browser" && p.url === url)) return;
+    scrollToBrowserRef.current = true;
     addPanel("browser", { url });
   }, [panels, addPanel]);
 
@@ -1636,10 +1652,50 @@ function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string })
   }, [url, label]);
 
   if (!isTauriBrowser()) {
-    return <iframe src={url} title="Browser" className="flex-1 w-full border-none" />;
+    return <iframe src={url} title="Browser" className="flex-1 w-full border-none rounded-b-xl" />;
   }
 
-  return <div ref={containerRef} className="flex-1 w-full" />;
+  return <div ref={containerRef} className="flex-1 w-full rounded-b-xl" />;
+}
+
+function useFaviconColor(url: string): string | null {
+  const [color, setColor] = useState<string | null>(null);
+
+  useEffect(() => {
+    const favicon = faviconUrl(url);
+    if (!favicon) return;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        // Sample non-white, non-transparent pixels to find dominant color
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const pr = data[i], pg = data[i + 1], pb = data[i + 2], pa = data[i + 3];
+          if (pa < 128) continue; // skip transparent
+          if (pr > 240 && pg > 240 && pb > 240) continue; // skip near-white
+          if (pr < 15 && pg < 15 && pb < 15) continue; // skip near-black
+          r += pr; g += pg; b += pb; count++;
+        }
+        if (count > 0) {
+          setColor(`rgb(${Math.round(r / count)}, ${Math.round(g / count)}, ${Math.round(b / count)})`);
+        }
+      } catch {
+        // CORS or canvas error, ignore
+      }
+    };
+    img.src = favicon;
+  }, [url]);
+
+  return color;
 }
 
 function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string; onClose: () => void }) {
@@ -1647,30 +1703,35 @@ function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string;
     try { return new URL(url).hostname.replace("www.", ""); } catch { return url; }
   })();
 
+  const siteColor = useFaviconColor(url);
+
   const handleOpenExternal = useCallback(() => {
     import("@tauri-apps/plugin-shell").then(({ open }) => open(url)).catch(console.error);
   }, [url]);
 
   return (
     <div className="group/browser shrink-0 shadow-card rounded-xl overflow-hidden bg-white h-full flex flex-col">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100">
+      <div
+        className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 transition-colors duration-300"
+        style={siteColor ? { backgroundColor: siteColor, borderColor: "transparent" } : undefined}
+      >
         <div className="flex items-center gap-2 min-w-0">
-          <Globe size={13} className="shrink-0 text-zinc-400" />
-          <span className="text-xs text-zinc-500 truncate" title={url}>
+          <Globe size={13} className={`shrink-0 ${siteColor ? "text-white/70" : "text-zinc-400"}`} />
+          <span className={`text-xs truncate ${siteColor ? "text-white/90" : "text-zinc-500"}`} title={url}>
             {domain}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={handleOpenExternal}
-            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+            className={`rounded-lg p-1.5 transition-colors ${siteColor ? "text-white/60 hover:bg-white/15 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"}`}
             title="Open in external browser"
           >
             <ExternalLink size={13} />
           </button>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+            className={`rounded-lg p-1.5 transition-colors ${siteColor ? "text-white/60 hover:bg-white/15 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"}`}
           >
             <X size={14} />
           </button>
