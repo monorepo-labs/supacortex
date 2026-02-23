@@ -5,26 +5,17 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "@/app/components/Sidebar";
 import { useIsTauri } from "@/hooks/use-tauri";
 import { useTauriDrag } from "@/hooks/use-tauri-drag";
-import {
-  type ChatMessage,
-  type ChatAttachment,
-} from "@/hooks/use-chat";
+import type { ChatMessage } from "@/hooks/use-chat";
 import {
   useOpenCode,
   useOpenCodeSessions,
   useCreateSession,
   useSendMessage,
   useProviders,
-  useSessionMessages,
   type ProviderModel,
 } from "@/hooks/use-opencode";
 import { getClient, untrackSessionId } from "@/services/opencode";
-import { extractScxRefs, stripScxRefs } from "@/lib/scx-refs";
-import { useBookmarksByIds } from "@/hooks/use-bookmark-by-id";
-import InlineBookmarkCard from "@/app/components/InlineBookmarkCard";
-import { Streamdown } from "streamdown";
-import "streamdown/styles.css";
-import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, MessageSquarePlus, Link as LinkIcon, PanelLeft, Paperclip, Globe, ExternalLink } from "lucide-react";
+import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -57,47 +48,8 @@ import type { BookmarkData } from "@/app/components/BookmarkNode";
 import { useBookmarks, useCreateBookmark } from "@/hooks/use-bookmarks";
 import { sileo } from "sileo";
 import { useWorkspace, type PanelConfig } from "@/hooks/use-workspace";
-import type { ChatStatus, FileUIPart } from "ai";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationEmptyState,
-  ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
-import {
-  PromptInput,
-  PromptInputTextarea,
-  PromptInputSubmit,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputTools,
-  PromptInputButton,
-  usePromptInputAttachments,
-} from "@/components/ai-elements/prompt-input";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import {
-  ModelSelector,
-  ModelSelectorTrigger,
-  ModelSelectorContent,
-  ModelSelectorInput,
-  ModelSelectorList,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorItem,
-  ModelSelectorLogo,
-  ModelSelectorName,
-} from "@/components/ai-elements/model-selector";
-import {
-  Context,
-  ContextTrigger,
-  ContextContent,
-  ContextContentHeader,
-  ContextContentBody,
-  ContextContentFooter,
-  ContextInputUsage,
-  ContextOutputUsage,
-} from "@/components/ai-elements/context";
-import { Button } from "@/components/ui/button";
+import { ChatPanel, ChatPanelProvider } from "@/app/components/ChatPanel";
+import type { Session } from "@opencode-ai/sdk/client";
 
 export default function ChatPage() {
   return (
@@ -110,7 +62,7 @@ export default function ChatPage() {
 function ChatPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const conversationId = searchParams.get("id");
+  const urlConversationId = searchParams.get("id");
 
   const isTauri = useIsTauri();
   const { connected, connecting, error: connectionError } = useOpenCode();
@@ -132,13 +84,13 @@ function ChatPageContent() {
       await client.session.delete({ path: { id } });
       await untrackSessionId(id);
       refetchSessions();
-      if (conversationId === id) {
+      if (urlConversationId === id) {
         router.replace("/app/chat");
       }
     } catch {
       // silently fail
     }
-  }, [refetchSessions, conversationId, router]);
+  }, [refetchSessions, urlConversationId, router]);
 
   const [userCollapsedOverride, setUserCollapsedOverride] = useState<boolean | null>(null);
   const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
@@ -155,21 +107,46 @@ function ChatPageContent() {
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
 
   // Local-first messages: keyed by conversationId, "new" for unsaved convos
-  // This is the source of truth for the active session. DB is only for loading old convos.
-  const [localMessages, setLocalMessages] = useState<
-    Map<string, ChatMessage[]>
-  >(new Map());
-
-  // Force re-render trigger for pending send state
-  const [pendingSendTick, setPendingSendTick] = useState(0);
+  const [localMessages, setLocalMessages] = useState<Map<string, ChatMessage[]>>(new Map());
 
   // Per-conversation directory (for folder selector)
   const [conversationDirs, setConversationDirs] = useState<Map<string, string>>(new Map());
-  const activeDir = conversationDirs.get(conversationId ?? "new") ?? null;
 
   // Workspace panels (chat, library, reader)
   const workspace = useWorkspace();
-  const { panels, addPanel, removePanel, reorderPanels, togglePanel, hasPanel, cycleWidth } = workspace;
+  const { panels, addPanel, updatePanel, removePanel, reorderPanels, togglePanel, hasPanel, cycleWidth } = workspace;
+
+  // Seed the default chat panel's conversationId from URL on mount
+  const urlSeededRef = useRef(false);
+  useEffect(() => {
+    if (urlSeededRef.current || !urlConversationId) return;
+    urlSeededRef.current = true;
+    const chatPanel = panels.find((p) => p.type === "chat" && !p.conversationId);
+    if (chatPanel) {
+      updatePanel(chatPanel.id, { conversationId: urlConversationId });
+    }
+  }, [urlConversationId, panels, updatePanel]);
+
+  // When URL changes (e.g. sidebar click), update the first chat panel without a matching conversation
+  const prevUrlRef = useRef(urlConversationId);
+  useEffect(() => {
+    if (urlConversationId === prevUrlRef.current) return;
+    prevUrlRef.current = urlConversationId;
+    if (!urlConversationId) return;
+    // If a panel already shows this conversation, just scroll to it
+    const existing = panels.find((p) => p.type === "chat" && p.conversationId === urlConversationId);
+    if (existing) {
+      requestAnimationFrame(() => {
+        document.getElementById(`panel-${existing.id}`)?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+      });
+      return;
+    }
+    // Otherwise load into the first chat panel
+    const firstChat = panels.find((p) => p.type === "chat");
+    if (firstChat) {
+      updatePanel(firstChat.id, { conversationId: urlConversationId });
+    }
+  }, [urlConversationId, panels, updatePanel]);
 
   // Bookmark selection for attaching to chat
   const [selectedBookmarks, setSelectedBookmarks] = useState<BookmarkData[]>([]);
@@ -193,7 +170,6 @@ function ChatPageContent() {
     const readerPanels = panels.filter((p) => p.type === "reader");
     const last = readerPanels[readerPanels.length - 1];
     if (last) {
-      // Wait a frame for the DOM to render the new panel
       requestAnimationFrame(() => {
         const el = document.getElementById(`panel-${last.id}`);
         el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
@@ -203,10 +179,8 @@ function ChatPageContent() {
 
   const handleOpenReader = useCallback((bookmark: BookmarkData) => {
     scrollToReaderRef.current = true;
-    // Find existing reader panels
     const readerPanels = panels.filter((p) => p.type === "reader");
     if (readerPanels.length === 0) {
-      // Open new reader panel
       addPanel("reader", { bookmarkId: bookmark.id });
       setReaderBookmarks((prev) => {
         const next = new Map(prev);
@@ -214,7 +188,6 @@ function ChatPageContent() {
         return next;
       });
     } else {
-      // Replace last reader
       const lastReader = readerPanels[readerPanels.length - 1];
       removePanel(lastReader.id);
       addPanel("reader", { bookmarkId: bookmark.id });
@@ -227,7 +200,6 @@ function ChatPageContent() {
   }, [panels, addPanel, removePanel]);
 
   const handleOpenInNewPanel = useCallback((bookmark: BookmarkData) => {
-    // Don't open duplicate
     if (panels.some((p) => p.type === "reader" && p.bookmarkId === bookmark.id)) return;
     scrollToReaderRef.current = true;
     addPanel("reader", { bookmarkId: bookmark.id });
@@ -259,7 +231,6 @@ function ChatPageContent() {
   }, [browserPanelIds, panels]);
 
   const handleOpenBrowser = useCallback((url: string) => {
-    // Don't open duplicate for same URL
     if (panels.some((p) => p.type === "browser" && p.url === url)) return;
     scrollToBrowserRef.current = true;
     addPanel("browser", { url });
@@ -268,9 +239,6 @@ function ChatPageContent() {
   const handleCloseBrowser = useCallback((panelId: string) => {
     removePanel(panelId);
   }, [removePanel]);
-
-  // Chat panel ref for link interception
-  const chatPanelRef = useRef<HTMLElement>(null);
 
   // Hydrate reader bookmark data for panels restored from localStorage
   const hydratedRef = useRef<Set<string>>(new Set());
@@ -297,7 +265,6 @@ function ChatPageContent() {
         results.forEach((b) => { if (b) next.set(b.id, b); });
         return next;
       });
-      // Remove panels whose bookmarks couldn't be fetched
       results.forEach((b, i) => {
         if (!b) removePanel(missing[i].id);
       });
@@ -358,314 +325,24 @@ function ChatPageContent() {
     [selectedBookmarks],
   );
 
-  // Seed directory from opencode session
+  // Seed directory from opencode session for all chat panels
   useEffect(() => {
-    if (!conversationId || !sessions.length) return;
-    const session = sessions.find((s) => s.id === conversationId);
-    if (session?.directory && !conversationDirs.has(conversationId)) {
-      setConversationDirs((prev) => {
-        const next = new Map(prev);
-        next.set(conversationId, session.directory);
-        return next;
-      });
-    }
-  }, [conversationId, sessions, conversationDirs]);
-
-  // Per-conversation streaming state (isSending derived below after sendingKeysRef)
-  const { isSending: hookSending, isStreaming, streamedText, tokens } = getState(conversationId);
-
-  // Seed local messages from opencode when switching to a conversation
-  const seededRef = useRef<Set<string>>(new Set());
-  const { messages: sessionMessages } = useSessionMessages(conversationId, connected);
-  useEffect(() => {
-    if (!conversationId || !sessionMessages?.length) return;
-    if (seededRef.current.has(conversationId)) return;
-    seededRef.current.add(conversationId);
-    setLocalMessages((prev) => {
-      if (prev.has(conversationId)) return prev;
-      const next = new Map(prev);
-      next.set(conversationId, [...sessionMessages]);
-      return next;
+    if (!sessions.length) return;
+    panels.forEach((p) => {
+      if (p.type === "chat" && p.conversationId) {
+        const session = sessions.find((s) => s.id === p.conversationId);
+        if (session?.directory && !conversationDirs.has(p.conversationId)) {
+          setConversationDirs((prev) => {
+            const next = new Map(prev);
+            next.set(p.conversationId!, session.directory);
+            return next;
+          });
+        }
+      }
     });
-  }, [conversationId, sessionMessages]);
+  }, [panels, sessions, conversationDirs]);
 
-  // Load token usage from session on conversation switch (survives page reload)
-  // conversationId IS the sessionId now
-  const tokensLoadedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!conversationId || !connected) return;
-    if (tokensLoadedRef.current.has(conversationId)) return;
-    tokensLoadedRef.current.add(conversationId);
-    loadTokens(conversationId, conversationId);
-  }, [conversationId, connected, loadTokens]);
-
-  // Messages for the active conversation
-  const localKey = conversationId ?? "new";
-  const messages = localMessages.get(localKey) ?? [];
-
-  const addLocalMessage = useCallback(
-    (convId: string, msg: ChatMessage) => {
-      setLocalMessages((prev) => {
-        const next = new Map(prev);
-        next.set(convId, [...(next.get(convId) ?? []), msg]);
-        return next;
-      });
-    },
-    [],
-  );
-
-  // Per-conversation queue for messages sent while streaming is active
-  const queuesRef = useRef<Map<string, string[]>>(new Map());
-  const sendingKeysRef = useRef<Set<string>>(new Set());
-  const [queueLength, setQueueLength] = useState(0);
-
-  // Track the active conversation ID for abort (survives stale closures)
-  const activeConvIdRef = useRef<string | null>(conversationId);
-  if (conversationId) activeConvIdRef.current = conversationId;
-
-  // Derive isSending for current conversation (uses sendingKeysRef + pendingSendTick for reactivity)
-  void pendingSendTick; // consumed for reactivity
-  const pendingSend = sendingKeysRef.current.has(conversationId ?? "new");
-  const isSending = hookSending || pendingSend;
-
-  // ChatStatus for PromptInputSubmit
-  const chatStatus: ChatStatus = isStreaming
-    ? "streaming"
-    : isSending
-      ? "submitted"
-      : "ready";
-
-  // Core send logic — sends one message and returns the conversation ID used
-  // conversationId IS the opencode sessionId (no separate DB conversation)
-  const doSend = useCallback(
-    async (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[], overrideConversationId?: string): Promise<string | undefined> => {
-      let currentConversationId = overrideConversationId ?? conversationId;
-      const dir = conversationDirs.get(currentConversationId ?? "new") ?? undefined;
-
-      // If no conversation, create an opencode session
-      if (!currentConversationId) {
-        const titleText = stripScxRefs(text).slice(0, 50) || "New conversation";
-        const session = await createSession(titleText, dir);
-        if (!session) return;
-        currentConversationId = session.id;
-
-        // Move local messages from "new" to the session ID
-        setLocalMessages((prev) => {
-          const next = new Map(prev);
-          const msgs = next.get("new") ?? [];
-          next.delete("new");
-          next.set(
-            currentConversationId!,
-            msgs.map((m) => ({ ...m, conversationId: currentConversationId! })),
-          );
-          return next;
-        });
-        // Move directory from "new" to session ID
-        setConversationDirs((prev) => {
-          const newDir = prev.get("new");
-          if (!newDir) return prev;
-          const next = new Map(prev);
-          next.delete("new");
-          next.set(currentConversationId!, newDir);
-          return next;
-        });
-        seededRef.current.add(currentConversationId);
-        activeConvIdRef.current = currentConversationId;
-
-        router.replace(`/app/chat?id=${currentConversationId}`);
-        refetchSessions();
-      }
-
-      // Build file parts for opencode
-      const fileParts = files?.map((f) => ({
-        url: f.url,
-        mime: f.mediaType ?? "application/octet-stream",
-        filename: f.filename,
-      }));
-
-      // Build bookmark system prompt
-      let bookmarkSystem: string | undefined;
-      if (bookmarks && bookmarks.length > 0) {
-        const ids = bookmarks.map((b) => b.id).join(", ");
-        bookmarkSystem = `The user has attached ${bookmarks.length} bookmark(s) from their library. Bookmark IDs: ${ids}. Use \`scx bookmarks list --json\` to fetch the full content of these bookmarks when answering.`;
-      }
-
-      // Send to opencode (sessionId === conversationId)
-      const responseText = await sendMessage(
-        currentConversationId,
-        currentConversationId,
-        text,
-        {
-          model: selectedModel
-            ? {
-                providerID: selectedModel.providerId,
-                modelID: selectedModel.id,
-              }
-            : undefined,
-          agent: "assistant",
-          files: fileParts,
-          directory: dir,
-          bookmarkSystem,
-        },
-      );
-
-      if (responseText) {
-        addLocalMessage(currentConversationId, {
-          id: `msg-assistant-${Date.now()}`,
-          conversationId: currentConversationId,
-          role: "assistant",
-          content: responseText,
-          createdAt: new Date().toISOString(),
-        });
-      } else {
-        console.warn("[chat] responseText was empty — assistant message not saved");
-      }
-
-      markSendComplete(currentConversationId);
-      return currentConversationId;
-    },
-    [
-      conversationId,
-      conversationDirs,
-      addLocalMessage,
-      createSession,
-      sendMessage,
-      markSendComplete,
-      selectedModel,
-      router,
-      refetchSessions,
-    ],
-  );
-
-  // Process queue: send current message, then drain any queued messages
-  const processQueue = useCallback(
-    async (convKey: string, text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
-      sendingKeysRef.current.add(convKey);
-      setPendingSendTick((t) => t + 1);
-
-      // First send — may create a new conversation, returns the real ID
-      const resolvedId = await doSend(text, files, bookmarks);
-
-      // Drain queued messages for this conversation
-      const queue = queuesRef.current.get(convKey);
-      while (queue && queue.length > 0) {
-        const next = queue.shift()!;
-        setQueueLength(queue.length);
-        // Use the resolved conversation ID (not the stale closure value)
-        const activeConvId = resolvedId ?? convKey;
-        addLocalMessage(activeConvId, {
-          id: `temp-user-${Date.now()}`,
-          conversationId: activeConvId,
-          role: "user",
-          content: next,
-          createdAt: new Date().toISOString(),
-        });
-        setPendingSendTick((t) => t + 1);
-        await doSend(next, undefined, undefined, resolvedId);
-      }
-
-      sendingKeysRef.current.delete(convKey);
-      queuesRef.current.delete(convKey);
-      setPendingSendTick((t) => t + 1);
-      setQueueLength(0);
-    },
-    [doSend, addLocalMessage],
-  );
-
-  const handleSend = useCallback(
-    (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
-      if ((!text.trim() && !bookmarks?.length) || !connected) return;
-
-      const convKey = conversationId ?? "new";
-
-      if (sendingKeysRef.current.has(convKey)) {
-        // Currently streaming — queue the message with scx tokens baked in
-        let queueText = text;
-        if (bookmarks?.length) {
-          const tokens = bookmarks.map((b) => `scx:${b.id}`).join(" ");
-          queueText = queueText.trim() ? `${queueText}\n\n${tokens}` : tokens;
-        }
-        const queue = queuesRef.current.get(convKey) ?? [];
-        queue.push(queueText);
-        queuesRef.current.set(convKey, queue);
-        setQueueLength(queue.length);
-      } else {
-        // Inject scx:ID tokens for bookmarks into message text
-        let messageText = text;
-        if (bookmarks?.length) {
-          const tokens = bookmarks.map((b) => `scx:${b.id}`).join(" ");
-          messageText = messageText.trim()
-            ? `${messageText}\n\n${tokens}`
-            : tokens;
-        }
-
-        // Build file attachments only (bookmarks are now inline tokens)
-        const fileAttachments = files?.map((f) => ({
-          url: f.url,
-          filename: f.filename,
-          mediaType: f.mediaType,
-        }));
-
-        addLocalMessage(convKey, {
-          id: `temp-user-${Date.now()}`,
-          conversationId: convKey,
-          role: "user",
-          content: messageText,
-          createdAt: new Date().toISOString(),
-          attachments: fileAttachments?.length ? fileAttachments : undefined,
-        });
-        processQueue(convKey, messageText, files, bookmarks);
-      }
-    },
-    [connected, conversationId, addLocalMessage, processQueue],
-  );
-
-  const handleSubmit = useCallback(
-    (message: { text: string; files: FileUIPart[] }) => {
-      const bookmarks = selectedBookmarks.length > 0 ? [...selectedBookmarks] : undefined;
-      handleSend(message.text, message.files.length > 0 ? message.files : undefined, bookmarks);
-      setSelectedBookmarks([]);
-    },
-    [handleSend, selectedBookmarks],
-  );
-
-  const handleNewConversation = useCallback(() => {
-    setSelectedBookmarks([]);
-    router.replace("/app/chat");
-  }, [router]);
-
-  const handleConversationSelect = useCallback(
-    (id: string) => {
-      if (id === conversationId) return;
-      setSelectedBookmarks([]);
-      router.replace(`/app/chat?id=${id}`);
-    },
-    [conversationId, router],
-  );
-
-  // Resolve active model display name
-  // defaultModel may be "provider/model" or just "model"
-  const defaultModelInfo = defaultModel
-    ? providers
-        .flatMap((p) => p.models)
-        .find(
-          (m) =>
-            m.id === defaultModel ||
-            `${m.providerId}/${m.id}` === defaultModel,
-        )
-    : null;
-  const activeModelName = selectedModel
-    ? selectedModel.name
-    : defaultModelInfo
-      ? defaultModelInfo.name
-      : null;
-
-  const clearQueue = useCallback(() => {
-    const convKey = conversationId ?? "new";
-    queuesRef.current.delete(convKey);
-    setQueueLength(0);
-  }, [conversationId]);
-
+  // Model selection handler
   const handleModelSelect = useCallback((model: ProviderModel) => {
     setSelectedModel(model);
     setModelSelectorOpen(false);
@@ -675,23 +352,6 @@ function ChatPageContent() {
       // ignore
     }
   }, []);
-
-  const handleSelectDirectory = useCallback(async () => {
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({ directory: true, multiple: false, title: "Select working directory" });
-      if (selected && typeof selected === "string") {
-        const key = conversationId ?? "new";
-        setConversationDirs((prev) => {
-          const next = new Map(prev);
-          next.set(key, selected);
-          return next;
-        });
-      }
-    } catch (err) {
-      console.error("[chat] Failed to open directory picker:", err);
-    }
-  }, [conversationId]);
 
   // Keyboard shortcuts: ⌥S sidebar, ⌥B library, ⌥E chat
   useEffect(() => {
@@ -713,18 +373,63 @@ function ChatPageContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePanel]);
 
-  const showThinking = isSending && !streamedText;
-  const showStreaming = streamedText && isSending;
-  // Show thinking below streamed text during tool calls (has text, sending, but not actively streaming)
-  const showToolCallThinking = isSending && !!streamedText && !isStreaming;
+  // Handle new conversation creation from a chat panel
+  const handleConversationCreated = useCallback((panelId: string, newConversationId: string) => {
+    updatePanel(panelId, { conversationId: newConversationId });
+    router.replace(`/app/chat?id=${newConversationId}`);
+  }, [updatePanel, router]);
 
-  // Disable Streamdown's built-in link safety modal — we handle links ourselves
-  const linkSafetyOff = useMemo(() => ({ enabled: false }), []);
+  // New conversation from sidebar
+  const handleNewConversation = useCallback(() => {
+    setSelectedBookmarks([]);
+    const chatPanels = panels.filter((p) => p.type === "chat");
+    if (chatPanels.length <= 1) {
+      // Single or no chat panel: reset to new conversation
+      if (chatPanels.length === 1) {
+        updatePanel(chatPanels[0].id, { conversationId: undefined });
+      } else {
+        addPanel("chat", { widthPreset: "wide" });
+      }
+      router.replace("/app/chat");
+    } else {
+      // Multiple chat panels: add a new panel
+      addPanel("chat", { widthPreset: "medium" });
+    }
+  }, [panels, router, addPanel, updatePanel]);
 
-  // Context window usage for the hover card
-  const activeModel = selectedModel ?? defaultModelInfo ?? null;
-  const contextMaxTokens = activeModel?.contextLimit ?? 200000;
-  const usedTokens = tokens.input + tokens.output + tokens.reasoning;
+  // Select conversation from sidebar
+  const handleConversationSelect = useCallback(
+    (id: string) => {
+      setSelectedBookmarks([]);
+      // If a panel already shows this conversation, scroll to it
+      const existing = panels.find((p) => p.type === "chat" && p.conversationId === id);
+      if (existing) {
+        requestAnimationFrame(() => {
+          document.getElementById(`panel-${existing.id}`)?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+        });
+        router.replace(`/app/chat?id=${id}`);
+        return;
+      }
+      // Otherwise load into the first chat panel
+      const firstChat = panels.find((p) => p.type === "chat");
+      if (firstChat) {
+        updatePanel(firstChat.id, { conversationId: id });
+      }
+      router.replace(`/app/chat?id=${id}`);
+    },
+    [panels, router, updatePanel],
+  );
+
+  // Open conversation in new panel (from sidebar context menu)
+  const handleOpenConversationInPanel = useCallback((sessionId: string) => {
+    if (panels.some((p) => p.type === "chat" && p.conversationId === sessionId)) return;
+    addPanel("chat", { widthPreset: "medium", conversationId: sessionId });
+  }, [panels, addPanel]);
+
+  // New chat panel from tab bar
+  const handleNewChatPanel = useCallback(() => {
+    addPanel("chat", { widthPreset: "medium" });
+  }, [addPanel]);
 
   // Width preset → CSS classes (per panel type)
   const widthClasses = (preset: string, panelType?: string) => {
@@ -742,285 +447,56 @@ function ChatPageContent() {
     return "shrink-0 w-[640px] min-w-[640px]";
   };
 
-  const renderPanel = (panel: PanelConfig, index: number) => {
+  // ChatPanelProvider value
+  const chatPanelCtx = useMemo(() => ({
+    connected,
+    connecting,
+    connectionError,
+    isTauri,
+    localMessages,
+    setLocalMessages,
+    conversationDirs,
+    setConversationDirs,
+    sendMessage,
+    abort,
+    getState,
+    markSendComplete,
+    loadTokens,
+    createSession,
+    refetchSessions,
+    providers,
+    defaultModel,
+    selectedModel,
+    onModelSelect: handleModelSelect,
+    modelSelectorOpen,
+    setModelSelectorOpen,
+    onOpenBrowser: handleOpenBrowser,
+    onOpenReader: handleOpenReader,
+    onOpenInNewPanel: handleOpenInNewPanel,
+    selectedBookmarks,
+    onClearSelectedBookmarks: () => setSelectedBookmarks([]),
+    onRemoveSelectedBookmark: (id: string) => setSelectedBookmarks((prev) => prev.filter((b) => b.id !== id)),
+  }), [
+    connected, connecting, connectionError, isTauri,
+    localMessages, conversationDirs,
+    sendMessage, abort, getState, markSendComplete, loadTokens,
+    createSession, refetchSessions,
+    providers, defaultModel, selectedModel, handleModelSelect,
+    modelSelectorOpen,
+    handleOpenBrowser, handleOpenReader, handleOpenInNewPanel,
+    selectedBookmarks,
+  ]);
+
+  const renderPanel = (panel: PanelConfig) => {
     if (panel.type === "chat") {
       return (
-        <main ref={chatPanelRef} key={panel.id} id={`panel-${panel.id}`} data-chat-links className={`relative h-full ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col`}>
-          <ChatLinkInterceptor containerRef={chatPanelRef} onOpenBrowser={handleOpenBrowser} />
-
-          {/* Messages area */}
-          <Conversation className="flex-1">
-            {messages.length === 0 && (
-              <ConversationEmptyState
-                className={`absolute inset-0 z-10 ${isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}`}
-                title="Start a conversation"
-                description="Ask questions about your bookmarks, get summaries, or explore connections in your saved content."
-              />
-            )}
-            <ConversationContent
-              className="max-w-3xl mx-auto w-full px-4 py-6"
-              scrollClassName="[&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
-            >
-              {messages.length > 0 && (
-                <>
-                  {messages.map((msg) => (
-                    <MessageBubble key={msg.id} message={msg} onOpenBookmark={handleOpenReader} onOpenBookmarkInNewPanel={handleOpenInNewPanel} />
-                  ))}
-                  {showThinking && (
-                    <div className="flex justify-start py-2">
-                      <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
-                        Thinking...
-                      </span>
-                    </div>
-                  )}
-                  {showStreaming && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[80%] text-sm text-zinc-800">
-                        <div className="prose prose-sm prose-zinc max-w-none">
-                          <Streamdown
-                            isAnimating={isStreaming}
-                            animated={{ animation: "fadeIn", sep: "word" }}
-                            caret={isStreaming ? "block" : undefined}
-                            linkSafety={linkSafetyOff}
-                          >
-                            {streamedText}
-                          </Streamdown>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {showToolCallThinking && (
-                    <div className="flex justify-start py-2">
-                      <span className="text-sm bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer bg-gradient-to-r from-zinc-400 via-zinc-200 via-50% to-zinc-400">
-                        Thinking...
-                      </span>
-                    </div>
-                  )}
-                </>
-              )}
-            </ConversationContent>
-            <ConversationScrollButton className="bg-white hover:bg-zinc-50" />
-          </Conversation>
-
-          {/* Input area */}
-          {isTauri && (
-            <div className="px-4 py-3">
-              <div className="max-w-3xl mx-auto">
-                {connecting ? (
-                  <div className="flex items-center gap-2 text-sm text-zinc-400 py-2">
-                    <div className="size-3 border-2 border-zinc-300 border-t-transparent rounded-full animate-spin" />
-                    Connecting to OpenCode...
-                  </div>
-                ) : connectionError ? (
-                  <div className="text-sm text-red-500 py-2">
-                    Failed to connect: {connectionError}
-                  </div>
-                ) : (
-                  <TooltipProvider>
-                    <PromptInput onSubmit={handleSubmit} globalDrop>
-                      <AttachmentPreviews />
-                      <BookmarkChips bookmarks={selectedBookmarks} onRemove={(id) => setSelectedBookmarks((prev) => prev.filter((b) => b.id !== id))} />
-                      <PromptInputTextarea placeholder="Ask anything..." />
-                      <PromptInputFooter>
-                        <PromptInputTools>
-                          <AttachFileButton />
-                          {(() => {
-                            const canChange = messages.length === 0 && !isSending;
-                            if (activeDir) {
-                              return (
-                                <span className="inline-flex items-center gap-0.5">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 gap-1.5 text-xs text-muted-foreground"
-                                        onClick={canChange ? handleSelectDirectory : undefined}
-                                        disabled={!canChange}
-                                      >
-                                        <FolderOpen className="size-3.5" />
-                                        <span className="max-w-[120px] truncate">
-                                          {activeDir.split("/").pop()}
-                                        </span>
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top">{activeDir}</TooltipContent>
-                                  </Tooltip>
-                                  {canChange && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const key = conversationId ?? "new";
-                                        setConversationDirs((prev) => {
-                                          const next = new Map(prev);
-                                          next.delete(key);
-                                          return next;
-                                        });
-                                      }}
-                                      className="rounded-full p-0.5 text-muted-foreground hover:bg-zinc-200 transition-colors"
-                                    >
-                                      <X className="size-3" />
-                                    </button>
-                                  )}
-                                </span>
-                              );
-                            }
-                            if (canChange) {
-                              return (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 text-xs text-muted-foreground"
-                                      onClick={handleSelectDirectory}
-                                    >
-                                      <FolderOpen className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">Change directory</TooltipContent>
-                                </Tooltip>
-                              );
-                            }
-                            return null;
-                          })()}
-                          <ModelSelector
-                            open={modelSelectorOpen}
-                            onOpenChange={setModelSelectorOpen}
-                          >
-                            <ModelSelectorTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 gap-1.5 text-xs text-muted-foreground"
-                              >
-                                {(selectedModel || defaultModelInfo) && (
-                                  <ModelSelectorLogo
-                                    provider={
-                                      selectedModel?.providerId ??
-                                      defaultModelInfo?.providerId ??
-                                      ""
-                                    }
-                                  />
-                                )}
-                                <span className="max-w-[140px] truncate">
-                                  {activeModelName ?? "Loading..."}
-                                </span>
-                                <ChevronDown className="size-3" />
-                              </Button>
-                            </ModelSelectorTrigger>
-                            <ModelSelectorContent title="Select a model">
-                              <ModelSelectorInput placeholder="Search models..." />
-                              <ModelSelectorList>
-                                <ModelSelectorEmpty>
-                                  No models found.
-                                </ModelSelectorEmpty>
-                                {providers.map((provider) => (
-                                  <ModelSelectorGroup
-                                    key={provider.id}
-                                    heading={provider.name}
-                                  >
-                                    {provider.models.map((model) => {
-                                      const isSelected =
-                                        selectedModel?.id === model.id &&
-                                        selectedModel?.providerId ===
-                                          provider.id;
-                                      return (
-                                        <ModelSelectorItem
-                                          key={`${provider.id}/${model.id}`}
-                                          onSelect={() =>
-                                            handleModelSelect(model)
-                                          }
-                                          className="gap-2"
-                                        >
-                                          <ModelSelectorLogo
-                                            provider={provider.id}
-                                          />
-                                          <ModelSelectorName>
-                                            {model.name}
-                                          </ModelSelectorName>
-                                          {isSelected && (
-                                            <Check className="size-3.5 text-zinc-500 shrink-0" />
-                                          )}
-                                        </ModelSelectorItem>
-                                      );
-                                    })}
-                                  </ModelSelectorGroup>
-                                ))}
-                              </ModelSelectorList>
-                            </ModelSelectorContent>
-                          </ModelSelector>
-                          {queueLength > 0 && (
-                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                              <span>{queueLength} queued</span>
-                              <button
-                                type="button"
-                                onClick={clearQueue}
-                                className="rounded-full p-0.5 hover:bg-zinc-200 transition-colors"
-                              >
-                                <X className="size-3" />
-                              </button>
-                            </span>
-                          )}
-                          {usedTokens > 0 && (
-                            <Context
-                              usedTokens={usedTokens}
-                              maxTokens={contextMaxTokens}
-                              usage={{
-                                inputTokens: tokens.input,
-                                outputTokens: tokens.output,
-                                reasoningTokens: tokens.reasoning,
-                                cachedInputTokens: tokens.cacheRead,
-                                totalTokens: usedTokens,
-                                inputTokenDetails: {
-                                  noCacheTokens: tokens.input - tokens.cacheRead,
-                                  cacheReadTokens: tokens.cacheRead,
-                                  cacheWriteTokens: tokens.cacheWrite,
-                                },
-                                outputTokenDetails: {
-                                  textTokens: tokens.output - tokens.reasoning,
-                                  reasoningTokens: tokens.reasoning,
-                                },
-                              }}
-                              modelId={activeModel?.id}
-                            >
-                              <ContextTrigger className="h-7 text-xs" />
-                              <ContextContent>
-                                <ContextContentHeader />
-                                <ContextContentBody>
-                                  <ContextInputUsage />
-                                  <ContextOutputUsage />
-                                </ContextContentBody>
-                                <ContextContentFooter />
-                              </ContextContent>
-                            </Context>
-                          )}
-                        </PromptInputTools>
-                        <PromptInputSubmit
-                          status={chatStatus}
-                          onStop={() => {
-                            const id = conversationId ?? activeConvIdRef.current;
-                            if (id) abort(id);
-                          }
-                          }
-                        />
-                      </PromptInputFooter>
-                    </PromptInput>
-                  </TooltipProvider>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Read-only message view for web */}
-          {!isTauri && conversationId && messages.length > 0 && (
-            <div className="border-t border-zinc-100 px-4 py-3">
-              <p className="text-center text-xs text-zinc-400">
-                Viewing conversation history (read-only)
-              </p>
-            </div>
-          )}
-        </main>
+        <ChatPanel
+          key={panel.id}
+          panelId={panel.id}
+          conversationId={panel.conversationId ?? null}
+          widthClass={widthClasses(panel.widthPreset, "chat")}
+          onConversationCreated={handleConversationCreated}
+        />
       );
     }
 
@@ -1103,10 +579,16 @@ function ChatPageContent() {
     return null;
   };
 
+  // Derive active conversation ID for sidebar highlighting
+  const activeConversationId = urlConversationId
+    ?? panels.find((p) => p.type === "chat")?.conversationId
+    ?? null;
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <WorkspaceTabBar
         panels={panels}
+        sessions={sessions}
         readerBookmarks={readerBookmarks}
         onTogglePanel={togglePanel}
         onRemovePanel={removePanel}
@@ -1119,6 +601,7 @@ function ChatPageContent() {
           const el = document.getElementById(`panel-${panelId}`);
           el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
         }}
+        onNewChatPanel={handleNewChatPanel}
       />
       <div data-panel-scroll className="flex flex-1 min-h-0 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         <Sidebar
@@ -1130,214 +613,23 @@ function ChatPageContent() {
           onSidebarTabChange={(tab) => {
             if (tab === "library") router.push("/app/library");
           }}
-          activeConversationId={conversationId}
+          activeConversationId={activeConversationId}
           onConversationSelect={handleConversationSelect}
           onNewConversation={handleNewConversation}
           opencodeSessions={sessions}
           opencodeConnected={connected}
           onDeleteSession={handleDeleteSession}
+          onOpenInPanel={handleOpenConversationInPanel}
         />
-        {panels.map(renderPanel)}
+        <ChatPanelProvider value={chatPanelCtx}>
+          {panels.map(renderPanel)}
+        </ChatPanelProvider>
       </div>
     </div>
   );
 }
 
-function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { message: ChatMessage; onOpenBookmark: (bookmark: BookmarkData) => void; onOpenBookmarkInNewPanel: (bookmark: BookmarkData) => void }) {
-  const refs = extractScxRefs(message.content);
-  const displayText = stripScxRefs(message.content);
-  const { data: bookmarkMap, isLoading: bookmarksLoading } = useBookmarksByIds(refs);
-  const fileAtts = message.attachments?.filter((a): a is Extract<ChatAttachment, { url: string }> => "url" in a) ?? [];
-
-  if (message.role === "user") {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] space-y-2">
-          {fileAtts.length > 0 && (
-            <div className="flex flex-wrap gap-2 justify-end">
-              {fileAtts.map((att, i) => (
-                <FileAttachmentCard key={i} attachment={att} />
-              ))}
-            </div>
-          )}
-          {refs.length > 0 && (
-            <div className="flex flex-wrap gap-2 justify-end">
-              {refs.map((id) => (
-                <InlineBookmarkCard
-                  key={id}
-                  bookmarkId={id}
-                  bookmarkData={bookmarkMap?.[id]}
-                  isLoading={bookmarksLoading}
-                  onOpen={onOpenBookmark}
-                  onOpenInNewPanel={onOpenBookmarkInNewPanel}
-                />
-              ))}
-            </div>
-          )}
-          {displayText && (
-            <div className="rounded-2xl rounded-br-md px-4 py-2.5 text-sm text-white" style={{ backgroundColor: "#2b8bf2" }}>
-              {displayText}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const assistantText = refs.length > 0 ? displayText : message.content;
-
-  const linkSafetyOff = useMemo(() => ({ enabled: false }), []);
-
-  return (
-    <div className="flex justify-start">
-      <div className="max-w-[80%] space-y-2">
-        {refs.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {refs.map((id) => (
-              <InlineBookmarkCard
-                key={id}
-                bookmarkId={id}
-                bookmarkData={bookmarkMap?.[id]}
-                isLoading={bookmarksLoading}
-                onOpen={onOpenBookmark}
-                onOpenInNewPanel={onOpenBookmarkInNewPanel}
-              />
-            ))}
-          </div>
-        )}
-        <div className="text-sm text-zinc-800">
-          <div className="prose prose-sm prose-zinc max-w-none">
-            <Streamdown linkSafety={linkSafetyOff}>{assistantText}</Streamdown>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function FileAttachmentCard({ attachment }: { attachment: Extract<ChatAttachment, { url: string }> }) {
-  const isImage = attachment.mediaType?.startsWith("image/");
-
-  if (isImage) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={attachment.url}
-        alt={attachment.filename ?? "image"}
-        className="max-w-[240px] max-h-[240px] rounded-xl object-cover"
-      />
-    );
-  }
-
-  return (
-    <div className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs">
-      <FileIcon className="size-4 text-zinc-400" />
-      <div className="min-w-0">
-        <p className="truncate font-medium text-zinc-700 max-w-[160px]">
-          {attachment.filename ?? "file"}
-        </p>
-        <p className="text-zinc-400">
-          {attachment.mediaType?.split("/").pop() ?? "file"}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function AttachFileButton() {
-  const attachments = usePromptInputAttachments();
-  return (
-    <PromptInputButton
-      tooltip="Attach files"
-      onClick={() => attachments.openFileDialog()}
-    >
-      <Paperclip className="size-4" />
-    </PromptInputButton>
-  );
-}
-
-function AttachmentPreviews() {
-  const attachments = usePromptInputAttachments();
-  if (attachments.files.length === 0) return null;
-
-  return (
-    <PromptInputHeader className="p-2 gap-2">
-      {attachments.files.map((file) => {
-        const isImage = file.mediaType?.startsWith("image/");
-        return (
-          <div
-            key={file.id}
-            className="group relative inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1.5 pr-3 text-xs"
-          >
-            {isImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={file.url}
-                alt={file.filename ?? "attachment"}
-                className="size-10 rounded object-cover"
-              />
-            ) : (
-              <div className="flex size-10 items-center justify-center rounded bg-zinc-100">
-                <FileIcon className="size-4 text-zinc-400" />
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-zinc-700 max-w-[120px]">
-                {file.filename ?? "file"}
-              </p>
-              <p className="text-zinc-400">
-                {file.mediaType?.split("/").pop() ?? "file"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => attachments.remove(file.id)}
-              className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-zinc-800 text-white opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
-        );
-      })}
-    </PromptInputHeader>
-  );
-}
-
-function BookmarkChips({ bookmarks, onRemove }: { bookmarks: BookmarkData[]; onRemove: (id: string) => void }) {
-  if (bookmarks.length === 0) return null;
-
-  return (
-    <PromptInputHeader className="p-2 gap-2">
-      {bookmarks.map((b) => {
-        const domain = (() => {
-          try { return new URL(b.url).hostname.replace("www.", ""); } catch { return ""; }
-        })();
-        return (
-          <div
-            key={b.id}
-            className="group relative inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs"
-          >
-            <Bookmark className="size-3.5 text-blue-500 shrink-0" />
-            <div className="min-w-0">
-              <p className="truncate font-medium text-zinc-700 max-w-[120px]">
-                {b.title ?? "Bookmark"}
-              </p>
-              <p className="text-blue-400 text-[10px]">{b.type}{domain ? ` · ${domain}` : ""}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onRemove(b.id)}
-              className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-blue-600 text-white opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
-        );
-      })}
-    </PromptInputHeader>
-  );
-}
+// ── Tab helpers ───────────────────────────────────────────────────
 
 function faviconUrl(bookmarkUrl: string): string | null {
   try {
@@ -1389,8 +681,11 @@ function TabIcon({ panel, bookmark }: { panel: PanelConfig; bookmark?: BookmarkD
   return null;
 }
 
+// ── WorkspaceTabBar ──────────────────────────────────────────────
+
 function WorkspaceTabBar({
   panels,
+  sessions,
   readerBookmarks,
   onTogglePanel,
   onRemovePanel,
@@ -1400,8 +695,10 @@ function WorkspaceTabBar({
   sidebarCollapsed,
   onToggleSidebar,
   onTabClick,
+  onNewChatPanel,
 }: {
   panels: PanelConfig[];
+  sessions: Session[];
   readerBookmarks: Map<string, BookmarkData>;
   onTogglePanel: (type: "chat" | "library" | "reader") => void;
   onRemovePanel: (id: string) => void;
@@ -1411,6 +708,7 @@ function WorkspaceTabBar({
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
   onTabClick: (panelId: string) => void;
+  onNewChatPanel: () => void;
 }) {
   const handleDrag = useTauriDrag();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -1436,7 +734,13 @@ function WorkspaceTabBar({
   }, [panels, onReorderPanels]);
 
   const tabLabel = (panel: PanelConfig, bookmark?: BookmarkData): string | null => {
-    if (panel.type === "chat") return "Chat";
+    if (panel.type === "chat") {
+      if (panel.conversationId) {
+        const session = sessions.find((s) => s.id === panel.conversationId);
+        return session?.title ?? "Chat";
+      }
+      return "New Chat";
+    }
     if (panel.type === "library") return "Library";
     if (panel.type === "browser" && panel.url) {
       try { return new URL(panel.url).hostname.replace("www.", ""); } catch { return "Browser"; }
@@ -1470,6 +774,14 @@ function WorkspaceTabBar({
           title={sidebarCollapsed ? "Show sidebar (⌥S)" : "Hide sidebar (⌥S)"}
         >
           <PanelLeft size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={onNewChatPanel}
+          className="flex items-center justify-center rounded-full px-2 py-1.5 text-zinc-500 hover:text-zinc-700 transition-colors"
+          title="New chat panel"
+        >
+          <MessageSquarePlus size={14} />
         </button>
         <DndContext
           sensors={sensors}
@@ -1590,7 +902,7 @@ function SortableTab({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (panel.type === "chat" || panel.type === "library") {
+              if (panel.type === "library") {
                 onTogglePanel(panel.type);
               } else {
                 onRemovePanel(panel.id);
@@ -1598,7 +910,7 @@ function SortableTab({
             }}
             onPointerDown={(e) => e.stopPropagation()}
             className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition-colors"
-            title={panel.type === "chat" || panel.type === "library" ? `Hide ${panel.type}` : "Close"}
+            title={panel.type === "library" ? `Hide ${panel.type}` : "Close"}
           >
             <X size={11} />
           </button>
@@ -1635,7 +947,6 @@ function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string })
     const observer = new ResizeObserver(sync);
     observer.observe(el);
     window.addEventListener("resize", sync);
-    // Sync on horizontal scroll of parent container
     const scrollParent = el.closest("[data-panel-scroll]");
     if (scrollParent) scrollParent.addEventListener("scroll", sync);
 
@@ -1658,7 +969,6 @@ function useFaviconColor(url: string): { color: string | null; isLight: boolean 
     if (!favicon) return;
     let cancelled = false;
 
-    // Fetch favicon via Tauri HTTP plugin to bypass CORS, then extract color
     import("@tauri-apps/plugin-http").then(({ fetch: tauriFetch }) => {
       return tauriFetch(favicon, { method: "GET" });
     }).then((resp) => {
@@ -1677,13 +987,12 @@ function useFaviconColor(url: string): { color: string | null; isLight: boolean 
           if (!ctx) { URL.revokeObjectURL(blobUrl); return; }
           ctx.drawImage(img, 0, 0);
           const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-          // Sample non-white, non-transparent pixels to find dominant color
           let r = 0, g = 0, b = 0, count = 0;
           for (let i = 0; i < data.length; i += 4) {
             const pr = data[i], pg = data[i + 1], pb = data[i + 2], pa = data[i + 3];
-            if (pa < 128) continue; // skip transparent
-            if (pr > 240 && pg > 240 && pb > 240) continue; // skip near-white
-            if (pr < 15 && pg < 15 && pb < 15) continue; // skip near-black
+            if (pa < 128) continue;
+            if (pr > 240 && pg > 240 && pb > 240) continue;
+            if (pr < 15 && pg < 15 && pb < 15) continue;
             r += pr; g += pg; b += pb; count++;
           }
           if (count > 0 && !cancelled) {
@@ -1714,7 +1023,6 @@ function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string;
   })();
 
   const { color: siteColor, isLight } = useFaviconColor(url);
-  // For light favicon colors, use dark text; for dark colors, use white text
   const textMain = siteColor ? (isLight ? "text-zinc-800/90" : "text-white/90") : "text-zinc-500";
   const textMuted = siteColor ? (isLight ? "text-zinc-700/70" : "text-white/70") : "text-zinc-400";
   const btnStyle = siteColor
@@ -1754,84 +1062,6 @@ function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string;
         </div>
       </div>
       <BrowserWebViewFrame url={url} panelId={panelId} />
-    </div>
-  );
-}
-
-// ── Chat Link Interceptor ─────────────────────────────────────────
-// Intercepts clicks on <a> tags in the chat area:
-// - Left click → open in-app browser panel
-// - Right click → popover with "Open in external browser"
-
-function ChatLinkInterceptor({ containerRef, onOpenBrowser }: { containerRef: React.RefObject<HTMLElement | null>; onOpenBrowser: (url: string) => void }) {
-  const [menu, setMenu] = useState<{ x: number; y: number; url: string } | null>(null);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const getExternalHref = (e: Event): string | null => {
-      const anchor = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
-      if (!anchor) return null;
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#") || href.startsWith("javascript")) return null;
-      try {
-        const url = new URL(href, window.location.href);
-        if (url.origin === window.location.origin) return null;
-        return url.href;
-      } catch { return null; }
-    };
-
-    const handleClick = (e: MouseEvent) => {
-      const href = getExternalHref(e);
-      if (!href) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setMenu(null);
-      onOpenBrowser(href);
-    };
-
-    const handleContextMenu = (e: MouseEvent) => {
-      const href = getExternalHref(e);
-      if (!href) return;
-      e.preventDefault();
-      setMenu({ x: e.clientX, y: e.clientY, url: href });
-    };
-
-    el.addEventListener("click", handleClick, true);
-    el.addEventListener("contextmenu", handleContextMenu, true);
-    return () => {
-      el.removeEventListener("click", handleClick, true);
-      el.removeEventListener("contextmenu", handleContextMenu, true);
-    };
-  }, [containerRef, onOpenBrowser]);
-
-  // Close menu on any click outside
-  useEffect(() => {
-    if (!menu) return;
-    const handleClose = () => setMenu(null);
-    document.addEventListener("click", handleClose);
-    return () => document.removeEventListener("click", handleClose);
-  }, [menu]);
-
-  if (!menu) return null;
-
-  return (
-    <div
-      className="fixed z-50 min-w-[200px] rounded-lg border border-zinc-200 bg-white shadow-lg py-1"
-      style={{ left: menu.x, top: menu.y }}
-    >
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 transition-colors"
-        onClick={() => {
-          import("@tauri-apps/plugin-shell").then(({ open }) => open(menu.url)).catch(console.error);
-          setMenu(null);
-        }}
-      >
-        <ExternalLink size={14} className="text-zinc-400" />
-        Open in external browser
-      </button>
     </div>
   );
 }

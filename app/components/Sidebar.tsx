@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2, PanelRight } from "lucide-react";
 import XIcon from "./XIcon";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
@@ -221,11 +222,13 @@ function SessionItem({
   isActive,
   onSelect,
   onDelete,
+  onOpenInPanel,
 }: {
   session: Session;
   isActive: boolean;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  onOpenInPanel?: (id: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -275,18 +278,38 @@ function SessionItem({
               </Button>
             </div>
           ) : (
-            <ContextMenuItem
-              variant="destructive"
-              className="gap-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setConfirmDelete(true);
-              }}
-            >
-              <Trash2 size={14} />
-              Delete conversation
-            </ContextMenuItem>
+            <>
+              {onOpenInPanel && (
+                <>
+                  <ContextMenuItem
+                    className="gap-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenInPanel(session.id);
+                      document.dispatchEvent(
+                        new KeyboardEvent("keydown", { key: "Escape" }),
+                      );
+                    }}
+                  >
+                    <PanelRight size={14} />
+                    Open in new panel
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                </>
+              )}
+              <ContextMenuItem
+                variant="destructive"
+                className="gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setConfirmDelete(true);
+                }}
+              >
+                <Trash2 size={14} />
+                Delete conversation
+              </ContextMenuItem>
+            </>
           )}
         </ContextMenuContent>
       </ContextMenu>
@@ -339,6 +362,7 @@ export default function Sidebar({
   opencodeSessions,
   opencodeConnected,
   onDeleteSession,
+  onOpenInPanel,
 }: {
   activeGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
@@ -353,6 +377,7 @@ export default function Sidebar({
   opencodeSessions?: Session[];
   opencodeConnected?: boolean;
   onDeleteSession?: (id: string) => void;
+  onOpenInPanel?: (sessionId: string) => void;
 }) {
   const { data: groups } = useGroups();
   const { mutate: createGroup } = useCreateGroup();
@@ -587,6 +612,7 @@ export default function Sidebar({
                           isActive={activeConversationId === session.id}
                           onSelect={(id) => onConversationSelect?.(id)}
                           onDelete={(id) => onDeleteSession?.(id)}
+                          onOpenInPanel={onOpenInPanel}
                         />
                       ))}
                     </ul>

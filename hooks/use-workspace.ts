@@ -11,6 +11,7 @@ export type PanelConfig = {
   widthPreset: WidthPreset;
   bookmarkId?: string;
   url?: string;
+  conversationId?: string;
 };
 
 // TODO: Re-enable localStorage persistence for workspace layouts
@@ -63,7 +64,7 @@ export function useWorkspace() {
   void initializedRef; // suppress unused warning
 
   const addPanel = useCallback(
-    (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string; url?: string }) => {
+    (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string; url?: string; conversationId?: string }) => {
       setPanels((prev) => [
         ...prev,
         {
@@ -72,11 +73,16 @@ export function useWorkspace() {
           widthPreset: options?.widthPreset ?? "medium",
           bookmarkId: options?.bookmarkId,
           url: options?.url,
+          conversationId: options?.conversationId,
         },
       ]);
     },
     [],
   );
+
+  const updatePanel = useCallback((id: string, updates: Partial<Omit<PanelConfig, "id">>) => {
+    setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+  }, []);
 
   const removePanel = useCallback((id: string) => {
     setPanels((prev) => prev.filter((p) => p.id !== id));
@@ -132,9 +138,11 @@ export function useWorkspace() {
 
   const togglePanel = useCallback((type: PanelType) => {
     setPanels((prev) => {
-      const existing = prev.find((p) => p.type === type);
-      if (existing) {
-        return prev.filter((p) => p.id !== existing.id);
+      const existing = prev.filter((p) => p.type === type);
+      if (existing.length > 0) {
+        // Remove the last panel of this type
+        const last = existing[existing.length - 1];
+        return prev.filter((p) => p.id !== last.id);
       }
       const defaultPreset: WidthPreset = type === "chat" ? "wide" : "medium";
       return [
@@ -145,7 +153,7 @@ export function useWorkspace() {
             )
           : prev),
         {
-          id: type === "chat" ? "panel-chat" : generatePanelId(),
+          id: generatePanelId(),
           type,
           widthPreset: defaultPreset,
         },
@@ -166,6 +174,7 @@ export function useWorkspace() {
   return {
     panels,
     addPanel,
+    updatePanel,
     removePanel,
     reorderPanels,
     resizePanel,
