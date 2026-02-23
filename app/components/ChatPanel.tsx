@@ -452,7 +452,7 @@ export function ChatPanel({
     const convKey = conversationId ?? panelId;
     queuesRef.current.delete(convKey);
     setQueueLength(0);
-  }, [conversationId]);
+  }, [conversationId, panelId]);
 
   const handleSelectDirectory = useCallback(async () => {
     try {

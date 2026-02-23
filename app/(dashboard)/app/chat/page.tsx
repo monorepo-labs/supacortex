@@ -78,20 +78,6 @@ function ChatPageContent() {
 
   const { sessions, refetch: refetchSessions } = useOpenCodeSessions(connected);
 
-  const handleDeleteSession = useCallback(async (id: string) => {
-    try {
-      const client = getClient();
-      await client.session.delete({ path: { id } });
-      await untrackSessionId(id);
-      refetchSessions();
-      if (urlConversationId === id) {
-        router.replace("/app/chat");
-      }
-    } catch {
-      // silently fail
-    }
-  }, [refetchSessions, urlConversationId, router]);
-
   const [userCollapsedOverride, setUserCollapsedOverride] = useState<boolean | null>(null);
   const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
     () => {
@@ -113,6 +99,26 @@ function ChatPageContent() {
   // Workspace panels (chat, library, reader)
   const workspace = useWorkspace();
   const { panels, addPanel, updatePanel, removePanel, reorderPanels, togglePanel, hasPanel, cycleWidth } = workspace;
+
+  const handleDeleteSession = useCallback(async (id: string) => {
+    try {
+      const client = getClient();
+      await client.session.delete({ path: { id } });
+      await untrackSessionId(id);
+      refetchSessions();
+      if (urlConversationId === id) {
+        router.replace("/app/chat");
+      }
+      // Clear conversationId from any panel showing the deleted session
+      for (const p of panels) {
+        if (p.type === "chat" && p.conversationId === id) {
+          updatePanel(p.id, { conversationId: undefined });
+        }
+      }
+    } catch {
+      // silently fail
+    }
+  }, [refetchSessions, urlConversationId, router, panels, updatePanel]);
 
   // Seed the default chat panel's conversationId from URL on mount
   const urlSeededRef = useRef(false);
