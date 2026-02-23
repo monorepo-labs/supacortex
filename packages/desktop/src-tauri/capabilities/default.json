@@ -19,6 +19,7 @@
     "core:webview:allow-get-all-webviews",
     "core:event:default",
     "dialog:allow-open",
+    "shell:allow-open",
     {
       "identifier": "http:default",
       "allow": [
