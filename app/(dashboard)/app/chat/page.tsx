@@ -783,6 +783,16 @@ function WorkspaceTabBar({
         >
           <MessageSquarePlus size={14} />
         </button>
+        {!hasPanel("library") && (
+          <button
+            type="button"
+            onClick={() => onTogglePanel("library")}
+            className="flex items-center justify-center rounded-full px-2 py-1.5 text-zinc-500 hover:text-zinc-700 transition-colors"
+            title="Open library (⌥B)"
+          >
+            <BookOpenIcon className="h-3.5 w-3.5" />
+          </button>
+        )}
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
