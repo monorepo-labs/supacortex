@@ -359,28 +359,30 @@ export function ChatPanel({
       sendingKeysRef.current.add(convKey);
       setPendingSendTick((t) => t + 1);
 
-      const resolvedId = await doSend(text, files, bookmarks);
+      try {
+        const resolvedId = await doSend(text, files, bookmarks);
 
-      const queue = queuesRef.current.get(convKey);
-      while (queue && queue.length > 0) {
-        const next = queue.shift()!;
-        setQueueLength(queue.length);
-        const activeConvId = resolvedId ?? convKey;
-        addLocalMessage(activeConvId, {
-          id: `temp-user-${Date.now()}`,
-          conversationId: activeConvId,
-          role: "user",
-          content: next,
-          createdAt: new Date().toISOString(),
-        });
+        const queue = queuesRef.current.get(convKey);
+        while (queue && queue.length > 0) {
+          const next = queue.shift()!;
+          setQueueLength(queue.length);
+          const activeConvId = resolvedId ?? convKey;
+          addLocalMessage(activeConvId, {
+            id: `temp-user-${Date.now()}`,
+            conversationId: activeConvId,
+            role: "user",
+            content: next,
+            createdAt: new Date().toISOString(),
+          });
+          setPendingSendTick((t) => t + 1);
+          await doSend(next, undefined, undefined, resolvedId);
+        }
+      } finally {
+        sendingKeysRef.current.delete(convKey);
+        queuesRef.current.delete(convKey);
         setPendingSendTick((t) => t + 1);
-        await doSend(next, undefined, undefined, resolvedId);
+        setQueueLength(0);
       }
-
-      sendingKeysRef.current.delete(convKey);
-      queuesRef.current.delete(convKey);
-      setPendingSendTick((t) => t + 1);
-      setQueueLength(0);
     },
     [doSend, addLocalMessage],
   );
