@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 
-export type PanelType = "chat" | "library" | "reader";
+export type PanelType = "chat" | "library" | "reader" | "browser";
 export type WidthPreset = "narrow" | "medium" | "wide";
 
 export type PanelConfig = {
@@ -10,35 +10,37 @@ export type PanelConfig = {
   type: PanelType;
   widthPreset: WidthPreset;
   bookmarkId?: string;
+  url?: string;
 };
 
-const STORAGE_KEY = "workspace-layout";
+// TODO: Re-enable localStorage persistence for workspace layouts
+// const STORAGE_KEY = "workspace-layout";
 
 const DEFAULT_PANELS: PanelConfig[] = [
   { id: "panel-chat", type: "chat", widthPreset: "wide" },
 ];
 
-function loadPanels(): PanelConfig[] {
-  if (typeof window === "undefined") return DEFAULT_PANELS;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {
-    // ignore
-  }
-  return DEFAULT_PANELS;
-}
+// function loadPanels(): PanelConfig[] {
+//   if (typeof window === "undefined") return DEFAULT_PANELS;
+//   try {
+//     const stored = localStorage.getItem(STORAGE_KEY);
+//     if (stored) {
+//       const parsed = JSON.parse(stored);
+//       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+//     }
+//   } catch {
+//     // ignore
+//   }
+//   return DEFAULT_PANELS;
+// }
 
-function savePanels(panels: PanelConfig[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(panels));
-  } catch {
-    // ignore
-  }
-}
+// function savePanels(panels: PanelConfig[]) {
+//   try {
+//     localStorage.setItem(STORAGE_KEY, JSON.stringify(panels));
+//   } catch {
+//     // ignore
+//   }
+// }
 
 let panelCounter = Date.now();
 function generatePanelId(): string {
@@ -46,20 +48,22 @@ function generatePanelId(): string {
 }
 
 export function useWorkspace() {
-  const [panels, setPanels] = useState<PanelConfig[]>(loadPanels);
+  // const [panels, setPanels] = useState<PanelConfig[]>(loadPanels);
+  const [panels, setPanels] = useState<PanelConfig[]>(DEFAULT_PANELS);
   const initializedRef = useRef(false);
 
-  // Sync to localStorage on change (skip initial mount)
-  useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      return;
-    }
-    savePanels(panels);
-  }, [panels]);
+  // TODO: Re-enable localStorage sync when workspace persistence is ready
+  // useEffect(() => {
+  //   if (!initializedRef.current) {
+  //     initializedRef.current = true;
+  //     return;
+  //   }
+  //   savePanels(panels);
+  // }, [panels]);
+  void initializedRef; // suppress unused warning
 
   const addPanel = useCallback(
-    (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string }) => {
+    (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string; url?: string }) => {
       setPanels((prev) => [
         ...prev,
         {
@@ -67,6 +71,7 @@ export function useWorkspace() {
           type,
           widthPreset: options?.widthPreset ?? "medium",
           bookmarkId: options?.bookmarkId,
+          url: options?.url,
         },
       ]);
     },
@@ -108,7 +113,7 @@ export function useWorkspace() {
         console.log("[cycleWidth] panel not found:", id);
         return prev;
       }
-      const order: WidthPreset[] = panel.type === "reader"
+      const order: WidthPreset[] = panel.type === "reader" || panel.type === "browser"
         ? ["medium", "wide"]
         : ["narrow", "medium", "wide"];
       const nextPreset = order[(order.indexOf(panel.widthPreset) + 1) % order.length];

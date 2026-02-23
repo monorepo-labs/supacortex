@@ -12,13 +12,15 @@ function ExternalLinkHandler() {
     const handleClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest("a");
       if (!target) return;
+      // Skip links inside chat panel — ChatLinkInterceptor handles those
+      if (target.closest("[data-chat-links]")) return;
       const href = target.getAttribute("href");
       if (!href || href.startsWith("/") || href.startsWith("#") || href.startsWith("javascript")) return;
       try {
         const url = new URL(href, window.location.href);
         if (url.origin === window.location.origin) return;
         e.preventDefault();
-        import("@tauri-apps/plugin-shell").then(({ open }) => open(href)).catch(console.error);
+        import("@tauri-apps/plugin-shell").then(({ open }) => open(url.href)).catch(console.error);
       } catch {
         // invalid URL, let browser handle it
       }

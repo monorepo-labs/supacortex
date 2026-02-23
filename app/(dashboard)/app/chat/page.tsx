@@ -24,7 +24,7 @@ import { useBookmarksByIds } from "@/hooks/use-bookmark-by-id";
 import InlineBookmarkCard from "@/app/components/InlineBookmarkCard";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, MessageSquarePlus, Link as LinkIcon, PanelLeft, Paperclip } from "lucide-react";
+import { ChevronDown, Check, X, FolderOpen, FileIcon, Bookmark, MessageSquarePlus, Link as LinkIcon, PanelLeft, Paperclip, Globe, ExternalLink } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -241,6 +241,20 @@ function ChatPageContent() {
   const handleCloseReader = useCallback((panelId: string) => {
     removePanel(panelId);
   }, [removePanel]);
+
+  // Browser panel management
+  const handleOpenBrowser = useCallback((url: string) => {
+    // Don't open duplicate for same URL
+    if (panels.some((p) => p.type === "browser" && p.url === url)) return;
+    addPanel("browser", { url });
+  }, [panels, addPanel]);
+
+  const handleCloseBrowser = useCallback((panelId: string) => {
+    removePanel(panelId);
+  }, [removePanel]);
+
+  // Chat panel ref for link interception
+  const chatPanelRef = useRef<HTMLElement>(null);
 
   // Hydrate reader bookmark data for panels restored from localStorage
   const hydratedRef = useRef<Set<string>>(new Set());
@@ -688,6 +702,9 @@ function ChatPageContent() {
   // Show thinking below streamed text during tool calls (has text, sending, but not actively streaming)
   const showToolCallThinking = isSending && !!streamedText && !isStreaming;
 
+  // Disable Streamdown's built-in link safety modal — we handle links ourselves
+  const linkSafetyOff = useMemo(() => ({ enabled: false }), []);
+
   // Context window usage for the hover card
   const activeModel = selectedModel ?? defaultModelInfo ?? null;
   const contextMaxTokens = activeModel?.contextLimit ?? 200000;
@@ -705,14 +722,15 @@ function ChatPageContent() {
     }
     // medium
     if (panelType === "chat") return "shrink-0 w-[600px] min-w-[600px]";
-    if (panelType === "reader") return "shrink-0 w-[480px] min-w-[480px]";
+    if (panelType === "reader" || panelType === "browser") return "shrink-0 w-[480px] min-w-[480px]";
     return "shrink-0 w-[640px] min-w-[640px]";
   };
 
   const renderPanel = (panel: PanelConfig, index: number) => {
     if (panel.type === "chat") {
       return (
-        <main key={panel.id} id={`panel-${panel.id}`} className={`relative h-full ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col`}>
+        <main ref={chatPanelRef} key={panel.id} id={`panel-${panel.id}`} data-chat-links className={`relative h-full ${widthClasses(panel.widthPreset, "chat")} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col`}>
+          <ChatLinkInterceptor containerRef={chatPanelRef} onOpenBrowser={handleOpenBrowser} />
 
           {/* Messages area */}
           <Conversation className="flex-1">
@@ -747,6 +765,7 @@ function ChatPageContent() {
                             isAnimating={isStreaming}
                             animated={{ animation: "fadeIn", sep: "word" }}
                             caret={isStreaming ? "block" : undefined}
+                            linkSafety={linkSafetyOff}
                           >
                             {streamedText}
                           </Streamdown>
@@ -1053,6 +1072,18 @@ function ChatPageContent() {
       );
     }
 
+    if (panel.type === "browser" && panel.url) {
+      return (
+        <div key={panel.id} id={`panel-${panel.id}`} className={`${widthClasses(panel.widthPreset, "browser")} h-full mr-2`}>
+          <BrowserPanel
+            url={panel.url}
+            panelId={panel.id}
+            onClose={() => handleCloseBrowser(panel.id)}
+          />
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -1073,7 +1104,7 @@ function ChatPageContent() {
           el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
         }}
       />
-      <div className="flex flex-1 min-h-0 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+      <div data-panel-scroll className="flex flex-1 min-h-0 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         <Sidebar
           activeGroupId={null}
           onGroupSelect={() => {}}
@@ -1139,6 +1170,8 @@ function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { 
 
   const assistantText = refs.length > 0 ? displayText : message.content;
 
+  const linkSafetyOff = useMemo(() => ({ enabled: false }), []);
+
   return (
     <div className="flex justify-start">
       <div className="max-w-[80%] space-y-2">
@@ -1158,7 +1191,7 @@ function MessageBubble({ message, onOpenBookmark, onOpenBookmarkInNewPanel }: { 
         )}
         <div className="text-sm text-zinc-800">
           <div className="prose prose-sm prose-zinc max-w-none">
-            <Streamdown>{assistantText}</Streamdown>
+            <Streamdown linkSafety={linkSafetyOff}>{assistantText}</Streamdown>
           </div>
         </div>
       </div>
@@ -1302,6 +1335,16 @@ function faviconUrl(bookmarkUrl: string): string | null {
 function TabIcon({ panel, bookmark }: { panel: PanelConfig; bookmark?: BookmarkData }) {
   if (panel.type === "chat") return <ChatBubbleLeftIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600" />;
   if (panel.type === "library") return <BookOpenIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600" />;
+  if (panel.type === "browser" && panel.url) {
+    const favicon = faviconUrl(panel.url);
+    if (favicon) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={favicon} alt="" className="size-3.5 shrink-0 rounded-sm" />
+      );
+    }
+    return <Globe size={13} className="shrink-0 text-zinc-600" />;
+  }
   if (panel.type === "reader" && bookmark) {
     if (bookmark.type === "tweet" || bookmark.type === "article") {
       return (
@@ -1379,6 +1422,9 @@ function WorkspaceTabBar({
   const tabLabel = (panel: PanelConfig, bookmark?: BookmarkData): string | null => {
     if (panel.type === "chat") return "Chat";
     if (panel.type === "library") return "Library";
+    if (panel.type === "browser" && panel.url) {
+      try { return new URL(panel.url).hostname.replace("www.", ""); } catch { return "Browser"; }
+    }
     if (!bookmark) return "Bookmark";
     if (bookmark.type === "tweet" || bookmark.type === "article") {
       const author = bookmark.author ? `@${bookmark.author}` : "";
@@ -1542,6 +1588,173 @@ function SortableTab({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Browser Panel ─────────────────────────────────────────────────
+
+function isTauriBrowser(): boolean {
+  return !!(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__;
+}
+
+function invokeTauri(cmd: string, args: Record<string, unknown>) {
+  const tauri = (window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, args: Record<string, unknown>) => void } }).__TAURI_INTERNALS__;
+  if (tauri) tauri.invoke(cmd, args);
+}
+
+function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const label = `browser-${panelId}`;
+
+  useEffect(() => {
+    if (!isTauriBrowser() || !containerRef.current) return;
+
+    const el = containerRef.current;
+
+    function sync() {
+      const r = el.getBoundingClientRect();
+      invokeTauri("resize_webview", { label, x: r.left, y: r.top, width: r.width, height: r.height });
+    }
+
+    const rect = el.getBoundingClientRect();
+    invokeTauri("open_webview", { url, label, x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    window.addEventListener("resize", sync);
+    // Sync on horizontal scroll of parent container
+    const scrollParent = el.closest("[data-panel-scroll]");
+    if (scrollParent) scrollParent.addEventListener("scroll", sync);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+      if (scrollParent) scrollParent.removeEventListener("scroll", sync);
+      invokeTauri("close_webview", { label });
+    };
+  }, [url, label]);
+
+  if (!isTauriBrowser()) {
+    return <iframe src={url} title="Browser" className="flex-1 w-full border-none" />;
+  }
+
+  return <div ref={containerRef} className="flex-1 w-full" />;
+}
+
+function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string; onClose: () => void }) {
+  const domain = (() => {
+    try { return new URL(url).hostname.replace("www.", ""); } catch { return url; }
+  })();
+
+  const handleOpenExternal = useCallback(() => {
+    import("@tauri-apps/plugin-shell").then(({ open }) => open(url)).catch(console.error);
+  }, [url]);
+
+  return (
+    <div className="group/browser shrink-0 shadow-card rounded-xl overflow-hidden bg-white h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <Globe size={13} className="shrink-0 text-zinc-400" />
+          <span className="text-xs text-zinc-500 truncate" title={url}>
+            {domain}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleOpenExternal}
+            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+            title="Open in external browser"
+          >
+            <ExternalLink size={13} />
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+      <BrowserWebViewFrame url={url} panelId={panelId} />
+    </div>
+  );
+}
+
+// ── Chat Link Interceptor ─────────────────────────────────────────
+// Intercepts clicks on <a> tags in the chat area:
+// - Left click → open in-app browser panel
+// - Right click → popover with "Open in external browser"
+
+function ChatLinkInterceptor({ containerRef, onOpenBrowser }: { containerRef: React.RefObject<HTMLElement | null>; onOpenBrowser: (url: string) => void }) {
+  const [menu, setMenu] = useState<{ x: number; y: number; url: string } | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const getExternalHref = (e: Event): string | null => {
+      const anchor = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return null;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("javascript")) return null;
+      try {
+        const url = new URL(href, window.location.href);
+        if (url.origin === window.location.origin) return null;
+        return url.href;
+      } catch { return null; }
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      const href = getExternalHref(e);
+      if (!href) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMenu(null);
+      onOpenBrowser(href);
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      const href = getExternalHref(e);
+      if (!href) return;
+      e.preventDefault();
+      setMenu({ x: e.clientX, y: e.clientY, url: href });
+    };
+
+    el.addEventListener("click", handleClick, true);
+    el.addEventListener("contextmenu", handleContextMenu, true);
+    return () => {
+      el.removeEventListener("click", handleClick, true);
+      el.removeEventListener("contextmenu", handleContextMenu, true);
+    };
+  }, [containerRef, onOpenBrowser]);
+
+  // Close menu on any click outside
+  useEffect(() => {
+    if (!menu) return;
+    const handleClose = () => setMenu(null);
+    document.addEventListener("click", handleClose);
+    return () => document.removeEventListener("click", handleClose);
+  }, [menu]);
+
+  if (!menu) return null;
+
+  return (
+    <div
+      className="fixed z-50 min-w-[200px] rounded-lg border border-zinc-200 bg-white shadow-lg py-1"
+      style={{ left: menu.x, top: menu.y }}
+    >
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 transition-colors"
+        onClick={() => {
+          import("@tauri-apps/plugin-shell").then(({ open }) => open(menu.url)).catch(console.error);
+          setMenu(null);
+        }}
+      >
+        <ExternalLink size={14} className="text-zinc-400" />
+        Open in external browser
+      </button>
     </div>
   );
 }
