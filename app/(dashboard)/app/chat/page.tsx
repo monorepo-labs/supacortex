@@ -1710,6 +1710,7 @@ function ChatLinkInterceptor({ containerRef, onOpenBrowser }: { containerRef: Re
       if (!href) return;
       e.preventDefault();
       e.stopPropagation();
+      setMenu(null);
       onOpenBrowser(href);
     };
 
