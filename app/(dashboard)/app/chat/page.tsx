@@ -104,8 +104,6 @@ function ChatPageContent() {
       }
     },
   );
-  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-
   // Local-first messages: keyed by conversationId, "new" for unsaved convos
   const [localMessages, setLocalMessages] = useState<Map<string, ChatMessage[]>>(new Map());
 
@@ -345,7 +343,6 @@ function ChatPageContent() {
   // Model selection handler
   const handleModelSelect = useCallback((model: ProviderModel) => {
     setSelectedModel(model);
-    setModelSelectorOpen(false);
     try {
       localStorage.setItem("opencode-selected-model", JSON.stringify(model));
     } catch {
@@ -468,8 +465,6 @@ function ChatPageContent() {
     defaultModel,
     selectedModel,
     onModelSelect: handleModelSelect,
-    modelSelectorOpen,
-    setModelSelectorOpen,
     onOpenBrowser: handleOpenBrowser,
     onOpenReader: handleOpenReader,
     onOpenInNewPanel: handleOpenInNewPanel,
@@ -482,7 +477,6 @@ function ChatPageContent() {
     sendMessage, abort, getState, markSendComplete, loadTokens,
     createSession, refetchSessions,
     providers, defaultModel, selectedModel, handleModelSelect,
-    modelSelectorOpen,
     handleOpenBrowser, handleOpenReader, handleOpenInNewPanel,
     selectedBookmarks,
   ]);

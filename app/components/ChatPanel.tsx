@@ -138,8 +138,6 @@ interface ChatPanelContextValue {
   defaultModel: string | null;
   selectedModel: ProviderModel | null;
   onModelSelect: (model: ProviderModel) => void;
-  modelSelectorOpen: boolean;
-  setModelSelectorOpen: (open: boolean) => void;
   onOpenBrowser: (url: string) => void;
   onOpenReader: (bookmark: BookmarkData) => void;
   onOpenInNewPanel: (bookmark: BookmarkData) => void;
@@ -186,6 +184,7 @@ export function ChatPanel({
 }) {
   const ctx = useChatPanelContext();
   const chatPanelRef = useRef<HTMLElement>(null);
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
 
   // Per-panel queue for messages sent while streaming
   const queuesRef = useRef<Map<string, string[]>>(new Map());
@@ -203,7 +202,7 @@ export function ChatPanel({
 
   // Derive isSending (hook + local pending)
   void pendingSendTick;
-  const pendingSend = sendingKeysRef.current.has(conversationId ?? "new");
+  const pendingSend = sendingKeysRef.current.has(conversationId ?? panelId);
   const isSending = hookSending || pendingSend;
 
   const chatStatus: ChatStatus = isStreaming
@@ -240,7 +239,7 @@ export function ChatPanel({
   }, [conversationId, ctx]);
 
   // Messages for this panel
-  const localKey = conversationId ?? "new";
+  const localKey = conversationId ?? panelId;
   const messages = ctx.localMessages.get(localKey) ?? [];
 
   const addLocalMessage = useCallback(
@@ -264,7 +263,7 @@ export function ChatPanel({
     ): Promise<string | undefined> => {
       let currentConversationId = overrideConversationId ?? conversationId;
       const dir =
-        ctx.conversationDirs.get(currentConversationId ?? "new") ?? undefined;
+        ctx.conversationDirs.get(currentConversationId ?? panelId) ?? undefined;
 
       if (!currentConversationId) {
         const titleText =
@@ -273,11 +272,11 @@ export function ChatPanel({
         if (!session) return;
         currentConversationId = session.id;
 
-        // Move local messages from "new" to the session ID
+        // Move local messages from panelId key to the session ID
         ctx.setLocalMessages((prev) => {
           const next = new Map(prev);
-          const msgs = next.get("new") ?? [];
-          next.delete("new");
+          const msgs = next.get(panelId) ?? [];
+          next.delete(panelId);
           next.set(
             currentConversationId!,
             msgs.map((m) => ({
@@ -289,10 +288,10 @@ export function ChatPanel({
         });
         // Move directory
         ctx.setConversationDirs((prev) => {
-          const newDir = prev.get("new");
+          const newDir = prev.get(panelId);
           if (!newDir) return prev;
           const next = new Map(prev);
-          next.delete("new");
+          next.delete(panelId);
           next.set(currentConversationId!, newDir);
           return next;
         });
@@ -390,7 +389,7 @@ export function ChatPanel({
     (text: string, files?: FileUIPart[], bookmarks?: BookmarkData[]) => {
       if ((!text.trim() && !bookmarks?.length) || !ctx.connected) return;
 
-      const convKey = conversationId ?? "new";
+      const convKey = conversationId ?? panelId;
 
       if (sendingKeysRef.current.has(convKey)) {
         let queueText = text;
@@ -448,7 +447,7 @@ export function ChatPanel({
   );
 
   const clearQueue = useCallback(() => {
-    const convKey = conversationId ?? "new";
+    const convKey = conversationId ?? panelId;
     queuesRef.current.delete(convKey);
     setQueueLength(0);
   }, [conversationId]);
@@ -462,7 +461,7 @@ export function ChatPanel({
         title: "Select working directory",
       });
       if (selected && typeof selected === "string") {
-        const key = conversationId ?? "new";
+        const key = conversationId ?? panelId;
         ctx.setConversationDirs((prev) => {
           const next = new Map(prev);
           next.set(key, selected);
@@ -475,7 +474,7 @@ export function ChatPanel({
   }, [conversationId, ctx]);
 
   const activeDir =
-    ctx.conversationDirs.get(conversationId ?? "new") ?? null;
+    ctx.conversationDirs.get(conversationId ?? panelId) ?? null;
 
   const showThinking = isSending && !streamedText;
   const showStreaming = streamedText && isSending;
@@ -631,7 +630,7 @@ export function ChatPanel({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const key = conversationId ?? "new";
+                                    const key = conversationId ?? panelId;
                                     ctx.setConversationDirs((prev) => {
                                       const next = new Map(prev);
                                       next.delete(key);
@@ -668,8 +667,8 @@ export function ChatPanel({
                         return null;
                       })()}
                       <ModelSelector
-                        open={ctx.modelSelectorOpen}
-                        onOpenChange={ctx.setModelSelectorOpen}
+                        open={modelSelectorOpen}
+                        onOpenChange={setModelSelectorOpen}
                       >
                         <ModelSelectorTrigger asChild>
                           <Button
@@ -712,7 +711,10 @@ export function ChatPanel({
                                     <ModelSelectorItem
                                       key={`${provider.id}/${model.id}`}
                                       onSelect={() =>
-                                        ctx.onModelSelect(model)
+                                        {
+                                          ctx.onModelSelect(model);
+                                          setModelSelectorOpen(false);
+                                        }
                                       }
                                       className="gap-2"
                                     >
