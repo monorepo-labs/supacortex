@@ -1605,7 +1605,7 @@ function invokeTauri(cmd: string, args: Record<string, unknown>) {
 
 function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const label = `browser-${panelId.slice(0, 12)}`;
+  const label = `browser-${panelId}`;
 
   useEffect(() => {
     if (!isTauriBrowser() || !containerRef.current) return;
