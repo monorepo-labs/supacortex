@@ -183,17 +183,32 @@ function ChatPageContent() {
   // Reader bookmark data (keyed by panel ID)
   const [readerBookmarks, setReaderBookmarks] = useState<Map<string, BookmarkData>>(new Map());
 
+  // Scroll last reader panel into view when reader panels change
+  const scrollToReaderRef = useRef(false);
+  const readerPanelIds = panels.filter((p) => p.type === "reader").map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!scrollToReaderRef.current) return;
+    scrollToReaderRef.current = false;
+    const readerPanels = panels.filter((p) => p.type === "reader");
+    const last = readerPanels[readerPanels.length - 1];
+    if (last) {
+      // Wait a frame for the DOM to render the new panel
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`panel-${last.id}`);
+        el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+      });
+    }
+  }, [readerPanelIds, panels]);
+
   const handleOpenReader = useCallback((bookmark: BookmarkData) => {
+    scrollToReaderRef.current = true;
     // Find existing reader panels
     const readerPanels = panels.filter((p) => p.type === "reader");
     if (readerPanels.length === 0) {
       // Open new reader panel
-      const id = `reader-${Date.now()}`;
       addPanel("reader", { bookmarkId: bookmark.id });
-      // We need to store bookmark data — use effect below handles it
       setReaderBookmarks((prev) => {
         const next = new Map(prev);
-        // Store by bookmark ID for lookup in render
         next.set(bookmark.id, bookmark);
         return next;
       });
@@ -213,6 +228,7 @@ function ChatPageContent() {
   const handleOpenInNewPanel = useCallback((bookmark: BookmarkData) => {
     // Don't open duplicate
     if (panels.some((p) => p.type === "reader" && p.bookmarkId === bookmark.id)) return;
+    scrollToReaderRef.current = true;
     addPanel("reader", { bookmarkId: bookmark.id });
     setReaderBookmarks((prev) => {
       const next = new Map(prev);
