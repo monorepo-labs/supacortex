@@ -1696,6 +1696,7 @@ function useFaviconColor(url: string): { color: string | null; isLight: boolean 
         }
         URL.revokeObjectURL(blobUrl);
       };
+      img.onerror = () => { URL.revokeObjectURL(blobUrl); };
       img.src = blobUrl;
     }).catch(() => {
       // fetch failed, fall back to default styling
