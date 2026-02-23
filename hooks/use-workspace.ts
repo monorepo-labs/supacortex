@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 
-export type PanelType = "chat" | "library" | "reader";
+export type PanelType = "chat" | "library" | "reader" | "browser";
 export type WidthPreset = "narrow" | "medium" | "wide";
 
 export type PanelConfig = {
@@ -10,6 +10,7 @@ export type PanelConfig = {
   type: PanelType;
   widthPreset: WidthPreset;
   bookmarkId?: string;
+  url?: string;
 };
 
 const STORAGE_KEY = "workspace-layout";
@@ -59,7 +60,7 @@ export function useWorkspace() {
   }, [panels]);
 
   const addPanel = useCallback(
-    (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string }) => {
+    (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string; url?: string }) => {
       setPanels((prev) => [
         ...prev,
         {
@@ -67,6 +68,7 @@ export function useWorkspace() {
           type,
           widthPreset: options?.widthPreset ?? "medium",
           bookmarkId: options?.bookmarkId,
+          url: options?.url,
         },
       ]);
     },
@@ -108,7 +110,7 @@ export function useWorkspace() {
         console.log("[cycleWidth] panel not found:", id);
         return prev;
       }
-      const order: WidthPreset[] = panel.type === "reader"
+      const order: WidthPreset[] = panel.type === "reader" || panel.type === "browser"
         ? ["medium", "wide"]
         : ["narrow", "medium", "wide"];
       const nextPreset = order[(order.indexOf(panel.widthPreset) + 1) % order.length];
