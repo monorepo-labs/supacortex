@@ -15,7 +15,7 @@ import {
   type ProviderModel,
 } from "@/hooks/use-opencode";
 import { getClient, untrackSessionId } from "@/services/opencode";
-import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen } from "lucide-react";
+import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen, Bookmark, BookmarkCheck } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -45,7 +45,7 @@ import GridSearch from "@/app/components/GridSearch";
 import TypeFilter from "@/app/components/TypeFilter";
 import LibraryGridView from "@/app/components/LibraryGridView";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
-import { useBookmarks, useCreateBookmark } from "@/hooks/use-bookmarks";
+import { useBookmarks, useCreateBookmark, useBookmarkExists } from "@/hooks/use-bookmarks";
 import { sileo } from "sileo";
 import { useWorkspace, type PanelConfig } from "@/hooks/use-workspace";
 import { ChatPanel, ChatPanelProvider } from "@/app/components/ChatPanel";
@@ -617,6 +617,7 @@ function ChatPageContent() {
             url={panel.url}
             panelId={panel.id}
             onClose={() => handleCloseBrowser(panel.id)}
+            onSave={() => handlePasteUrl(panel.url!)}
           />
         </div>
       );
@@ -1079,11 +1080,12 @@ function useFaviconColor(url: string): { color: string | null; isLight: boolean 
   return result;
 }
 
-function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string; onClose: () => void }) {
+function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId: string; onClose: () => void; onSave: () => void }) {
   const domain = (() => {
     try { return new URL(url).hostname.replace("www.", ""); } catch { return url; }
   })();
 
+  const { data: isSaved = false } = useBookmarkExists(url);
   const { color: siteColor, isLight } = useFaviconColor(url);
   const textMain = siteColor ? (isLight ? "text-zinc-800/90" : "text-white/90") : "text-zinc-500";
   const textMuted = siteColor ? (isLight ? "text-zinc-700/70" : "text-white/70") : "text-zinc-400";
@@ -1108,6 +1110,14 @@ function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string;
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={onSave}
+            disabled={isSaved}
+            className={`rounded-lg p-1.5 transition-colors ${isSaved ? `cursor-not-allowed ${siteColor ? (isLight ? "text-zinc-700/40" : "text-white/40") : "text-zinc-300"}` : btnStyle}`}
+            title={isSaved ? "Already saved" : "Save to bookmarks"}
+          >
+            {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
+          </button>
           <button
             onClick={handleOpenExternal}
             className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
