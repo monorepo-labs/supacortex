@@ -25,13 +25,13 @@ memoryRoute.get("/", async (c) => {
 // POST /v1/memory
 memoryRoute.post("/", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json();
+  const { title, content, type, metadata } = await c.req.json();
 
-  if (!body.type) return c.json({ error: "type is required" }, 400);
-  if (!body.content) return c.json({ error: "content is required" }, 400);
+  if (!type) return c.json({ error: "type is required" }, 400);
+  if (!content) return c.json({ error: "content is required" }, 400);
 
   try {
-    const result = await createMemory({ ...body, createdBy: userId });
+    const result = await createMemory({ title, content, type, metadata, createdBy: userId });
     return c.json(result, 201);
   } catch (error) {
     console.error(error);
