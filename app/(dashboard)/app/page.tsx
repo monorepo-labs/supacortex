@@ -90,7 +90,7 @@ function ChatPageContent() {
 
   // Workspace panels (chat, library, reader)
   const workspace = useWorkspace();
-  const { panels, addPanel, updatePanel, removePanel, reorderPanels, togglePanel, hasPanel, cycleWidth } = workspace;
+  const { panels, addPanel, updatePanel, removePanel: rawRemovePanel, reorderPanels, togglePanel, hasPanel, cycleWidth } = workspace;
 
   const handleDeleteSession = useCallback(async (id: string) => {
     try {
@@ -166,6 +166,17 @@ function ChatPageContent() {
       return next;
     });
   }, []);
+
+  // Wrap removePanel to clean up panelBookmarks
+  const removePanel = useCallback((panelId: string) => {
+    setPanelBookmarks((prev) => {
+      if (!prev.has(panelId)) return prev;
+      const next = new Map(prev);
+      next.delete(panelId);
+      return next;
+    });
+    rawRemovePanel(panelId);
+  }, [rawRemovePanel]);
 
   // Reader bookmark data (keyed by panel ID)
   const [readerBookmarks, setReaderBookmarks] = useState<Map<string, BookmarkData>>(new Map());
@@ -604,7 +615,7 @@ function ChatPageContent() {
 
                 return (
                   <>
-                    <ContextMenuSub>
+                    <ContextMenuSub onOpenChange={(open) => { if (!open) setHighlightedPanelId(null); }}>
                       <ContextMenuSubTrigger className="gap-2">
                         <MessageSquarePlus size={14} />
                         Attach to chat
