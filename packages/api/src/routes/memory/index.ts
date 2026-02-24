@@ -43,10 +43,10 @@ memoryRoute.post("/", async (c) => {
 memoryRoute.patch("/:id", async (c) => {
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const body = await c.req.json();
+  const { title, content, type, metadata } = await c.req.json();
 
   try {
-    const result = await updateMemory(id, body);
+    const result = await updateMemory(id, userId, { title, content, type, metadata });
     if (!result) return c.json({ error: "Memory not found" }, 404);
     return c.json(result);
   } catch (error) {
@@ -61,7 +61,7 @@ memoryRoute.delete("/:id", async (c) => {
   const id = c.req.param("id");
 
   try {
-    await deleteMemory(id);
+    await deleteMemory(id, userId);
     return c.json({ message: "Memory deleted" });
   } catch (error) {
     console.error(error);
