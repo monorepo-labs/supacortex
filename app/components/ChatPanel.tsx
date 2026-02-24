@@ -136,8 +136,6 @@ interface ChatPanelContextValue {
   refetchSessions: () => void;
   providers: ProviderInfo[];
   defaultModel: string | null;
-  selectedModel: ProviderModel | null;
-  onModelSelect: (model: ProviderModel) => void;
   onOpenBrowser: (url: string) => void;
   onOpenReader: (bookmark: BookmarkData) => void;
   onOpenInNewPanel: (bookmark: BookmarkData) => void;
@@ -185,6 +183,28 @@ export function ChatPanel({
   const ctx = useChatPanelContext();
   const chatPanelRef = useRef<HTMLElement>(null);
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+
+  // Per-panel model selection (initialized from shared localStorage default)
+  const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      try {
+        const stored = localStorage.getItem("opencode-selected-model");
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    },
+  );
+
+  const handleModelSelect = useCallback((model: ProviderModel) => {
+    setSelectedModel(model);
+    try {
+      localStorage.setItem("opencode-selected-model", JSON.stringify(model));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Per-panel queue for messages sent while streaming
   const queuesRef = useRef<Map<string, string[]>>(new Map());
@@ -319,10 +339,10 @@ export function ChatPanel({
         currentConversationId,
         text,
         {
-          model: ctx.selectedModel
+          model: selectedModel
             ? {
-                providerID: ctx.selectedModel.providerId,
-                modelID: ctx.selectedModel.id,
+                providerID: selectedModel.providerId,
+                modelID: selectedModel.id,
               }
             : undefined,
           agent: "assistant",
@@ -493,12 +513,12 @@ export function ChatPanel({
             `${m.providerId}/${m.id}` === ctx.defaultModel,
         )
     : null;
-  const activeModelName = ctx.selectedModel
-    ? ctx.selectedModel.name
+  const activeModelName = selectedModel
+    ? selectedModel.name
     : defaultModelInfo
       ? defaultModelInfo.name
       : null;
-  const activeModel = ctx.selectedModel ?? defaultModelInfo ?? null;
+  const activeModel = selectedModel ?? defaultModelInfo ?? null;
   const contextMaxTokens = activeModel?.contextLimit ?? 200000;
   const usedTokens = tokens.input + tokens.output + tokens.reasoning;
 
@@ -678,10 +698,10 @@ export function ChatPanel({
                             size="sm"
                             className="h-7 gap-1.5 text-xs text-muted-foreground"
                           >
-                            {(ctx.selectedModel || defaultModelInfo) && (
+                            {(selectedModel || defaultModelInfo) && (
                               <ModelSelectorLogo
                                 provider={
-                                  ctx.selectedModel?.providerId ??
+                                  selectedModel?.providerId ??
                                   defaultModelInfo?.providerId ??
                                   ""
                                 }
@@ -706,15 +726,15 @@ export function ChatPanel({
                               >
                                 {provider.models.map((model) => {
                                   const isSelected =
-                                    ctx.selectedModel?.id === model.id &&
-                                    ctx.selectedModel?.providerId ===
+                                    selectedModel?.id === model.id &&
+                                    selectedModel?.providerId ===
                                       provider.id;
                                   return (
                                     <ModelSelectorItem
                                       key={`${provider.id}/${model.id}`}
                                       onSelect={() =>
                                         {
-                                          ctx.onModelSelect(model);
+                                          handleModelSelect(model);
                                           setModelSelectorOpen(false);
                                         }
                                       }
