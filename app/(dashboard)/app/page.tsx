@@ -165,6 +165,37 @@ function ChatPageContent() {
   // Reader bookmark data (keyed by panel ID)
   const [readerBookmarks, setReaderBookmarks] = useState<Map<string, BookmarkData>>(new Map());
 
+  // Scroll last chat panel into view when chat panels change
+  const scrollToChatRef = useRef(false);
+  const chatPanelIds = panels.filter((p) => p.type === "chat").map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!scrollToChatRef.current) return;
+    scrollToChatRef.current = false;
+    const chatPanels = panels.filter((p) => p.type === "chat");
+    const last = chatPanels[chatPanels.length - 1];
+    if (last) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`panel-${last.id}`);
+        el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+      });
+    }
+  }, [chatPanelIds, panels]);
+
+  // Scroll library panel into view when it's added
+  const scrollToLibraryRef = useRef(false);
+  const libraryPanelIds = panels.filter((p) => p.type === "library").map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!scrollToLibraryRef.current) return;
+    scrollToLibraryRef.current = false;
+    const libraryPanel = panels.find((p) => p.type === "library");
+    if (libraryPanel) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`panel-${libraryPanel.id}`);
+        el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+      });
+    }
+  }, [libraryPanelIds, panels]);
+
   // Scroll last reader panel into view when reader panels change
   const scrollToReaderRef = useRef(false);
   const readerPanelIds = panels.filter((p) => p.type === "reader").map((p) => p.id).join(",");
@@ -356,9 +387,22 @@ function ChatPageContent() {
     }
   }, []);
 
-  // Keyboard shortcuts: ⌥S sidebar, ⌥B library, ⌥E chat
+  // New chat panel from tab bar / ⌘N
+  const handleNewChatPanel = useCallback(() => {
+    scrollToChatRef.current = true;
+    addPanel("chat", { widthPreset: "medium" });
+  }, [addPanel]);
+
+  // Keyboard shortcuts: ⌘N new chat, ⌥S sidebar, ⌥B library, ⌥E chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // ⌘N — new chat panel
+      if ((e.metaKey || e.ctrlKey) && e.code === "KeyN" && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        handleNewChatPanel();
+        return;
+      }
+
       if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
 
       if (e.code === "KeyS") {
@@ -366,6 +410,7 @@ function ChatPageContent() {
         setUserCollapsedOverride((prev) => !prev);
       } else if (e.code === "KeyB") {
         e.preventDefault();
+        if (!hasPanel("library")) scrollToLibraryRef.current = true;
         togglePanel("library");
       } else if (e.code === "KeyE") {
         e.preventDefault();
@@ -374,7 +419,7 @@ function ChatPageContent() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePanel]);
+  }, [togglePanel, handleNewChatPanel]);
 
   // Handle new conversation creation from a chat panel
   const handleConversationCreated = useCallback((panelId: string, newConversationId: string) => {
@@ -390,12 +435,17 @@ function ChatPageContent() {
       // Single or no chat panel: reset to new conversation
       if (chatPanels.length === 1) {
         updatePanel(chatPanels[0].id, { conversationId: undefined });
+        requestAnimationFrame(() => {
+          document.getElementById(`panel-${chatPanels[0].id}`)?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
+        });
       } else {
+        scrollToChatRef.current = true;
         addPanel("chat", { widthPreset: "wide" });
       }
       router.replace("/app");
     } else {
       // Multiple chat panels: add a new panel
+      scrollToChatRef.current = true;
       addPanel("chat", { widthPreset: "medium" });
     }
   }, [panels, router, addPanel, updatePanel]);
@@ -426,13 +476,9 @@ function ChatPageContent() {
   // Open conversation in new panel (from sidebar context menu)
   const handleOpenConversationInPanel = useCallback((sessionId: string) => {
     if (panels.some((p) => p.type === "chat" && p.conversationId === sessionId)) return;
+    scrollToChatRef.current = true;
     addPanel("chat", { widthPreset: "medium", conversationId: sessionId });
   }, [panels, addPanel]);
-
-  // New chat panel from tab bar
-  const handleNewChatPanel = useCallback(() => {
-    addPanel("chat", { widthPreset: "medium" });
-  }, [addPanel]);
 
   // Width preset → CSS classes (per panel type)
   const widthClasses = (preset: string, panelType?: string) => {
@@ -590,7 +636,10 @@ function ChatPageContent() {
         panels={panels}
         sessions={sessions}
         readerBookmarks={readerBookmarks}
-        onTogglePanel={togglePanel}
+        onTogglePanel={(type) => {
+          if (type === "library" && !hasPanel("library")) scrollToLibraryRef.current = true;
+          togglePanel(type);
+        }}
         onRemovePanel={removePanel}
         onReorderPanels={reorderPanels}
         onCycleWidth={cycleWidth}
@@ -611,7 +660,10 @@ function ChatPageContent() {
           onCollapsedChange={setUserCollapsedOverride}
           sidebarTab="ask"
           onSidebarTabChange={(tab) => {
-            if (tab === "library") togglePanel("library");
+            if (tab === "library") {
+              if (!hasPanel("library")) scrollToLibraryRef.current = true;
+              togglePanel("library");
+            }
           }}
           activeConversationId={activeConversationId}
           onConversationSelect={handleConversationSelect}
