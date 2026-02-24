@@ -15,7 +15,7 @@ import {
 
 } from "@/hooks/use-opencode";
 import { getClient, untrackSessionId } from "@/services/opencode";
-import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen, Bookmark, BookmarkCheck } from "lucide-react";
+import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen, Bookmark, BookmarkCheck, Check, Copy } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -1070,6 +1070,14 @@ function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId:
     ? isLight ? "text-zinc-700/60 hover:bg-black/10 hover:text-zinc-900" : "text-white/60 hover:bg-white/15 hover:text-white"
     : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600";
 
+  const [copied, setCopied] = useState(false);
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(console.error);
+  }, [url]);
+
   const handleOpenExternal = useCallback(() => {
     import("@tauri-apps/plugin-shell").then(({ open }) => open(url)).catch(console.error);
   }, [url]);
@@ -1094,6 +1102,13 @@ function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId:
             title={isSaved ? "Already saved" : "Save to bookmarks"}
           >
             {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
+          </button>
+          <button
+            onClick={handleCopyLink}
+            className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
+            title="Copy link"
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
           </button>
           <button
             onClick={handleOpenExternal}
