@@ -41,7 +41,7 @@ export default function LoginPage() {
           return;
         }
       }
-      router.push("/app/library");
+      router.push("/app");
     } catch {
       setError("Something went wrong");
     } finally {
