@@ -15,7 +15,7 @@ import {
   type ProviderModel,
 } from "@/hooks/use-opencode";
 import { getClient, untrackSessionId } from "@/services/opencode";
-import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen } from "lucide-react";
+import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen, Bookmark, BookmarkCheck } from "lucide-react";
 import { BookOpenIcon, ChatBubbleLeftIcon } from "@heroicons/react/16/solid";
 import UserMenu from "@/app/components/UserMenu";
 import {
@@ -617,6 +617,8 @@ function ChatPageContent() {
             url={panel.url}
             panelId={panel.id}
             onClose={() => handleCloseBrowser(panel.id)}
+            onSave={() => handlePasteUrl(panel.url!)}
+            isSaved={libraryBookmarks.some((b) => b.url === panel.url)}
           />
         </div>
       );
@@ -1079,7 +1081,7 @@ function useFaviconColor(url: string): { color: string | null; isLight: boolean 
   return result;
 }
 
-function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string; onClose: () => void }) {
+function BrowserPanel({ url, panelId, onClose, onSave, isSaved }: { url: string; panelId: string; onClose: () => void; onSave: () => void; isSaved: boolean }) {
   const domain = (() => {
     try { return new URL(url).hostname.replace("www.", ""); } catch { return url; }
   })();
@@ -1108,6 +1110,14 @@ function BrowserPanel({ url, panelId, onClose }: { url: string; panelId: string;
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={onSave}
+            disabled={isSaved}
+            className={`rounded-lg p-1.5 transition-colors ${isSaved ? (siteColor ? (isLight ? "text-zinc-700/40" : "text-white/40") : "text-zinc-300") : btnStyle}`}
+            title={isSaved ? "Already saved" : "Save to bookmarks"}
+          >
+            {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
+          </button>
           <button
             onClick={handleOpenExternal}
             className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
