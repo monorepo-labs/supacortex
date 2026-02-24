@@ -1128,7 +1128,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label={isGenerating ? "Stop" : "Submit"}
-      className={cn("bg-[#1784fe] text-white hover:bg-[#1784fe]/90", className)}
+      className={cn("bg-[#1784fe] text-white hover:bg-[#1784fe]/90 rounded-full", className)}
       onClick={handleClick}
       size={size}
       type={isGenerating && onStop ? "button" : "submit"}

@@ -1,6 +1,6 @@
 import { db } from "@/services/db";
 import { bookmarks, bookmarksInsertSchema } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import z from "zod";
 
 export const createBookmark = async (
@@ -14,14 +14,4 @@ export const deleteBookmark = async (id: string) => {
   return db.delete(bookmarks).where(eq(bookmarks.id, id));
 };
 
-export const updateBookmarkPosition = async (
-  id: string,
-  positionX: number,
-  positionY: number,
-) => {
-  return db
-    .update(bookmarks)
-    .set({ positionX, positionY })
-    .where(eq(bookmarks.id, id));
-};
 

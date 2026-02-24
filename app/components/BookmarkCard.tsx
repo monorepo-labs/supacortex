@@ -366,9 +366,6 @@ export default function BookmarkCard({
                     </span>
                   )}
                 </div>
-                {bookmark.isRead && (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-300" />
-                )}
               </div>
             </>
           )}

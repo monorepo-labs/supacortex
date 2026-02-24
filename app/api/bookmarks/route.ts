@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBookmarksForUser, getBookmarkById } from "@/server/bookmarks/queries";
 import { getUser } from "@/lib/get-user";
-import { createBookmark, deleteBookmark, updateBookmarkPosition } from "@/server/bookmarks/mutations";
+import { createBookmark, deleteBookmark } from "@/server/bookmarks/mutations";
 import { classifyUrlType } from "@/lib/ingest/url-type";
 import { scrapeContent } from "@/lib/ingest/scraper";
 import { scrapeYouTube } from "@/lib/ingest/youtube-scraper";
@@ -142,27 +142,6 @@ export async function POST(req: Request) {
       { error: "Failed to create bookmark" },
       { status: 500 },
     );
-  }
-}
-
-export async function PATCH(req: Request) {
-  const user = await getUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await req.json();
-
-  try {
-    // Canvas position update (single bookmark)
-    const { id, positionX, positionY } = body;
-    if (!id || positionX == null || positionY == null)
-      return NextResponse.json({ error: "id, positionX, positionY required" }, { status: 400 });
-
-    await updateBookmarkPosition(id, positionX, positionY);
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.log(error);
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
 }
 

@@ -65,20 +65,6 @@ export const useBookmarks = (search?: string, groupId?: string, type?: string, e
   };
 };
 
-export const useUpdateBookmarkPosition = () => {
-  return useMutation({
-    mutationFn: async (data: { id: string; positionX: number; positionY: number }) => {
-      const res = await fetch(`/api/bookmarks`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to update position");
-      return res.json();
-    },
-  });
-};
-
 
 export const useDeleteBookmark = () => {
   const queryClient = useQueryClient();
@@ -142,10 +128,7 @@ export const useCreateBookmark = () => {
         content: null,
         author: null,
         url: bookmark.url,
-        isRead: false,
         mediaUrls: null,
-        positionX: null,
-        positionY: null,
         createdAt: new Date().toISOString(),
         groupIds: [],
         _optimistic: true,
