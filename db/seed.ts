@@ -56,7 +56,6 @@ async function seed() {
           "Just shipped open source o3. The model is incredibly capable at reasoning, coding, and math. Available today on ChatGPT and the API.",
         author: "sama",
         mediaUrls: null,
-        isRead: true,
       },
       {
         type: "article",
@@ -87,7 +86,6 @@ async function seed() {
           "The best products are built by people who desperately need them. If you're not your own user, you're guessing.",
         author: "paborenstein",
         mediaUrls: null,
-        isRead: true,
       },
       {
         type: "tweet",
@@ -224,7 +222,6 @@ All that matters is you start writing so you can build the skills that come afte
           "Writing is the most underrated skill in business. It clarifies your thinking, builds your reputation, and compounds over time. Write 1 post a day for a year. That's 365 pieces of content working for you while you sleep.",
         author: "sahilbloom",
         mediaUrls: null,
-        isRead: true,
       },
       {
         type: "link",
@@ -288,7 +285,6 @@ Grug brain developer know mass mass important thing: **working software today ma
           "Do things that don't scale. Talk to your first 100 users individually. Understand their problems deeply. The patterns you find will shape everything you build next. There are no shortcuts in the beginning.",
         author: "paulg",
         mediaUrls: null,
-        isRead: true,
       },
     ])
     .returning();

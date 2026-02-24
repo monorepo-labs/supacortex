@@ -128,7 +128,6 @@ export const useCreateBookmark = () => {
         content: null,
         author: null,
         url: bookmark.url,
-        isRead: false,
         mediaUrls: null,
         createdAt: new Date().toISOString(),
         groupIds: [],

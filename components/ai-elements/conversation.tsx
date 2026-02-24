@@ -8,8 +8,6 @@ import { ArrowDownIcon, DownloadIcon } from "lucide-react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
-export { useStickToBottomContext };
-
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
 export const Conversation = ({ className, ...props }: ConversationProps) => (

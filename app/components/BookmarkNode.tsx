@@ -11,7 +11,6 @@ export type BookmarkData = {
   content: string | null;
   author: string | null;
   url: string;
-  isRead: boolean;
   mediaUrls: { type: string; url: string; videoUrl?: string }[] | null;
   tweetCreatedAt: string | null;
   createdAt: string | null;

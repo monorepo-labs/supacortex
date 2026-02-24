@@ -18,7 +18,6 @@ export type GraphNode = {
   content: string | null;
   mediaUrls: unknown[] | null;
   groupIds: string[];
-  isRead: boolean;
   tweetCreatedAt: string | null;
   createdAt: string | null;
 };
@@ -86,7 +85,7 @@ export const getGraphBookmarks = async (
           json_build_object(
             'id', id, 'title', title, 'url', url, 'type', type,
             'author', author, 'content', content, 'mediaUrls', media_urls, 'groupIds', group_ids,
-            'isRead', is_read, 'tweetCreatedAt', tweet_created_at, 'createdAt', created_at
+            'tweetCreatedAt', tweet_created_at, 'createdAt', created_at
           )
         ), '[]'::json)
         FROM all_bookmarks
@@ -161,7 +160,6 @@ export const getBookmarksForUser = async (
       content: bookmarks.content,
       author: bookmarks.author,
       mediaUrls: bookmarks.mediaUrls,
-      isRead: bookmarks.isRead,
       tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
       createdBy: bookmarks.createdBy,
@@ -194,7 +192,6 @@ export const getBookmarkById = async (bookmarkId: string, userId: string) => {
       content: bookmarks.content,
       author: bookmarks.author,
       mediaUrls: bookmarks.mediaUrls,
-      isRead: bookmarks.isRead,
       tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
       groupIds: sql<
@@ -260,7 +257,6 @@ export const getBookmarksForAPI = async (
       url: bookmarks.url,
       content: bookmarks.content,
       author: bookmarks.author,
-      isRead: bookmarks.isRead,
       tweetCreatedAt: bookmarks.tweetCreatedAt,
       createdAt: bookmarks.createdAt,
       groupIds: sql<

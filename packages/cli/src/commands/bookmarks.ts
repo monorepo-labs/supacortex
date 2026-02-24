@@ -72,7 +72,6 @@ export const registerBookmarksCommand = (program: Command) => {
       console.log(`URL:     ${data.url}`);
       if (data.author) console.log(`Author:  ${data.author}`);
       if (data.content) console.log(`Content: ${data.content.slice(0, 200)}${data.content.length > 200 ? "…" : ""}`);
-      console.log(`Read:    ${data.isRead ? "yes" : "no"}`);
       console.log(`Created: ${data.createdAt}`);
     });
 

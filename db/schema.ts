@@ -35,7 +35,6 @@ export const bookmarks = pgTable(
     author: text(),
     mediaUrls:
       json().$type<{ type: string; url: string; videoUrl?: string }[]>(),
-    isRead: boolean().default(false),
     tweetCreatedAt: timestamp(),
     createdAt: timestamp().defaultNow(),
     createdBy: text().notNull(),
