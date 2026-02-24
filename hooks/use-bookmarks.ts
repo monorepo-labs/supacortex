@@ -115,6 +115,7 @@ export const useDeleteBookmark = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      queryClient.invalidateQueries({ queryKey: ["bookmark-exists"] });
       queryClient.invalidateQueries({ queryKey: ["graph-data"] });
     },
   });
