@@ -113,16 +113,17 @@ function ChatPageContent() {
     }
   }, [refetchSessions, urlConversationId, router, panels, updatePanel]);
 
-  // Seed the default chat panel's conversationId from URL on mount
+  // Seed the default chat panel's conversationId from URL on mount (once only)
+  const initialUrlRef = useRef(urlConversationId);
   const urlSeededRef = useRef(false);
   useEffect(() => {
-    if (urlSeededRef.current || !urlConversationId) return;
+    if (urlSeededRef.current || !initialUrlRef.current) return;
     urlSeededRef.current = true;
     const chatPanel = panels.find((p) => p.type === "chat" && !p.conversationId);
     if (chatPanel) {
-      updatePanel(chatPanel.id, { conversationId: urlConversationId });
+      updatePanel(chatPanel.id, { conversationId: initialUrlRef.current });
     }
-  }, [urlConversationId, panels, updatePanel]);
+  }, [panels, updatePanel]);
 
   // When URL changes (e.g. sidebar click), update the first chat panel without a matching conversation
   const prevUrlRef = useRef(urlConversationId);
@@ -577,7 +578,6 @@ function ChatPageContent() {
             conversationId={panel.conversationId ?? null}
             widthClass={widthClasses(panel.widthPreset, "chat")}
             onConversationCreated={handleConversationCreated}
-            highlighted={highlightedPanelId === panel.id}
           />
         </ChatPanelProvider>
       );
@@ -746,6 +746,7 @@ function ChatPageContent() {
           el?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
         }}
         onNewChatPanel={handleNewChatPanel}
+        highlightedPanelId={highlightedPanelId}
       />
       <div data-panel-scroll className="flex flex-1 min-h-0 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         <Sidebar
@@ -841,6 +842,7 @@ function WorkspaceTabBar({
   onToggleSidebar,
   onTabClick,
   onNewChatPanel,
+  highlightedPanelId,
 }: {
   panels: PanelConfig[];
   sessions: Session[];
@@ -854,6 +856,7 @@ function WorkspaceTabBar({
   onToggleSidebar: () => void;
   onTabClick: (panelId: string) => void;
   onNewChatPanel: () => void;
+  highlightedPanelId: string | null;
 }) {
   const handleDrag = useTauriDrag();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -959,6 +962,7 @@ function WorkspaceTabBar({
                   onTogglePanel={onTogglePanel}
                   onRemovePanel={onRemovePanel}
                   isDragOverlay={false}
+                  highlighted={highlightedPanelId === panel.id}
                 />
               );
             })}
@@ -997,6 +1001,7 @@ function SortableTab({
   onTogglePanel,
   onRemovePanel,
   isDragOverlay,
+  highlighted,
 }: {
   panel: PanelConfig;
   bookmark?: BookmarkData;
@@ -1007,6 +1012,7 @@ function SortableTab({
   onTogglePanel: (type: "chat" | "library" | "reader") => void;
   onRemovePanel: (id: string) => void;
   isDragOverlay: boolean;
+  highlighted?: boolean;
 }) {
   const {
     attributes,
@@ -1030,10 +1036,12 @@ function SortableTab({
       {...attributes}
       {...listeners}
       onClick={() => { if (!isDragging) onTabClick(panel.id); }}
-      className={`group/tab relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium cursor-grab active:cursor-grabbing max-w-[200px] touch-none ${
+      className={`group/tab relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium cursor-grab active:cursor-grabbing max-w-[200px] touch-none transition-colors ${
         isDragOverlay
           ? "bg-white text-zinc-900 shadow-lg ring-1 ring-zinc-200/50"
-          : "bg-white text-zinc-900 shadow-sm"
+          : highlighted
+            ? "bg-blue-100 text-blue-700 shadow-sm"
+            : "bg-white text-zinc-900 shadow-sm"
       }`}
     >
       <TabIcon panel={panel} bookmark={bookmark} />
