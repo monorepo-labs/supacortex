@@ -19,10 +19,13 @@ export default function GridSearch({
   isRefreshing?: boolean;
   onPasteUrl?: (url: string) => void;
 }) {
+  const looksLikeUrl = (text: string) =>
+    /^https?:\/\//i.test(text) || /^[^\s/]+\.[a-z]{2,}(\/|$)/i.test(text);
+
   const handlePaste = onPasteUrl
     ? (e: React.ClipboardEvent<HTMLInputElement>) => {
         const text = e.clipboardData.getData("text").trim();
-        if (!text) return;
+        if (!text || !looksLikeUrl(text)) return;
         let url = text;
         if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
         try {
