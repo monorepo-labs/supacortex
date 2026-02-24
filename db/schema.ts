@@ -34,7 +34,9 @@ export const memory = pgTable(
     metadata: jsonb().$type<Record<string, unknown>>(),
     createdAt: timestamp().defaultNow(),
     updatedAt: timestamp().defaultNow(),
-    createdBy: text().notNull(),
+    createdBy: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     searchVector: tsvector(),
   },
   (table) => [
@@ -59,7 +61,9 @@ export const bookmarks = pgTable(
       json().$type<{ type: string; url: string; videoUrl?: string }[]>(),
     tweetCreatedAt: timestamp(),
     createdAt: timestamp().defaultNow(),
-    createdBy: text().notNull(),
+    createdBy: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     searchVector: tsvector(),
   },
   (table) => [
