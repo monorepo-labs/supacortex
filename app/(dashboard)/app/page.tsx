@@ -12,7 +12,7 @@ import {
   useCreateSession,
   useSendMessage,
   useProviders,
-  type ProviderModel,
+
 } from "@/hooks/use-opencode";
 import { getClient, untrackSessionId } from "@/services/opencode";
 import { X, MessageSquarePlus, Link as LinkIcon, PanelLeft, Globe, ExternalLink, BookOpen, Bookmark, BookmarkCheck } from "lucide-react";
@@ -79,17 +79,6 @@ function ChatPageContent() {
   const { sessions, refetch: refetchSessions } = useOpenCodeSessions(connected);
 
   const [userCollapsedOverride, setUserCollapsedOverride] = useState<boolean | null>(null);
-  const [selectedModel, setSelectedModel] = useState<ProviderModel | null>(
-    () => {
-      if (typeof window === "undefined") return null;
-      try {
-        const stored = localStorage.getItem("opencode-selected-model");
-        return stored ? JSON.parse(stored) : null;
-      } catch {
-        return null;
-      }
-    },
-  );
   // Local-first messages: keyed by conversationId, "new" for unsaved convos
   const [localMessages, setLocalMessages] = useState<Map<string, ChatMessage[]>>(new Map());
 
@@ -377,16 +366,6 @@ function ChatPageContent() {
     });
   }, [panels, sessions, conversationDirs]);
 
-  // Model selection handler
-  const handleModelSelect = useCallback((model: ProviderModel) => {
-    setSelectedModel(model);
-    try {
-      localStorage.setItem("opencode-selected-model", JSON.stringify(model));
-    } catch {
-      // ignore
-    }
-  }, []);
-
   // New chat panel from tab bar / ⌘N
   const handleNewChatPanel = useCallback(() => {
     scrollToChatRef.current = true;
@@ -515,8 +494,6 @@ function ChatPageContent() {
     refetchSessions,
     providers,
     defaultModel,
-    selectedModel,
-    onModelSelect: handleModelSelect,
     onOpenBrowser: handleOpenBrowser,
     onOpenReader: handleOpenReader,
     onOpenInNewPanel: handleOpenInNewPanel,
@@ -528,7 +505,7 @@ function ChatPageContent() {
     localMessages, conversationDirs,
     sendMessage, abort, getState, markSendComplete, loadTokens,
     createSession, refetchSessions,
-    providers, defaultModel, selectedModel, handleModelSelect,
+    providers, defaultModel,
     handleOpenBrowser, handleOpenReader, handleOpenInNewPanel,
     selectedBookmarks,
   ]);
