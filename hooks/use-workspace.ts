@@ -14,34 +14,33 @@ export type PanelConfig = {
   conversationId?: string;
 };
 
-// TODO: Re-enable localStorage persistence for workspace layouts
-// const STORAGE_KEY = "workspace-layout";
+const STORAGE_KEY = "workspace-layout";
 
 const DEFAULT_PANELS: PanelConfig[] = [
   { id: "panel-chat", type: "chat", widthPreset: "wide" },
 ];
 
-// function loadPanels(): PanelConfig[] {
-//   if (typeof window === "undefined") return DEFAULT_PANELS;
-//   try {
-//     const stored = localStorage.getItem(STORAGE_KEY);
-//     if (stored) {
-//       const parsed = JSON.parse(stored);
-//       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-//     }
-//   } catch {
-//     // ignore
-//   }
-//   return DEFAULT_PANELS;
-// }
+function loadPanels(): PanelConfig[] {
+  if (typeof window === "undefined") return DEFAULT_PANELS;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_PANELS;
+}
 
-// function savePanels(panels: PanelConfig[]) {
-//   try {
-//     localStorage.setItem(STORAGE_KEY, JSON.stringify(panels));
-//   } catch {
-//     // ignore
-//   }
-// }
+function savePanels(panels: PanelConfig[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(panels));
+  } catch {
+    // ignore
+  }
+}
 
 let panelCounter = Date.now();
 function generatePanelId(): string {
@@ -49,19 +48,16 @@ function generatePanelId(): string {
 }
 
 export function useWorkspace() {
-  // const [panels, setPanels] = useState<PanelConfig[]>(loadPanels);
-  const [panels, setPanels] = useState<PanelConfig[]>(DEFAULT_PANELS);
+  const [panels, setPanels] = useState<PanelConfig[]>(loadPanels);
   const initializedRef = useRef(false);
 
-  // TODO: Re-enable localStorage sync when workspace persistence is ready
-  // useEffect(() => {
-  //   if (!initializedRef.current) {
-  //     initializedRef.current = true;
-  //     return;
-  //   }
-  //   savePanels(panels);
-  // }, [panels]);
-  void initializedRef; // suppress unused warning
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      return;
+    }
+    savePanels(panels);
+  }, [panels]);
 
   const addPanel = useCallback(
     (type: PanelType, options?: { widthPreset?: WidthPreset; bookmarkId?: string; url?: string; conversationId?: string }) => {
