@@ -1194,7 +1194,7 @@ function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId:
   }, [url]);
 
   return (
-    <div className="group/browser shrink-0 shadow-card rounded-xl overflow-hidden bg-white h-full flex flex-col">
+    <div className="group/browser shrink-0 shadow-card rounded-xl overflow-hidden bg-white h-full flex flex-col pb-3">
       <div
         className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 transition-colors duration-300"
         style={siteColor ? { backgroundColor: siteColor, borderColor: "transparent" } : undefined}

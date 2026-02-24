@@ -61,7 +61,7 @@ export default function Reader({
       className="group/reader shrink-0 shadow-card rounded-xl overflow-hidden bg-white"
       style={style}
     >
-      <div className="h-full flex flex-col overflow-hidden">
+      <div className="h-full flex flex-col">
         {panel}
       </div>
     </div>
