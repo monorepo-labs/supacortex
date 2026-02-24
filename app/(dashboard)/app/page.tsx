@@ -101,10 +101,11 @@ function ChatPageContent() {
       if (urlConversationId === id) {
         router.replace("/app");
       }
-      // Clear conversationId from any panel showing the deleted session
+      // Clear conversationId and bookmarks from any panel showing the deleted session
       for (const p of panels) {
         if (p.type === "chat" && p.conversationId === id) {
           updatePanel(p.id, { conversationId: undefined });
+          setPanelBookmarks((prev) => { const next = new Map(prev); next.delete(p.id); return next; });
         }
       }
     } catch {
@@ -141,6 +142,7 @@ function ChatPageContent() {
     const firstChat = panels.find((p) => p.type === "chat");
     if (firstChat) {
       updatePanel(firstChat.id, { conversationId: urlConversationId });
+      setPanelBookmarks((prev) => { const next = new Map(prev); next.delete(firstChat.id); return next; });
     }
   }, [urlConversationId, panels, updatePanel]);
 
