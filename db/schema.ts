@@ -79,7 +79,9 @@ export const groups = pgTable("groups", {
   icon: text().default("hash"),
   createdAt: timestamp().defaultNow(),
   updatedAt: timestamp().defaultNow(),
-  createdBy: text().notNull(),
+  createdBy: text()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
 });
 
 export const bookmarkGroups = pgTable(
