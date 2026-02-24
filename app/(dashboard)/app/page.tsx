@@ -649,23 +649,27 @@ function ChatPageContent() {
                           const label = session?.title ?? (cp.conversationId ? "Chat" : "New Chat");
                           const isAttached = (panelBookmarks.get(cp.id) ?? []).some((b) => b.id === bookmark.id);
                           return (
-                            <ContextMenuItem
+                            <div
                               key={cp.id}
-                              onMouseEnter={() => setHighlightedPanelId(cp.id)}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isAttached) {
-                                  handleDetachBookmark(cp.id, bookmark.id);
-                                } else {
-                                  handleAttachBookmark(cp.id, bookmark);
-                                }
-                                setHighlightedPanelId(null);
-                              }}
-                              className="gap-2"
+                              onPointerEnter={() => setHighlightedPanelId(cp.id)}
+                              onPointerLeave={() => setHighlightedPanelId(null)}
                             >
-                              {isAttached ? <Check size={14} /> : <ChatBubbleLeftIcon className="h-3.5 w-3.5" />}
-                              <span className="truncate max-w-[160px]">{label}</span>
-                            </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isAttached) {
+                                    handleDetachBookmark(cp.id, bookmark.id);
+                                  } else {
+                                    handleAttachBookmark(cp.id, bookmark);
+                                  }
+                                  setHighlightedPanelId(null);
+                                }}
+                                className="gap-2"
+                              >
+                                {isAttached ? <Check size={14} /> : <ChatBubbleLeftIcon className="h-3.5 w-3.5" />}
+                                <span className="truncate max-w-[160px]">{label}</span>
+                              </ContextMenuItem>
+                            </div>
                           );
                         })}
                       </ContextMenuSubContent>
