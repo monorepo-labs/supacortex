@@ -443,6 +443,7 @@ function ChatPageContent() {
       // Single or no chat panel: reset to new conversation
       if (chatPanels.length === 1) {
         updatePanel(chatPanels[0].id, { conversationId: undefined });
+        setPanelBookmarks((prev) => { const next = new Map(prev); next.delete(chatPanels[0].id); return next; });
         requestAnimationFrame(() => {
           document.getElementById(`panel-${chatPanels[0].id}`)?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
         });
@@ -474,6 +475,7 @@ function ChatPageContent() {
       const firstChat = panels.find((p) => p.type === "chat");
       if (firstChat) {
         updatePanel(firstChat.id, { conversationId: id });
+        setPanelBookmarks((prev) => { const next = new Map(prev); next.delete(firstChat.id); return next; });
       }
       router.replace(`/app?id=${id}`);
     },
