@@ -39,6 +39,9 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubTrigger,
+  ContextMenuSubContent,
 } from "@/components/ui/context-menu";
 import Reader from "@/app/components/Reader";
 import GridSearch from "@/app/components/GridSearch";
@@ -141,13 +144,26 @@ function ChatPageContent() {
     }
   }, [urlConversationId, panels, updatePanel]);
 
-  // Bookmark selection for attaching to chat
-  const [selectedBookmarks, setSelectedBookmarks] = useState<BookmarkData[]>([]);
+  // Per-panel bookmark selection for attaching to chat
+  const [panelBookmarks, setPanelBookmarks] = useState<Map<string, BookmarkData[]>>(new Map());
+  const [highlightedPanelId, setHighlightedPanelId] = useState<string | null>(null);
 
-  const handleToggleBookmark = useCallback((bookmark: BookmarkData) => {
-    setSelectedBookmarks((prev) => {
-      const exists = prev.some((b) => b.id === bookmark.id);
-      return exists ? prev.filter((b) => b.id !== bookmark.id) : [...prev, bookmark];
+  const handleAttachBookmark = useCallback((panelId: string, bookmark: BookmarkData) => {
+    setPanelBookmarks((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(panelId) ?? [];
+      if (existing.some((b) => b.id === bookmark.id)) return prev;
+      next.set(panelId, [...existing, bookmark]);
+      return next;
+    });
+  }, []);
+
+  const handleDetachBookmark = useCallback((panelId: string, bookmarkId: string) => {
+    setPanelBookmarks((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(panelId) ?? [];
+      next.set(panelId, existing.filter((b) => b.id !== bookmarkId));
+      return next;
     });
   }, []);
 
@@ -343,11 +359,14 @@ function ChatPageContent() {
     return ids;
   }, [panels]);
 
-  // Selected bookmark IDs for library grid
-  const selectedBookmarkIds = useMemo(
-    () => new Set(selectedBookmarks.map((b) => b.id)),
-    [selectedBookmarks],
-  );
+  // Selected bookmark IDs for library grid (union of all panels)
+  const selectedBookmarkIds = useMemo(() => {
+    const ids = new Set<string>();
+    panelBookmarks.forEach((bookmarks) => {
+      bookmarks.forEach((b) => ids.add(b.id));
+    });
+    return ids;
+  }, [panelBookmarks]);
 
   // Seed directory from opencode session for all chat panels
   useEffect(() => {
@@ -408,7 +427,6 @@ function ChatPageContent() {
 
   // New conversation from sidebar
   const handleNewConversation = useCallback(() => {
-    setSelectedBookmarks([]);
     const chatPanels = panels.filter((p) => p.type === "chat");
     if (chatPanels.length <= 1) {
       // Single or no chat panel: reset to new conversation
@@ -432,7 +450,6 @@ function ChatPageContent() {
   // Select conversation from sidebar
   const handleConversationSelect = useCallback(
     (id: string) => {
-      setSelectedBookmarks([]);
       // If a panel already shows this conversation, scroll to it
       const existing = panels.find((p) => p.type === "chat" && p.conversationId === id);
       if (existing) {
@@ -475,8 +492,8 @@ function ChatPageContent() {
     return "shrink-0 w-[640px] min-w-[640px]";
   };
 
-  // ChatPanelProvider value
-  const chatPanelCtx = useMemo(() => ({
+  // Shared ChatPanelProvider value (bookmark fields omitted — set per-panel below)
+  const chatPanelCtxBase = useMemo(() => ({
     connected,
     connecting,
     connectionError,
@@ -497,9 +514,6 @@ function ChatPageContent() {
     onOpenBrowser: handleOpenBrowser,
     onOpenReader: handleOpenReader,
     onOpenInNewPanel: handleOpenInNewPanel,
-    selectedBookmarks,
-    onClearSelectedBookmarks: () => setSelectedBookmarks([]),
-    onRemoveSelectedBookmark: (id: string) => setSelectedBookmarks((prev) => prev.filter((b) => b.id !== id)),
   }), [
     connected, connecting, connectionError, isTauri,
     localMessages, conversationDirs,
@@ -507,19 +521,33 @@ function ChatPageContent() {
     createSession, refetchSessions,
     providers, defaultModel,
     handleOpenBrowser, handleOpenReader, handleOpenInNewPanel,
-    selectedBookmarks,
   ]);
 
   const renderPanel = (panel: PanelConfig) => {
     if (panel.type === "chat") {
+      const panelBms = panelBookmarks.get(panel.id) ?? [];
       return (
-        <ChatPanel
+        <ChatPanelProvider
           key={panel.id}
-          panelId={panel.id}
-          conversationId={panel.conversationId ?? null}
-          widthClass={widthClasses(panel.widthPreset, "chat")}
-          onConversationCreated={handleConversationCreated}
-        />
+          value={{
+            ...chatPanelCtxBase,
+            selectedBookmarks: panelBms,
+            onClearSelectedBookmarks: () => setPanelBookmarks((prev) => {
+              const next = new Map(prev);
+              next.delete(panel.id);
+              return next;
+            }),
+            onRemoveSelectedBookmark: (id: string) => handleDetachBookmark(panel.id, id),
+          }}
+        >
+          <ChatPanel
+            panelId={panel.id}
+            conversationId={panel.conversationId ?? null}
+            widthClass={widthClasses(panel.widthPreset, "chat")}
+            onConversationCreated={handleConversationCreated}
+            highlighted={highlightedPanelId === panel.id}
+          />
+        </ChatPanelProvider>
       );
     }
 
@@ -546,21 +574,74 @@ function ChatPageContent() {
               hasNextPage={libraryHasNextPage}
               isFetchingNextPage={libraryIsFetchingNextPage}
               attachedToChatIds={selectedBookmarkIds}
-              contextMenuExtra={(bookmark) => (
-                <>
-                  <ContextMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleBookmark(bookmark);
-                    }}
-                    className="gap-2"
-                  >
-                    <MessageSquarePlus size={14} />
-                    {selectedBookmarkIds.has(bookmark.id) ? "Remove from chat" : "Attach to chat"}
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                </>
-              )}
+              contextMenuExtra={(bookmark) => {
+                const chatPanels = panels.filter((p) => p.type === "chat");
+                if (chatPanels.length === 0) return null;
+
+                if (chatPanels.length === 1) {
+                  const target = chatPanels[0];
+                  const isAttached = (panelBookmarks.get(target.id) ?? []).some((b) => b.id === bookmark.id);
+                  return (
+                    <>
+                      <ContextMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isAttached) {
+                            handleDetachBookmark(target.id, bookmark.id);
+                          } else {
+                            handleAttachBookmark(target.id, bookmark);
+                          }
+                        }}
+                        className="gap-2"
+                      >
+                        <MessageSquarePlus size={14} />
+                        {isAttached ? "Remove from chat" : "Attach to chat"}
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                    </>
+                  );
+                }
+
+                return (
+                  <>
+                    <ContextMenuSub>
+                      <ContextMenuSubTrigger className="gap-2">
+                        <MessageSquarePlus size={14} />
+                        Attach to chat
+                      </ContextMenuSubTrigger>
+                      <ContextMenuSubContent
+                        onMouseLeave={() => setHighlightedPanelId(null)}
+                      >
+                        {chatPanels.map((cp) => {
+                          const session = sessions.find((s) => s.id === cp.conversationId);
+                          const label = session?.title ?? (cp.conversationId ? "Chat" : "New Chat");
+                          const isAttached = (panelBookmarks.get(cp.id) ?? []).some((b) => b.id === bookmark.id);
+                          return (
+                            <ContextMenuItem
+                              key={cp.id}
+                              onMouseEnter={() => setHighlightedPanelId(cp.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isAttached) {
+                                  handleDetachBookmark(cp.id, bookmark.id);
+                                } else {
+                                  handleAttachBookmark(cp.id, bookmark);
+                                }
+                                setHighlightedPanelId(null);
+                              }}
+                              className="gap-2"
+                            >
+                              {isAttached ? <Check size={14} /> : <ChatBubbleLeftIcon className="h-3.5 w-3.5" />}
+                              <span className="truncate max-w-[160px]">{label}</span>
+                            </ContextMenuItem>
+                          );
+                        })}
+                      </ContextMenuSubContent>
+                    </ContextMenuSub>
+                    <ContextMenuSeparator />
+                  </>
+                );
+              }}
             />
           </div>
         </div>
@@ -651,9 +732,7 @@ function ChatPageContent() {
           onDeleteSession={handleDeleteSession}
           onOpenInPanel={handleOpenConversationInPanel}
         />
-        <ChatPanelProvider value={chatPanelCtx}>
-          {panels.map(renderPanel)}
-        </ChatPanelProvider>
+        {panels.map(renderPanel)}
       </div>
     </div>
   );

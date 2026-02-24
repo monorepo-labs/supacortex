@@ -174,11 +174,13 @@ export function ChatPanel({
   conversationId,
   widthClass,
   onConversationCreated,
+  highlighted,
 }: {
   panelId: string;
   conversationId: string | null;
   widthClass: string;
   onConversationCreated: (panelId: string, newConversationId: string) => void;
+  highlighted?: boolean;
 }) {
   const ctx = useChatPanelContext();
   const chatPanelRef = useRef<HTMLElement>(null);
@@ -528,7 +530,7 @@ export function ChatPanel({
       key={panelId}
       id={`panel-${panelId}`}
       data-chat-links
-      className={`relative h-full ${widthClass} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col`}
+      className={`relative h-full ${widthClass} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col transition-all ${highlighted ? "ring-2 ring-blue-400/60" : ""}`}
     >
       <ChatLinkInterceptor
         containerRef={chatPanelRef}
