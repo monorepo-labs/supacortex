@@ -24,6 +24,28 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 // ─── App tables ─────────────────────────────────────────────────────
 
+export const memory = pgTable(
+  "memory",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    title: text(),
+    content: text().notNull(),
+    type: text().notNull(),
+    metadata: jsonb().$type<Record<string, unknown>>(),
+    createdAt: timestamp().defaultNow(),
+    updatedAt: timestamp().defaultNow(),
+    createdBy: text().notNull(),
+    searchVector: tsvector(),
+  },
+  (table) => [
+    index("memory_type_idx").on(table.type),
+    index("memory_search_idx").using("gin", table.searchVector),
+    index("memory_created_by_idx").on(table.createdBy),
+  ],
+);
+
+export const memoryInsertSchema = createInsertSchema(memory);
+
 export const bookmarks = pgTable(
   "bookmarks",
   {
@@ -109,7 +131,6 @@ export const deviceCodes = pgTable("device_codes", {
   expiresAt: timestamp().notNull(),
   createdAt: timestamp().defaultNow().notNull(),
 });
-
 
 export const bookmarksInsertSchema = createInsertSchema(bookmarks);
 export const bookmarksSelectSchema = createSelectSchema(bookmarks);
@@ -210,4 +231,3 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }));
-
