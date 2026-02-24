@@ -530,7 +530,7 @@ export function ChatPanel({
       key={panelId}
       id={`panel-${panelId}`}
       data-chat-links
-      className={`relative h-full ${widthClass} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col transition-all ${highlighted ? "ring-2 ring-blue-400/60" : ""}`}
+      className={`relative h-full ${widthClass} bg-white shadow-card rounded-xl mx-2 overflow-hidden flex flex-col transition-all ${highlighted ? "ring-2 ring-inset ring-blue-400/60" : ""}`}
     >
       <ChatLinkInterceptor
         containerRef={chatPanelRef}
