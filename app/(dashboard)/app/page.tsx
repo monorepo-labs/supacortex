@@ -180,6 +180,23 @@ function ChatPageContent() {
     rawRemovePanel(panelId);
   }, [rawRemovePanel]);
 
+  // Clean up panelBookmarks for panels that no longer exist
+  useEffect(() => {
+    const activePanelIds = new Set(panels.filter((p) => p.type === "chat").map((p) => p.id));
+    setPanelBookmarks((prev) => {
+      let changed = false;
+      for (const key of prev.keys()) {
+        if (!activePanelIds.has(key)) { changed = true; break; }
+      }
+      if (!changed) return prev;
+      const next = new Map(prev);
+      for (const key of next.keys()) {
+        if (!activePanelIds.has(key)) next.delete(key);
+      }
+      return next;
+    });
+  }, [panels]);
+
   // Reader bookmark data (keyed by panel ID)
   const [readerBookmarks, setReaderBookmarks] = useState<Map<string, BookmarkData>>(new Map());
 
