@@ -365,7 +365,7 @@ export function ChatPanel({
       ctx.markSendComplete(currentConversationId);
       return currentConversationId;
     },
-    [conversationId, ctx, addLocalMessage, panelId, onConversationCreated],
+    [conversationId, ctx, addLocalMessage, panelId, onConversationCreated, selectedModel],
   );
 
   // Process queue
