@@ -16,17 +16,18 @@ export const getMemoryForUser = async (
   let tsQuery;
 
   if (searchQuery) {
-    const prefixQuery = searchQuery
+    const words = searchQuery
       .trim()
       .split(/\s+/)
       .filter(Boolean)
-      .map((word) => word.replace(/[^a-zA-Z0-9]/g, ""))
-      .filter(Boolean)
-      .map((word) => `${word}:*`)
-      .join("|");
+      .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ""))
+      .filter(Boolean);
 
-    tsQuery = sql`to_tsquery('english', ${prefixQuery})`;
-    conditions.push(sql`${memory.searchVector} @@ ${tsQuery}`);
+    if (words.length > 0) {
+      const prefixQuery = words.map((word) => `${word}:*`).join("|");
+      tsQuery = sql`to_tsquery('english', ${prefixQuery})`;
+      conditions.push(sql`${memory.searchVector} @@ ${tsQuery}`);
+    }
   }
 
   const where = and(...conditions);
