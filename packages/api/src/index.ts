@@ -4,6 +4,7 @@ import { authMiddleware } from "./middleware/auth";
 import { bookmarks } from "./routes/bookmarks";
 import { groups } from "./routes/groups";
 import { sync } from "./routes/sync";
+import { memoryRoute } from "./routes/memory";
 import { getAllResumableSyncs, resumeSync } from "@/server/twitter/resume";
 import { autoCategorizeSync } from "@/server/twitter/categorize";
 import { Env } from "./types";
@@ -50,6 +51,7 @@ app.use("/v1/*", authMiddleware);
 app.route("/v1/bookmarks", bookmarks);
 app.route("/v1/groups", groups);
 app.route("/v1/sync", sync);
+app.route("/v1/memory", memoryRoute);
 
 serve(
   {
