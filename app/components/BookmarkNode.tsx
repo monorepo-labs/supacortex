@@ -13,13 +13,6 @@ export type BookmarkData = {
   url: string;
   isRead: boolean;
   mediaUrls: { type: string; url: string; videoUrl?: string }[] | null;
-  positionX: number | null;
-  positionY: number | null;
-  gridX: number | null;
-  gridY: number | null;
-  gridW: number | null;
-  gridH: number | null;
-  gridExpanded: boolean | null;
   tweetCreatedAt: string | null;
   createdAt: string | null;
   groupIds: string[];
