@@ -120,11 +120,13 @@ export const getBookmarksForUser = async (
   }
 
   if (search) {
-    // Split into words, append :* for prefix matching, join with | (OR)
+    // Split into words, strip special chars, append :* for prefix matching, join with | (OR)
     // ts_rank handles relevance — more term matches = higher score
     const prefixQuery = search
       .trim()
       .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.replace(/[^a-zA-Z0-9]/g, ""))
       .filter(Boolean)
       .map((word) => `${word}:*`)
       .join(" | ");
@@ -146,7 +148,7 @@ export const getBookmarksForUser = async (
     : desc(sql`coalesce(${bookmarks.tweetCreatedAt}, ${bookmarks.createdAt})`);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(distinct ${bookmarks.id})` })
+    .select({ count: sql<number>`count(distinct ${bookmarks.id})::int` })
     .from(bookmarks)
     .leftJoin(bookmarkGroups, eq(bookmarks.id, bookmarkGroups.bookmarkId))
     .where(and(...conditions));
@@ -225,6 +227,8 @@ export const getBookmarksForAPI = async (
       .trim()
       .split(/\s+/)
       .filter(Boolean)
+      .map((word) => word.replace(/[^a-zA-Z0-9]/g, ""))
+      .filter(Boolean)
       .map((word) => `${word}:*`)
       .join(" | ");
     tsQuery = sql`to_tsquery('english', ${prefixQuery})`;
@@ -244,7 +248,7 @@ export const getBookmarksForAPI = async (
     : desc(sql`coalesce(${bookmarks.tweetCreatedAt}, ${bookmarks.createdAt})`);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(distinct ${bookmarks.id})` })
+    .select({ count: sql<number>`count(distinct ${bookmarks.id})::int` })
     .from(bookmarks)
     .leftJoin(bookmarkGroups, eq(bookmarks.id, bookmarkGroups.bookmarkId))
     .where(and(...conditions));

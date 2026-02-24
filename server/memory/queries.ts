@@ -20,6 +20,8 @@ export const getMemoryForUser = async (
       .trim()
       .split(/\s+/)
       .filter(Boolean)
+      .map((word) => word.replace(/[^a-zA-Z0-9]/g, ""))
+      .filter(Boolean)
       .map((word) => `${word}:*`)
       .join("|");
 
@@ -34,7 +36,7 @@ export const getMemoryForUser = async (
     : desc(memory.createdAt);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
+    .select({ count: sql<number>`count(*)::int` })
     .from(memory)
     .where(where);
 
