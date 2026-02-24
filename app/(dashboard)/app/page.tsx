@@ -1113,7 +1113,7 @@ function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId:
           <button
             onClick={onSave}
             disabled={isSaved}
-            className={`rounded-lg p-1.5 transition-colors ${isSaved ? (siteColor ? (isLight ? "text-zinc-700/40" : "text-white/40") : "text-zinc-300") : btnStyle}`}
+            className={`rounded-lg p-1.5 transition-colors ${isSaved ? `cursor-not-allowed ${siteColor ? (isLight ? "text-zinc-700/40" : "text-white/40") : "text-zinc-300"}` : btnStyle}`}
             title={isSaved ? "Already saved" : "Save to bookmarks"}
           >
             {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
