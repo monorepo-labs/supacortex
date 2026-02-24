@@ -32,7 +32,7 @@ export function useLinkTwitter() {
     mutationFn: async () => {
       await authClient.linkSocial({
         provider: "twitter",
-        callbackURL: "/app/library",
+        callbackURL: "/app",
         scopes: ["bookmark.read", "tweet.read", "users.read", "offline.access"],
       });
     },
