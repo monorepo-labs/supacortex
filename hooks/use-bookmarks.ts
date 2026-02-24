@@ -130,7 +130,10 @@ export const useCreateBookmark = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bookmark),
       });
-      if (!res.ok) throw new Error("Failed to create bookmark");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Failed to create bookmark");
+      }
       return res.json();
     },
     onMutate: async (bookmark) => {
