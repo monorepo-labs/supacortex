@@ -1112,74 +1112,12 @@ function BrowserWebViewFrame({ url, panelId }: { url: string; panelId: string })
   return <div ref={containerRef} className="flex-1 w-full rounded-b-xl" />;
 }
 
-function useFaviconColor(url: string): { color: string | null; isLight: boolean } {
-  const [result, setResult] = useState<{ color: string | null; isLight: boolean }>({ color: null, isLight: false });
-
-  useEffect(() => {
-    const favicon = faviconUrl(url);
-    if (!favicon) return;
-    let cancelled = false;
-
-    import("@tauri-apps/plugin-http").then(({ fetch: tauriFetch }) => {
-      return tauriFetch(favicon, { method: "GET" });
-    }).then((resp) => {
-      if (!resp.ok || cancelled) return;
-      return resp.blob();
-    }).then((blob) => {
-      if (!blob || cancelled) return;
-      const blobUrl = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) { URL.revokeObjectURL(blobUrl); return; }
-          ctx.drawImage(img, 0, 0);
-          const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-          let r = 0, g = 0, b = 0, count = 0;
-          for (let i = 0; i < data.length; i += 4) {
-            const pr = data[i], pg = data[i + 1], pb = data[i + 2], pa = data[i + 3];
-            if (pa < 128) continue;
-            if (pr > 240 && pg > 240 && pb > 240) continue;
-            if (pr < 15 && pg < 15 && pb < 15) continue;
-            r += pr; g += pg; b += pb; count++;
-          }
-          if (count > 0 && !cancelled) {
-            const avgR = Math.round(r / count), avgG = Math.round(g / count), avgB = Math.round(b / count);
-            const luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB;
-            setResult({ color: `rgb(${avgR}, ${avgG}, ${avgB})`, isLight: luminance > 186 });
-          }
-        } catch {
-          // canvas error, ignore
-        }
-        URL.revokeObjectURL(blobUrl);
-      };
-      img.onerror = () => { URL.revokeObjectURL(blobUrl); };
-      img.src = blobUrl;
-    }).catch(() => {
-      // fetch failed, fall back to default styling
-    });
-
-    return () => { cancelled = true; };
-  }, [url]);
-
-  return result;
-}
-
 function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId: string; onClose: () => void; onSave: () => void }) {
   const domain = (() => {
     try { return new URL(url).hostname.replace("www.", ""); } catch { return url; }
   })();
 
   const { data: isSaved = false } = useBookmarkExists(url);
-  const { color: siteColor, isLight } = useFaviconColor(url);
-  const textMain = siteColor ? (isLight ? "text-zinc-800/90" : "text-white/90") : "text-zinc-500";
-  const textMuted = siteColor ? (isLight ? "text-zinc-700/70" : "text-white/70") : "text-zinc-400";
-  const btnStyle = siteColor
-    ? isLight ? "text-zinc-700/60 hover:bg-black/10 hover:text-zinc-900" : "text-white/60 hover:bg-white/15 hover:text-white"
-    : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600";
 
   const [copied, setCopied] = useState(false);
   const handleCopyLink = useCallback(() => {
@@ -1195,13 +1133,10 @@ function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId:
 
   return (
     <div className="group/browser shrink-0 shadow-card rounded-xl overflow-hidden bg-white h-full flex flex-col pb-3">
-      <div
-        className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 transition-colors duration-300"
-        style={siteColor ? { backgroundColor: siteColor, borderColor: "transparent" } : undefined}
-      >
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100">
         <div className="flex items-center gap-2 min-w-0">
-          <Globe size={13} className={`shrink-0 ${textMuted}`} />
-          <span className={`text-xs truncate ${textMain}`} title={url}>
+          <Globe size={13} className="shrink-0 text-zinc-400" />
+          <span className="text-xs truncate text-zinc-500" title={url}>
             {domain}
           </span>
         </div>
@@ -1209,28 +1144,28 @@ function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId:
           <button
             onClick={onSave}
             disabled={isSaved}
-            className={`rounded-lg p-1.5 transition-colors ${isSaved ? `cursor-not-allowed ${siteColor ? (isLight ? "text-zinc-700/40" : "text-white/40") : "text-zinc-300"}` : btnStyle}`}
+            className={`rounded-lg p-1.5 transition-colors ${isSaved ? "cursor-not-allowed text-zinc-300" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"}`}
             title={isSaved ? "Already saved" : "Save to bookmarks"}
           >
             {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
           </button>
           <button
             onClick={handleCopyLink}
-            className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
+            className="rounded-lg p-1.5 transition-colors text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
             title="Copy link"
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </button>
           <button
             onClick={handleOpenExternal}
-            className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
+            className="rounded-lg p-1.5 transition-colors text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
             title="Open in external browser"
           >
             <ExternalLink size={13} />
           </button>
           <button
             onClick={onClose}
-            className={`rounded-lg p-1.5 transition-colors ${btnStyle}`}
+            className="rounded-lg p-1.5 transition-colors text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
           >
             <X size={14} />
           </button>
