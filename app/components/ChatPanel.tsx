@@ -34,6 +34,7 @@ import {
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
+  useStickToBottomContext,
 } from "@/components/ai-elements/conversation";
 import {
   PromptInput,
@@ -169,6 +170,23 @@ function useChatPanelContext() {
   return ctx;
 }
 
+// ── Scroll Bridge ────────────────────────────────────────────────
+
+function ScrollAnchor({
+  scrollRef,
+}: {
+  scrollRef: React.MutableRefObject<(() => void) | null>;
+}) {
+  const { scrollToBottom } = useStickToBottomContext();
+  useEffect(() => {
+    scrollRef.current = scrollToBottom;
+    return () => {
+      scrollRef.current = null;
+    };
+  }, [scrollToBottom, scrollRef]);
+  return null;
+}
+
 // ── ChatPanel Component ──────────────────────────────────────────
 
 export function ChatPanel({
@@ -184,6 +202,7 @@ export function ChatPanel({
 }) {
   const ctx = useChatPanelContext();
   const chatPanelRef = useRef<HTMLElement>(null);
+  const scrollToBottomRef = useRef<(() => void) | null>(null);
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
 
   // Per-panel queue for messages sent while streaming
@@ -426,6 +445,8 @@ export function ChatPanel({
           createdAt: new Date().toISOString(),
           attachments: fileAttachments?.length ? fileAttachments : undefined,
         });
+        // Scroll to bottom after sending
+        requestAnimationFrame(() => scrollToBottomRef.current?.());
         processQueue(convKey, messageText, files, bookmarks);
       }
     },
@@ -517,6 +538,7 @@ export function ChatPanel({
 
       {/* Messages area */}
       <Conversation className="flex-1">
+        <ScrollAnchor scrollRef={scrollToBottomRef} />
         {messages.length === 0 && (
           <ConversationEmptyState
             className={`absolute inset-0 z-10 ${isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}`}
