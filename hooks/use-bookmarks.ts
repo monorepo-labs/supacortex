@@ -11,6 +11,20 @@ import type { BookmarkData } from "@/app/components/BookmarkNode";
 
 const PAGE_SIZE = 50;
 
+export const useBookmarkExists = (url: string | undefined) => {
+  return useQuery<boolean>({
+    queryKey: ["bookmark-exists", url],
+    queryFn: async () => {
+      const res = await fetch(`/api/bookmarks?url=${encodeURIComponent(url!)}`);
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.exists;
+    },
+    enabled: !!url,
+    staleTime: 30_000,
+  });
+};
+
 type BookmarkPage = { data: BookmarkData[]; total: number };
 
 export const useGraphData = (enabled: boolean, type?: string) => {
@@ -153,6 +167,7 @@ export const useCreateBookmark = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      queryClient.invalidateQueries({ queryKey: ["bookmark-exists"] });
       queryClient.invalidateQueries({ queryKey: ["graph-data"] });
     },
   });

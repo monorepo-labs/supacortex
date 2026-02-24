@@ -209,6 +209,15 @@ export const getBookmarkById = async (bookmarkId: string, userId: string) => {
   return result;
 };
 
+export const checkBookmarkExistsByUrl = async (url: string, userId: string) => {
+  const [result] = await db
+    .select({ id: bookmarks.id })
+    .from(bookmarks)
+    .where(and(eq(bookmarks.url, url), eq(bookmarks.createdBy, userId)))
+    .limit(1);
+  return !!result;
+};
+
 export const getBookmarksForAPI = async (
   userId: string,
   search?: string,

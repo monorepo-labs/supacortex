@@ -45,7 +45,7 @@ import GridSearch from "@/app/components/GridSearch";
 import TypeFilter from "@/app/components/TypeFilter";
 import LibraryGridView from "@/app/components/LibraryGridView";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
-import { useBookmarks, useCreateBookmark } from "@/hooks/use-bookmarks";
+import { useBookmarks, useCreateBookmark, useBookmarkExists } from "@/hooks/use-bookmarks";
 import { sileo } from "sileo";
 import { useWorkspace, type PanelConfig } from "@/hooks/use-workspace";
 import { ChatPanel, ChatPanelProvider } from "@/app/components/ChatPanel";
@@ -618,7 +618,6 @@ function ChatPageContent() {
             panelId={panel.id}
             onClose={() => handleCloseBrowser(panel.id)}
             onSave={() => handlePasteUrl(panel.url!)}
-            isSaved={libraryBookmarks.some((b) => b.url === panel.url)}
           />
         </div>
       );
@@ -1081,11 +1080,12 @@ function useFaviconColor(url: string): { color: string | null; isLight: boolean 
   return result;
 }
 
-function BrowserPanel({ url, panelId, onClose, onSave, isSaved }: { url: string; panelId: string; onClose: () => void; onSave: () => void; isSaved: boolean }) {
+function BrowserPanel({ url, panelId, onClose, onSave }: { url: string; panelId: string; onClose: () => void; onSave: () => void }) {
   const domain = (() => {
     try { return new URL(url).hostname.replace("www.", ""); } catch { return url; }
   })();
 
+  const { data: isSaved = false } = useBookmarkExists(url);
   const { color: siteColor, isLight } = useFaviconColor(url);
   const textMain = siteColor ? (isLight ? "text-zinc-800/90" : "text-white/90") : "text-zinc-500";
   const textMuted = siteColor ? (isLight ? "text-zinc-700/70" : "text-white/70") : "text-zinc-400";
