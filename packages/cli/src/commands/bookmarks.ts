@@ -10,7 +10,7 @@ export const registerBookmarksCommand = (program: Command) => {
     .option("-o, --offset <number>", "Skip results")
     .option("-s, --search <string>", "Search bookmarks")
     .option("-t, --type <string>", "Filter by type (tweet, link, youtube)")
-    .option("-j, --json", "Output raw JSON")
+    .option("-p, --pretty", "Human-readable output")
     .description("List all bookmarks")
     .action(async (option) => {
       const searchParams = new URLSearchParams();
@@ -23,7 +23,7 @@ export const registerBookmarksCommand = (program: Command) => {
         "GET",
       );
 
-      if (option.json) {
+      if (!option.pretty) {
         console.log(JSON.stringify(result, null, 2));
         return;
       }
@@ -45,10 +45,10 @@ export const registerBookmarksCommand = (program: Command) => {
     .command("add")
     .description("Add a new bookmark")
     .argument("<url>", "URL to bookmark")
-    .option("-j, --json", "Output raw JSON")
+    .option("-p, --pretty", "Human-readable output")
     .action(async (url, option) => {
       const result = await apiRequest("bookmarks", "POST", { url });
-      if (option.json) {
+      if (!option.pretty) {
         console.log(JSON.stringify(result, null, 2));
         return;
       }
@@ -59,10 +59,10 @@ export const registerBookmarksCommand = (program: Command) => {
     .command("get")
     .description("Get a bookmark by ID")
     .argument("<id>", "Bookmark ID")
-    .option("-j, --json", "Output raw JSON")
+    .option("-p, --pretty", "Human-readable output")
     .action(async (id, option) => {
       const data = await apiRequest(`bookmarks/${id}`, "GET");
-      if (option.json) {
+      if (!option.pretty) {
         console.log(JSON.stringify(data, null, 2));
         return;
       }
@@ -79,10 +79,10 @@ export const registerBookmarksCommand = (program: Command) => {
     .command("delete")
     .description("Delete a bookmark")
     .argument("<id>", "Bookmark ID to delete")
-    .option("-j, --json", "Output raw JSON")
+    .option("-p, --pretty", "Human-readable output")
     .action(async (id, option) => {
       const result = await apiRequest(`bookmarks/${id}`, "DELETE");
-      if (option.json) {
+      if (!option.pretty) {
         console.log(JSON.stringify(result, null, 2));
         return;
       }

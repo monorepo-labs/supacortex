@@ -8,10 +8,13 @@ export const getMemoryForUser = async (
   type?: string,
   limit?: number,
   offset?: number,
+  typePrefix?: string,
 ) => {
   const conditions = [eq(memory.createdBy, userId)];
   if (type) {
     conditions.push(eq(memory.type, type));
+  } else if (typePrefix) {
+    conditions.push(sql`${memory.type} LIKE ${typePrefix + "%"}`);
   }
   let tsQuery;
 
@@ -54,4 +57,12 @@ export const getMemoryForUser = async (
   const data = await query;
 
   return { data, count };
+};
+
+export const getMemoryById = async (id: string, userId: string) => {
+  const [result] = await db
+    .select()
+    .from(memory)
+    .where(and(eq(memory.id, id), eq(memory.createdBy, userId)));
+  return result;
 };
