@@ -1,0 +1,62 @@
+---
+title: Memory System
+description: How Supacortex stores and organizes your memory.
+---
+
+Supacortex isn't just a bookmark manager — it's a memory layer. Everything you save becomes structured, searchable memory that your AI tools can access.
+
+## Memory types
+
+### Bookmarks
+
+Content you've saved — tweets, links, articles. These are the foundation of your memory.
+
+- Synced from Twitter/X automatically
+- Saved manually via CLI or Mac app
+- Full-text indexed for search
+- Organized into groups
+
+### Conversations
+
+Summaries of your AI conversations that you want to remember. Stored in three tiers:
+
+- **Brief** — A single sentence capturing the key takeaway
+- **Summary** — Bullet points of the main topics and decisions
+- **Detailed** — Full context and reasoning
+
+Save a conversation:
+
+```bash
+scx conversation add --brief "Decided to use Fumadocs for documentation"
+```
+
+List conversations:
+
+```bash
+scx conversation list
+```
+
+### Identity
+
+Metadata about you — your goals, preferences, and interests. This helps AI tools understand your context.
+
+Categories:
+- **Core** — Who you are, what you do
+- **Goals** — What you're working toward
+- **Preferences** — How you like things done
+- **Interests** — Topics you care about
+
+Set identity info:
+
+```bash
+scx identity set --category goals --value "Ship Supacortex v1 by March"
+```
+
+## Accessing memory
+
+Your memory is accessible from:
+
+- **Mac app** — Browse, search, and chat with your memory
+- **CLI** — `scx bookmarks`, `scx conversation`, `scx identity` commands
+- **API** — REST endpoints for programmatic access
+- **AI tools** — Via the Supacortex skill installed in Claude Code, OpenClaw, etc.

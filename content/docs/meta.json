@@ -1,0 +1,20 @@
+{
+  "title": "Supacortex Docs",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "installation",
+    "authentication",
+    "---Features---",
+    "twitter-sync",
+    "memory",
+    "search",
+    "ai-chat",
+    "---Reference---",
+    "cli",
+    "api",
+    "---Self-Hosting---",
+    "self-hosting"
+  ]
+}

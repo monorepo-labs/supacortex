@@ -1,0 +1,37 @@
+---
+title: Search
+description: Full-text search across all your saved content.
+---
+
+Supacortex indexes everything you save for instant full-text search. Find any bookmark, note, or conversation in milliseconds.
+
+## How it works
+
+Every piece of content is indexed using PostgreSQL full-text search vectors. When you save a bookmark or conversation, it's automatically indexed on the title, content, author, and URL.
+
+## Search in the Mac app
+
+Use the search bar at the top of the library to search across all your bookmarks. Results update as you type.
+
+## Search via CLI
+
+```bash
+scx bookmarks list --search "react server components"
+```
+
+This searches across all bookmark fields — title, content, author, and URL.
+
+## Search via API
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  "https://api.supacortex.ai/v1/bookmarks?search=react+server+components"
+```
+
+## What's indexed
+
+- Bookmark title
+- Bookmark content / tweet text
+- Author name and handle
+- URL
+- Conversation content (all tiers)

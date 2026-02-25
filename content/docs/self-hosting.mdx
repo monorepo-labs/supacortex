@@ -1,0 +1,89 @@
+---
+title: Self-Hosting
+description: Deploy your own Supacortex instance.
+---
+
+Supacortex is fully open source. You can self-host the entire stack — API server, database, and web UI — on your own infrastructure.
+
+## Requirements
+
+- **Node.js** 20+
+- **PostgreSQL** 15+ (Railway, Supabase, Neon, or self-managed)
+- A server or platform to host the Next.js app (Vercel, Railway, VPS)
+
+## Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/monorepo-labs/supacortex.git
+cd supacortex
+pnpm install
+```
+
+### 2. Configure environment
+
+Copy the example env file and fill in your values:
+
+```bash
+cp .env.example .env.local
+```
+
+Required environment variables:
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Secret for auth (generate a random string) |
+| `BETTER_AUTH_URL` | Your app's URL (e.g. `https://your-domain.com`) |
+
+For Twitter/X sync, you'll also need:
+
+| Variable | Description |
+|---|---|
+| `TWITTER_CLIENT_ID` | Twitter OAuth 2.0 client ID |
+| `TWITTER_CLIENT_SECRET` | Twitter OAuth 2.0 client secret |
+
+### 3. Run database migrations
+
+```bash
+pnpm db:migrate
+```
+
+### 4. Start the server
+
+```bash
+pnpm build
+pnpm start
+```
+
+Or for development:
+
+```bash
+pnpm dev
+```
+
+## Connect the CLI to your instance
+
+Point the CLI at your self-hosted API:
+
+```bash
+scx endpoint set https://your-domain.com/api
+scx login
+```
+
+## Connect the Mac app
+
+In the Mac app login screen, choose "Connect to server" and enter your API endpoint URL.
+
+## Updating
+
+Pull the latest changes and rebuild:
+
+```bash
+git pull
+pnpm install
+pnpm db:migrate
+pnpm build
+pnpm start
+```

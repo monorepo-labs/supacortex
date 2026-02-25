@@ -1,0 +1,56 @@
+---
+title: Installation
+description: Install Supacortex via the Mac app or CLI.
+---
+
+There are two ways to use Supacortex. The Mac app gives you the full experience with zero setup. The CLI takes your memory everywhere.
+
+## Mac app
+
+Download the latest version from [supacortex.ai](https://supacortex.ai). The installer sets up everything for you — the CLI, skills, and AI chat are all included.
+
+1. Download and install the app
+2. Sign up and log in
+3. Start saving bookmarks and chatting with your memory
+
+## CLI
+
+Install the CLI globally via npm:
+
+```bash
+npm install -g @supacortex/cli
+```
+
+The binary is called `scx`. Verify the installation:
+
+```bash
+scx --version
+```
+
+### Install the Supacortex skill
+
+To access your memory from AI tools like Claude Code or OpenClaw, install the skill:
+
+```bash
+npx skills add monorepo-labs/skills --skill supacortex
+```
+
+### Log in
+
+Authenticate with your Supacortex account:
+
+```bash
+scx login
+```
+
+This opens a browser window where you approve the device. Once approved, the CLI is ready to use.
+
+### Custom endpoint (self-hosted)
+
+If you're running a self-hosted instance, configure the endpoint before logging in:
+
+```bash
+scx endpoint set https://your-instance.com/api
+```
+
+See [Self-Hosting](/docs/self-hosting) for more details.
