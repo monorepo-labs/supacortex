@@ -442,8 +442,8 @@ export default function Sidebar({
   };
 
   const handleSyncClick = () => {
-    if (isPaymentLoading) return;
-    if (!paymentData?.hasPaid) {
+    if (isPaymentLoading || paymentData === undefined) return;
+    if (!paymentData.hasPaid) {
       setShowPaymentModal(true);
       return;
     }
