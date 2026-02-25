@@ -77,6 +77,12 @@ codesign --force --deep \
 echo "  Verifying signature..."
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
+# ── Step 3b: Regenerate updater tarball + signature ──
+echo "  Regenerating updater tarball with signed app..."
+rm -f "$UPDATER_TARBALL" "$UPDATER_SIG"
+tar -czf "$UPDATER_TARBALL" -C "$BUILD_DIR/macos" "$APP_NAME.app"
+pnpm tauri signer sign "$UPDATER_TARBALL"
+
 # ── Step 4: Create DMG ───────────────────────────
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 DMG_PATH="/tmp/$DMG_NAME"

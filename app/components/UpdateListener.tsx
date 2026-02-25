@@ -10,9 +10,12 @@ export default function UpdateListener() {
 
     let unlisten1: (() => void) | undefined;
     let unlisten2: (() => void) | undefined;
+    let cancelled = false;
 
     (async () => {
       const { listen } = await import("@tauri-apps/api/event");
+
+      if (cancelled) return;
 
       unlisten1 = await listen<{ version: string; body: string | null }>(
         "update-available",
@@ -24,6 +27,8 @@ export default function UpdateListener() {
           });
         },
       );
+
+      if (cancelled) { unlisten1(); return; }
 
       unlisten2 = await listen("update-downloaded", () => {
         sileo.action({
@@ -39,9 +44,12 @@ export default function UpdateListener() {
           },
         });
       });
+
+      if (cancelled) { unlisten1(); unlisten2(); return; }
     })();
 
     return () => {
+      cancelled = true;
       unlisten1?.();
       unlisten2?.();
     };

@@ -255,6 +255,9 @@ pub fn run() {
       {
         let handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
+          // Wait for frontend to load and register event listeners
+          tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
           match handle.updater() {
             Ok(updater) => {
               match updater.check().await {
