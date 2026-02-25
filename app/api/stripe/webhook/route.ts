@@ -39,8 +39,10 @@ export async function POST(request: Request) {
         userId,
         stripeSessionId: session.id,
         amount: session.amount_total ?? 1000,
-      }).catch(() => {
-        // Record already exists (unique constraint on stripeSessionId) — expected path
+      }).catch((err: unknown) => {
+        // Ignore unique constraint violation (record already exists from checkout route)
+        const msg = err instanceof Error ? err.message : "";
+        if (!msg.includes("unique") && !msg.includes("duplicate")) throw err;
       });
     }
     await completePayment(
