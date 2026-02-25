@@ -79,7 +79,7 @@ export async function installOpencode(onProgress: ProgressCallback): Promise<voi
         reject(new Error(`Install exited with code ${data.code}`));
       }
     });
-    command.spawn();
+    command.spawn().catch(reject);
   });
 }
 
@@ -101,6 +101,6 @@ export async function installScx(onProgress: ProgressCallback): Promise<void> {
         reject(new Error(`Install exited with code ${data.code}`));
       }
     });
-    command.spawn();
+    command.spawn().catch(reject);
   });
 }
