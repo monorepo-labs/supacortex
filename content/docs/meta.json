@@ -9,12 +9,11 @@
     "---Features---",
     "twitter-sync",
     "memory",
-    "search",
     "ai-chat",
+    "---Self-Hosting---",
+    "self-hosting",
     "---Reference---",
     "cli",
-    "api",
-    "---Self-Hosting---",
-    "self-hosting"
+    "api"
   ]
 }

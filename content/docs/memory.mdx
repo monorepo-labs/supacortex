@@ -9,7 +9,7 @@ Supacortex isn't just a bookmark manager — it's a memory layer. Everything you
 
 ### Bookmarks
 
-Content you've saved — tweets, links, articles. These are the foundation of your memory.
+Content you've saved — tweets, links, articles.
 
 - Synced from Twitter/X automatically
 - Saved manually via CLI or Mac app
@@ -18,38 +18,30 @@ Content you've saved — tweets, links, articles. These are the foundation of yo
 
 ### Conversations
 
-Summaries of your AI conversations that you want to remember. Stored in three tiers:
+Summaries of your AI conversations. Stored in three tiers:
 
 - **Brief** — A single sentence capturing the key takeaway
 - **Summary** — Bullet points of the main topics and decisions
 - **Detailed** — Full context and reasoning
 
-Save a conversation:
+Save a conversation via CLI:
 
 ```bash
-scx conversation add --brief "Decided to use Fumadocs for documentation"
+scx conversation add "Decided to use Fumadocs for documentation" --tier brief
 ```
 
-List conversations:
-
 ```bash
-scx conversation list
+scx conversation add "Full discussion about architecture" --tier detailed --title "Architecture decision"
 ```
 
 ### Identity
 
-Metadata about you — your goals, preferences, and interests. This helps AI tools understand your context.
+Metadata about you — goals, preferences, interests. This helps AI tools understand your context.
 
-Categories:
-- **Core** — Who you are, what you do
-- **Goals** — What you're working toward
-- **Preferences** — How you like things done
-- **Interests** — Topics you care about
-
-Set identity info:
+Categories: **core**, **goals**, **preferences**, **interests**
 
 ```bash
-scx identity set --category goals --value "Ship Supacortex v1 by March"
+scx identity add "Ship Supacortex v1 by March" --category goals
 ```
 
 ## Accessing memory
@@ -59,4 +51,4 @@ Your memory is accessible from:
 - **Mac app** — Browse, search, and chat with your memory
 - **CLI** — `scx bookmarks`, `scx conversation`, `scx identity` commands
 - **API** — REST endpoints for programmatic access
-- **AI tools** — Via the Supacortex skill installed in Claude Code, OpenClaw, etc.
+- **AI tools** — Via the Supacortex skill installed in Claude Code or other tools

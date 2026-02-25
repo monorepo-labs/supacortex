@@ -3,13 +3,19 @@ title: Twitter/X Sync
 description: Sync your Twitter/X bookmarks into Supacortex.
 ---
 
-Supacortex can import all your Twitter/X bookmarks — full content extraction, author info, and media. Once synced, everything is searchable and accessible from any of your AI tools.
+Supacortex imports your Twitter/X bookmarks — full content extraction, author info, and media. Once synced, everything is searchable and accessible from your AI tools.
 
 ## Connect your X account
 
-1. Open the Mac app or go to [supacortex.ai](https://supacortex.ai)
-2. Go to Settings and connect your X account via OAuth
-3. Your bookmarks will start syncing automatically
+Twitter sync is available in the Mac app only.
+
+1. Open the Mac app
+2. Click **Connect X** in the sidebar
+3. Authorize via OAuth
+
+## Sync your bookmarks
+
+After connecting, click the **Sync** button in the sidebar and follow the steps. The first sync imports all your bookmarks — subsequent syncs only pick up new ones.
 
 ## Sync via CLI
 
@@ -19,15 +25,13 @@ You can also trigger a sync from the terminal:
 scx sync twitter
 ```
 
-### Sync from a specific year
-
-To only sync bookmarks from a certain year onwards:
+To only sync bookmarks from a specific year onwards:
 
 ```bash
 scx sync twitter --since 2024
 ```
 
-### Check sync status
+Check the latest sync status:
 
 ```bash
 scx sync status
@@ -35,10 +39,9 @@ scx sync status
 
 ## How it works
 
-- **Initial sync** imports all your bookmarks (this can take a few minutes depending on how many you have)
+- **Initial sync** imports all your bookmarks (can take a few minutes depending on volume)
 - **Incremental sync** picks up new bookmarks since the last sync
 - **Rate limits** are handled automatically — if the X API rate-limits the request, the sync pauses and resumes where it left off
-- **Content extraction** pulls the full tweet text, author handle, author name, media URLs, and creation date
 
 ## What gets saved
 
@@ -49,4 +52,3 @@ For each bookmark, Supacortex stores:
 - Media URLs (images, videos)
 - Original tweet URL
 - When the tweet was created
-- Full-text search index for instant search
