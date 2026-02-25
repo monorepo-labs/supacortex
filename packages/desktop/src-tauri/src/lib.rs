@@ -3,8 +3,6 @@ use tauri::{LogicalPosition, LogicalSize, WebviewBuilder, WebviewUrl};
 use tauri::Emitter;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-
-#[cfg(not(debug_assertions))]
 use tauri_plugin_updater::UpdaterExt;
 
 /// Global abort handle for the SSE listener
@@ -230,8 +228,44 @@ async fn stop_sse() -> Result<(), String> {
   Ok(())
 }
 
+/// Check for updates: emits events to the frontend for UI notifications
+async fn check_for_updates(handle: tauri::AppHandle) {
+  match handle.updater() {
+    Ok(updater) => {
+      match updater.check().await {
+        Ok(Some(update)) => {
+          let _ = handle.emit("update-available", serde_json::json!({
+            "version": update.version,
+            "body": update.body
+          }));
+          // Download in background, then notify frontend it's ready
+          match update.download_and_install(|_, _| {}, || {}).await {
+            Ok(()) => {
+              let _ = handle.emit("update-downloaded", ());
+            }
+            Err(e) => {
+              log::warn!("Update download failed: {}", e);
+            }
+          }
+        }
+        Ok(None) => {
+          let _ = handle.emit("update-not-available", ());
+        }
+        Err(e) => {
+          log::warn!("Update check failed: {}", e);
+        }
+      }
+    }
+    Err(e) => {
+      log::warn!("Updater init failed: {}", e);
+    }
+  }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItemBuilder};
+
   tauri::Builder::default()
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
@@ -250,42 +284,65 @@ pub fn run() {
       window_vibrancy::apply_vibrancy(&window, window_vibrancy::NSVisualEffectMaterial::Sidebar, None, None)
         .expect("failed to apply vibrancy");
 
-      // Auto-update check (release builds only)
+      // Build macOS app menu: Supacortex > Check for Updates..., separator, Quit
+      let check_updates = MenuItemBuilder::with_id("check-for-updates", "Check for Updates...")
+        .build(app)?;
+
+      let app_submenu = SubmenuBuilder::new(app, "Supacortex")
+        .about(None)
+        .separator()
+        .item(&check_updates)
+        .separator()
+        .hide()
+        .hide_others()
+        .show_all()
+        .separator()
+        .quit()
+        .build()?;
+
+      let edit_submenu = SubmenuBuilder::new(app, "Edit")
+        .undo()
+        .redo()
+        .separator()
+        .cut()
+        .copy()
+        .paste()
+        .select_all()
+        .build()?;
+
+      let window_submenu = SubmenuBuilder::new(app, "Window")
+        .minimize()
+        .item(&PredefinedMenuItem::fullscreen(app, None)?)
+        .separator()
+        .close_window()
+        .build()?;
+
+      let menu = MenuBuilder::new(app)
+        .item(&app_submenu)
+        .item(&edit_submenu)
+        .item(&window_submenu)
+        .build()?;
+
+      app.set_menu(menu)?;
+
+      // Handle menu events
+      app.on_menu_event(move |app_handle, event| {
+        if event.id() == "check-for-updates" {
+          let handle = app_handle.clone();
+          tauri::async_runtime::spawn(async move {
+            check_for_updates(handle).await;
+          });
+        }
+      });
+
+      // Auto-update check on launch (release builds only)
       #[cfg(not(debug_assertions))]
       {
         let handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
           // Wait for frontend to load and register event listeners
           tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-          match handle.updater() {
-            Ok(updater) => {
-              match updater.check().await {
-                Ok(Some(update)) => {
-                  let _ = handle.emit("update-available", serde_json::json!({
-                    "version": update.version,
-                    "body": update.body
-                  }));
-                  // Download in background, then notify frontend it's ready
-                  match update.download_and_install(|_, _| {}, || {}).await {
-                    Ok(()) => {
-                      let _ = handle.emit("update-downloaded", ());
-                    }
-                    Err(e) => {
-                      log::warn!("Update download failed: {}", e);
-                    }
-                  }
-                }
-                Ok(None) => {} // No update available
-                Err(e) => {
-                  log::warn!("Update check failed: {}", e);
-                }
-              }
-            }
-            Err(e) => {
-              log::warn!("Updater init failed: {}", e);
-            }
-          }
+          check_for_updates(handle).await;
         });
       }
 
