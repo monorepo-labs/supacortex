@@ -6,7 +6,7 @@ const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 // Build PATH with common binary directories.
 // We can't source .zshrc/.bashrc because Tauri's shell plugin runs /bin/sh,
 // and zsh-specific syntax in those files causes sh to crash (exit 127).
-const EXTRA_PATH = `export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$(ls -d $HOME/.nvm/versions/node/*/bin 2>/dev/null | head -1):$PATH"`;
+const EXTRA_PATH = `NVM_BIN=$(ls -d $HOME/.nvm/versions/node/*/bin 2>/dev/null | head -1); export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin\${NVM_BIN:+:\$NVM_BIN}:$PATH"`;
 
 interface SetupState {
   setupComplete: boolean;
