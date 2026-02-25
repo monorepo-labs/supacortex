@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useCreateCheckout } from "@/hooks/use-payments";
+import { sileo } from "sileo";
 
 export default function SyncPaymentModal({
   open,
@@ -24,6 +25,9 @@ export default function SyncPaymentModal({
     createCheckout(undefined, {
       onSuccess: (data) => {
         window.location.href = data.url;
+      },
+      onError: (err) => {
+        sileo.error({ title: err.message || "Failed to start checkout" });
       },
     });
   };

@@ -7,7 +7,7 @@ export function usePaymentStatus() {
     queryKey: ["payment-status"],
     queryFn: async (): Promise<{ hasPaid: boolean }> => {
       const res = await fetch("/api/payments/status");
-      if (!res.ok) return { hasPaid: false };
+      if (!res.ok) throw new Error("Failed to fetch payment status");
       return res.json();
     },
     staleTime: 60_000,
