@@ -40,6 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /.claude/worktrees
-vision.md
+VISION.md
 session-memory-brainstorm.json
 CLAUDE.md
