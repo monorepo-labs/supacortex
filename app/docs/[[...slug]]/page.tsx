@@ -4,6 +4,10 @@ import { notFound } from "next/navigation"
 import { source } from "@/lib/source"
 import { getMDXComponents } from "@/mdx-components"
 
+export function generateStaticParams() {
+  return source.generateParams()
+}
+
 export async function generateMetadata(props: {
   params: Promise<{ slug?: string[] }>
 }): Promise<Metadata> {
