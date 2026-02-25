@@ -53,6 +53,8 @@ import { sileo } from "sileo";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace, type PanelConfig } from "@/hooks/use-workspace";
 import { ChatPanel, ChatPanelProvider } from "@/app/components/ChatPanel";
+import { SetupScreen } from "@/app/components/SetupScreen";
+import { useSetup } from "@/hooks/use-setup";
 import type { Session } from "@opencode-ai/sdk/client";
 
 export default function ChatPage() {
@@ -70,7 +72,8 @@ function ChatPageContent() {
   const queryClient = useQueryClient();
 
   const isTauri = useIsTauri();
-  const { connected, connecting, error: connectionError } = useOpenCode();
+  const setup = useSetup(isTauri);
+  const { connected, connecting, error: connectionError, retry: retryOpenCode } = useOpenCode();
   const { create: createSession } = useCreateSession();
   const {
     send: sendMessage,
@@ -89,6 +92,16 @@ function ChatPageContent() {
 
   // Per-conversation directory (for folder selector)
   const [conversationDirs, setConversationDirs] = useState<Map<string, string>>(new Map());
+
+  // Retry opencode connection when setup completes
+  const prevSetupPhaseRef = useRef(setup.phase);
+  useEffect(() => {
+    const wasNotReady = prevSetupPhaseRef.current !== "ready";
+    prevSetupPhaseRef.current = setup.phase;
+    if (setup.phase === "ready" && wasNotReady) {
+      if (!connected && !connecting) retryOpenCode();
+    }
+  }, [setup.phase, connected, connecting, retryOpenCode]);
 
   // Workspace panels (chat, library, reader)
   const workspace = useWorkspace();
@@ -575,6 +588,8 @@ function ChatPageContent() {
     onOpenBrowser: handleOpenBrowser,
     onOpenReader: handleOpenReader,
     onOpenInNewPanel: handleOpenInNewPanel,
+    setupSkipped: setup.phase === "skipped",
+    onTriggerSetup: setup.retry,
   }), [
     connected, connecting, connectionError, isTauri,
     localMessages, conversationDirs,
@@ -582,6 +597,7 @@ function ChatPageContent() {
     createSession, refetchSessions,
     providers, defaultModel,
     handleOpenBrowser, handleOpenReader, handleOpenInNewPanel,
+    setup.phase, setup.retry,
   ]);
 
   const renderPanel = (panel: PanelConfig) => {
@@ -753,8 +769,21 @@ function ChatPageContent() {
     ?? panels.find((p) => p.type === "chat")?.conversationId
     ?? null;
 
+  const showSetup = isTauri && setup.phase !== "ready" && setup.phase !== "skipped";
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      {showSetup && (
+        <SetupScreen
+          phase={setup.phase}
+          dependencies={setup.dependencies}
+          installProgress={setup.installProgress}
+          error={setup.error}
+          onInstall={setup.install}
+          onSkip={setup.skip}
+          onRetry={setup.retry}
+        />
+      )}
       <WorkspaceTabBar
         panels={panels}
         sessions={sessions}

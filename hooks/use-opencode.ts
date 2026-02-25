@@ -13,6 +13,9 @@ export const useOpenCode = () => {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+
+  const retry = useCallback(() => setRetryKey((k) => k + 1), []);
 
   useEffect(() => {
     if (
@@ -26,6 +29,7 @@ export const useOpenCode = () => {
 
     const connect = async () => {
       setConnecting(true);
+      setConnected(false);
       setError(null);
       try {
         console.log("[opencode] Checking if server is running...");
@@ -54,9 +58,9 @@ export const useOpenCode = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retryKey]);
 
-  return { connected, connecting, error };
+  return { connected, connecting, error, retry };
 };
 
 export const useOpenCodeSessions = (connected: boolean) => {
