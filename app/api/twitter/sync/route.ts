@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/services/auth";
 import { getUser } from "@/lib/get-user";
+import { hasUserPaidForSync } from "@/server/payments/queries";
 
 export const maxDuration = 720;
 
@@ -12,6 +13,13 @@ export async function POST(request: Request) {
   const user = await getUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const hasPaid = await hasUserPaidForSync(user.id);
+  if (!hasPaid)
+    return NextResponse.json(
+      { error: "Payment required to sync bookmarks" },
+      { status: 402 },
+    );
 
   // Read optional sinceYear from request body
   let sinceYear: number | undefined;

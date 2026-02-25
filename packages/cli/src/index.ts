@@ -10,6 +10,7 @@ import { registerBookmarksCommand } from "./commands/bookmarks";
 import { registerGroupsCommand } from "./commands/groups";
 import { registerSyncCommand } from "./commands/sync";
 import { registerUpdateCommand } from "./commands/update";
+import { registerMemoryCommand } from "./commands/memory";
 import { checkForUpdates } from "./lib/update-notifier";
 
 const require = createRequire(import.meta.url);
@@ -30,6 +31,7 @@ registerWhoamiCommand(program);
 registerBookmarksCommand(program);
 registerGroupsCommand(program);
 registerSyncCommand(program);
+registerMemoryCommand(program);
 registerUpdateCommand(program, pkg.version);
 
 checkForUpdates(pkg.version);

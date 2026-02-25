@@ -55,3 +55,11 @@ export const getMemoryForUser = async (
 
   return { data, count };
 };
+
+export const getMemoryById = async (id: string, userId: string) => {
+  const [result] = await db
+    .select()
+    .from(memory)
+    .where(and(eq(memory.id, id), eq(memory.createdBy, userId)));
+  return result;
+};
