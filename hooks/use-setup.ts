@@ -6,6 +6,7 @@ import {
   installOpencode,
   installScx,
   installSkills,
+  setupAgentConfig,
   getSetupState,
   setSetupState,
   isSetupFresh,
@@ -104,6 +105,9 @@ export function useSetup(isTauri: boolean): SetupHookReturn {
       addLine("→ Installing skills...");
       await installSkills(addLine);
       addLine("✓ Skills installed");
+
+      addLine("→ Setting up agent config...");
+      await setupAgentConfig(addLine);
 
       // Verify
       const verified = await checkDependencies();
