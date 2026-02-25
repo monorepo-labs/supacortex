@@ -40,6 +40,7 @@ export function useSetup(isTauri: boolean): SetupHookReturn {
   useEffect(() => {
     if (!isTauri || ranRef.current) return;
     ranRef.current = true;
+    setPhase("checking");
 
     (async () => {
       try {
