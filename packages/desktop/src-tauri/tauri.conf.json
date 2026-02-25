@@ -42,7 +42,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzMEM4Qjg3QjYzREEwMzMKUldRem9EMjJoNHNNWXo4dFBVRXlaMnhwNm1QRUMyTG1nWXk5WE1CaGo3eDNweTc4UkdMWmZVOE0K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhGRDJBMUQyMjlGRDdCMEUKUldRT2UvMHAwcUhTaitscWFjLzJGeS9STUpIZnZLQ2JQalIweVllN3cvbkw0Njg1WDdvRkloM08K",
       "endpoints": [
         "https://github.com/monorepo-labs/supacortex/releases/latest/download/latest.json"
       ]
