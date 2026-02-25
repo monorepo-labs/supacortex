@@ -588,7 +588,7 @@ function ChatPageContent() {
     onOpenBrowser: handleOpenBrowser,
     onOpenReader: handleOpenReader,
     onOpenInNewPanel: handleOpenInNewPanel,
-    setupSkipped: setup.phase === "skipped",
+    setupSkipped: setup.phase === "skipped" && !setup.dependencies?.opencode,
     onTriggerSetup: setup.retry,
   }), [
     connected, connecting, connectionError, isTauri,
@@ -597,7 +597,7 @@ function ChatPageContent() {
     createSession, refetchSessions,
     providers, defaultModel,
     handleOpenBrowser, handleOpenReader, handleOpenInNewPanel,
-    setup.phase, setup.retry,
+    setup.phase, setup.retry, setup.dependencies,
   ]);
 
   const renderPanel = (panel: PanelConfig) => {
