@@ -197,14 +197,14 @@ export async function setupAgentConfig(onProgress: ProgressCallback): Promise<vo
   const { Command } = await import("@tauri-apps/plugin-shell");
 
   // Create directory
-  const mkdirScript = `${EXTRA_PATH}; mkdir -p "$HOME/.opencode/agents"`;
+  const mkdirScript = `${EXTRA_PATH}; mkdir -p "$HOME/.config/opencode/agents"`;
   const mkdirResult = await Command.create("exec-sh", ["-c", mkdirScript]).execute();
   if (mkdirResult.code !== 0) {
     throw new Error("Failed to create .opencode/agents directory");
   }
 
   // Write assistant.md
-  const writeScript = `${EXTRA_PATH}; cat > "$HOME/.opencode/agents/assistant.md" << 'AGENT_EOF'
+  const writeScript = `${EXTRA_PATH}; cat > "$HOME/.config/opencode/agents/assistant.md" << 'AGENT_EOF'
 ${ASSISTANT_MD}AGENT_EOF`;
   const writeResult = await Command.create("exec-sh", ["-c", writeScript]).execute();
   if (writeResult.code !== 0) {
