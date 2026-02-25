@@ -5,16 +5,17 @@ import { Env } from "../../types";
 
 export const memoryRoute = new Hono<Env>();
 
-// GET /v1/memory?search=&type=&limit=&offset=
+// GET /v1/memory?search=&type=&typePrefix=&limit=&offset=
 memoryRoute.get("/", async (c) => {
   const userId = c.get("userId");
   const search = c.req.query("search");
   const type = c.req.query("type");
+  const typePrefix = c.req.query("typePrefix");
   const limit = parseInt(c.req.query("limit") ?? "100");
   const offset = parseInt(c.req.query("offset") ?? "0");
 
   try {
-    const { data, count } = await getMemoryForUser(userId, search, type, limit, offset);
+    const { data, count } = await getMemoryForUser(userId, search, type, limit, offset, typePrefix);
     return c.json({ data, meta: { count, limit, offset } });
   } catch (error) {
     console.error(error);

@@ -8,10 +8,13 @@ export const getMemoryForUser = async (
   type?: string,
   limit?: number,
   offset?: number,
+  typePrefix?: string,
 ) => {
   const conditions = [eq(memory.createdBy, userId)];
   if (type) {
     conditions.push(eq(memory.type, type));
+  } else if (typePrefix) {
+    conditions.push(sql`${memory.type} LIKE ${typePrefix + "%"}`);
   }
   let tsQuery;
 
