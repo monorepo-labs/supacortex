@@ -116,6 +116,28 @@ export const syncLogs = pgTable("sync_logs", {
   createdAt: timestamp().defaultNow(),
 });
 
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    stripeSessionId: text().notNull().unique(),
+    stripePaymentIntentId: text(),
+    amount: integer().notNull(),
+    currency: text().notNull().default("usd"),
+    status: text().notNull().default("pending"),
+    productType: text().notNull().default("twitter_sync"),
+    createdAt: timestamp().defaultNow().notNull(),
+    updatedAt: timestamp()
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("payments_user_id_idx").on(table.userId)],
+);
+
 export const apiKeys = pgTable("api_keys", {
   id: uuid().primaryKey().defaultRandom(),
   userId: text()

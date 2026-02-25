@@ -48,6 +48,8 @@ import {
 import type { Session } from "@opencode-ai/sdk/client";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
 import SyncDateFilterModal from "./SyncDateFilterModal";
+import SyncPaymentModal from "./SyncPaymentModal";
+import { usePaymentStatus } from "@/hooks/use-payments";
 import { randomColor, randomGroupName } from "@/lib/group-defaults";
 
 type Group = { id: string; name: string; color: string; icon?: string | null };
@@ -387,8 +389,11 @@ export default function Sidebar({
   const { mutate: syncTwitter, isPending: isSyncing } = useSyncTwitter();
   const { data: syncStatus } = useSyncStatus(!!twitterAccount);
 
+  const { data: paymentData, isLoading: isPaymentLoading } = usePaymentStatus();
+
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [showSyncConfirm, setShowSyncConfirm] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const sessions = opencodeSessions ?? [];
 
   const isInterrupted = syncStatus?.status === "interrupted";
@@ -437,6 +442,11 @@ export default function Sidebar({
   };
 
   const handleSyncClick = () => {
+    if (isPaymentLoading || paymentData === undefined) return;
+    if (!paymentData.hasPaid) {
+      setShowPaymentModal(true);
+      return;
+    }
     // First sync → show year picker modal
     if (syncStatus?.status === "none") {
       setShowDateFilter(true);
@@ -629,6 +639,11 @@ export default function Sidebar({
           </>
         )}
       </aside>
+
+      <SyncPaymentModal
+        open={showPaymentModal}
+        onOpenChange={setShowPaymentModal}
+      />
 
       <SyncDateFilterModal
         open={showDateFilter}
