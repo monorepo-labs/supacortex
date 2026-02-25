@@ -82,7 +82,7 @@ export const startServer = async () => {
   // macOS apps launched from Finder don't inherit shell env
   const command = Command.create("exec-sh", [
     "-c",
-    `NVM_BIN=$(ls -d $HOME/.nvm/versions/node/*/bin 2>/dev/null | head -1); export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin\${NVM_BIN:+:\$NVM_BIN}:$PATH" && cd "$HOME" && opencode serve --port ${PORT}`,
+    `NVM_BINS=$(ls -d $HOME/.nvm/versions/node/*/bin 2>/dev/null | tr '\\n' ':'); export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:\${NVM_BINS}$PATH" && cd "$HOME" && opencode serve --port ${PORT}`,
   ]);
 
   let startupError = "";
