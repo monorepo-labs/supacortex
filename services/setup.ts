@@ -3,8 +3,10 @@ import { readTextFile, writeTextFile, BaseDirectory } from "@tauri-apps/plugin-f
 const SETUP_FILE = "setup.json";
 const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
-// Shared PATH sourcing prefix (same as services/opencode.ts)
-const SOURCE_PROFILE = `source "$HOME/.zshrc" 2>/dev/null || source "$HOME/.bashrc" 2>/dev/null || source "$HOME/.profile" 2>/dev/null; export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$PATH"`;
+// Build PATH with common binary directories.
+// We can't source .zshrc/.bashrc because Tauri's shell plugin runs /bin/sh,
+// and zsh-specific syntax in those files causes sh to crash (exit 127).
+const EXTRA_PATH = `NVM_BINS=$(ls -d $HOME/.nvm/versions/node/*/bin 2>/dev/null | tr '\\n' ':'); export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:\${NVM_BINS}$PATH"`;
 
 interface SetupState {
   setupComplete: boolean;
@@ -48,7 +50,7 @@ export function isSetupFresh(state: SetupState): boolean {
 export async function checkDependencies(): Promise<DependencyStatus> {
   const { Command } = await import("@tauri-apps/plugin-shell");
 
-  const script = `${SOURCE_PROFILE}; echo "opencode:$(command -v opencode >/dev/null 2>&1 && echo ok || echo missing)"; echo "scx:$(command -v scx >/dev/null 2>&1 && echo ok || echo missing)"`;
+  const script = `${EXTRA_PATH}; echo "opencode:$(command -v opencode >/dev/null 2>&1 && echo ok || echo missing)"; echo "scx:$(command -v scx >/dev/null 2>&1 && echo ok || echo missing)"`;
 
   const result = await Command.create("exec-sh", ["-c", script]).execute();
   const stdout = result.stdout || "";
@@ -64,7 +66,7 @@ export async function checkDependencies(): Promise<DependencyStatus> {
 export async function installOpencode(onProgress: ProgressCallback): Promise<void> {
   const { Command } = await import("@tauri-apps/plugin-shell");
 
-  const script = `${SOURCE_PROFILE}; curl -fsSL https://opencode.ai/install | bash`;
+  const script = `${EXTRA_PATH}; curl -fsSL https://opencode.ai/install | bash`;
   const command = Command.create("exec-sh", ["-c", script]);
 
   command.stdout.on("data", (line) => onProgress(line));
@@ -86,7 +88,7 @@ export async function installOpencode(onProgress: ProgressCallback): Promise<voi
 export async function installScx(onProgress: ProgressCallback): Promise<void> {
   const { Command } = await import("@tauri-apps/plugin-shell");
 
-  const script = `${SOURCE_PROFILE}; npm install -g @supacortex/cli`;
+  const script = `${EXTRA_PATH}; npm install -g @supacortex/cli`;
   const command = Command.create("exec-sh", ["-c", script]);
 
   command.stdout.on("data", (line) => onProgress(line));
@@ -195,14 +197,14 @@ export async function setupAgentConfig(onProgress: ProgressCallback): Promise<vo
   const { Command } = await import("@tauri-apps/plugin-shell");
 
   // Create directory
-  const mkdirScript = `${SOURCE_PROFILE}; mkdir -p "$HOME/.opencode/agents"`;
+  const mkdirScript = `${EXTRA_PATH}; mkdir -p "$HOME/.config/opencode/agents"`;
   const mkdirResult = await Command.create("exec-sh", ["-c", mkdirScript]).execute();
   if (mkdirResult.code !== 0) {
     throw new Error("Failed to create .opencode/agents directory");
   }
 
   // Write assistant.md
-  const writeScript = `${SOURCE_PROFILE}; cat > "$HOME/.opencode/agents/assistant.md" << 'AGENT_EOF'
+  const writeScript = `${EXTRA_PATH}; cat > "$HOME/.config/opencode/agents/assistant.md" << 'AGENT_EOF'
 ${ASSISTANT_MD}AGENT_EOF`;
   const writeResult = await Command.create("exec-sh", ["-c", writeScript]).execute();
   if (writeResult.code !== 0) {
@@ -215,7 +217,7 @@ ${ASSISTANT_MD}AGENT_EOF`;
 export async function installSkills(onProgress: ProgressCallback): Promise<void> {
   const { Command } = await import("@tauri-apps/plugin-shell");
 
-  const script = `${SOURCE_PROFILE}; npx skills add monorepo-labs/skills --skill supacortex -y`;
+  const script = `${EXTRA_PATH}; npx skills add monorepo-labs/skills --skill supacortex -y`;
   const command = Command.create("exec-sh", ["-c", script]);
 
   command.stdout.on("data", (line) => onProgress(line));

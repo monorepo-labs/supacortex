@@ -44,4 +44,9 @@ next-env.d.ts
 # fumadocs
 .source
 /.claude/worktrees
-vision.md
+VISION.md
+session-memory-brainstorm.json
+CLAUDE.md
+.opencode/
+docs/memory-system-brainstorm.md
+packages/desktop/scripts/release.sh
