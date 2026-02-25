@@ -142,6 +142,8 @@ interface ChatPanelContextValue {
   selectedBookmarks: BookmarkData[];
   onClearSelectedBookmarks: () => void;
   onRemoveSelectedBookmark: (id: string) => void;
+  setupSkipped?: boolean;
+  onTriggerSetup?: () => void;
 }
 
 const ChatPanelContext = createContext<ChatPanelContextValue | null>(null);
@@ -598,7 +600,19 @@ export function ChatPanel({
       {ctx.isTauri && (
         <div className="px-4 py-3">
           <div className="max-w-3xl mx-auto">
-            {ctx.connecting ? (
+            {ctx.setupSkipped ? (
+              <div className="flex items-center justify-center gap-2 text-sm text-zinc-500 py-3">
+                <span>AI chat requires opencode.</span>
+                {ctx.onTriggerSetup && (
+                  <button
+                    onClick={ctx.onTriggerSetup}
+                    className="font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 transition-colors"
+                  >
+                    Install now
+                  </button>
+                )}
+              </div>
+            ) : ctx.connecting ? (
               <div className="flex items-center gap-2 text-sm text-zinc-400 py-2">
                 <div className="size-3 border-2 border-zinc-300 border-t-transparent rounded-full animate-spin" />
                 Connecting to OpenCode...
