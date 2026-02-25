@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, persister, CACHE_VERSION } from "@/services/tanstack";
+import UpdateListener from "@/app/components/UpdateListener";
 
 function ExternalLinkHandler() {
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       persistOptions={{ persister, maxAge: 7 * 24 * 60 * 60 * 1000, buster: CACHE_VERSION }}
     >
       <ExternalLinkHandler />
+      <UpdateListener />
       {children}
     </PersistQueryClientProvider>
   );

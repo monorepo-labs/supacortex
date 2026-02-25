@@ -57,6 +57,7 @@
         }
       ]
     },
+    "updater:default",
     {
       "identifier": "shell:allow-spawn",
       "allow": [
