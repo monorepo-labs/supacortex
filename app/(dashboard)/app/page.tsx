@@ -125,6 +125,30 @@ function ChatPageContent() {
     }
   }, [panels, updatePanel]);
 
+  // Handle post-payment redirect — poll for webhook confirmation
+  useEffect(() => {
+    if (searchParams.get("payment") !== "success") return;
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch("/api/payments/status");
+        const data = await res.json();
+        if (data.hasPaid) {
+          clearInterval(poll);
+          sileo.success({ title: "Payment confirmed! You can now sync bookmarks." });
+          router.replace("/app");
+        }
+      } catch { /* ignore */ }
+      if (attempts >= 5) {
+        clearInterval(poll);
+        sileo.info({ title: "Payment processing — try syncing in a moment." });
+        router.replace("/app");
+      }
+    }, 2000);
+    return () => clearInterval(poll);
+  }, [searchParams, router]);
+
   // When URL changes (e.g. sidebar click), update the first chat panel without a matching conversation
   const prevUrlRef = useRef(urlConversationId);
   useEffect(() => {
