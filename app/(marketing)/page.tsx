@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { CLICard } from "@/app/components/CLICard";
+
 import {
   Terminal,
   MessageSquare,
@@ -9,6 +11,10 @@ import {
   Search,
   Shield,
   Code,
+  Monitor,
+  Download,
+  LogIn,
+  Sparkles,
 } from "lucide-react";
 
 function XIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
@@ -107,7 +113,7 @@ function DownloadButton({ className }: { className?: string }) {
   return (
     <Link
       href="#"
-      className={`inline-flex select-none items-center gap-2 rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-50 transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 ${className ?? ""}`}
+      className={`inline-flex select-none items-center gap-2 rounded-full bg-[#1784fe] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1784fe]/90 ${className ?? ""}`}
     >
       <AppleIcon className="size-3.5" />
       Download for free
@@ -148,11 +154,11 @@ export default function LandingPage() {
 
       <main className="flex flex-col gap-16 sm:gap-24">
         {/* Hero */}
-        <div className="relative overflow-hidden border-b border-zinc-200 dark:border-zinc-800">
+        <div className="relative overflow-hidden">
           <div className="relative z-10">
             <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-6 px-4 py-16 text-center sm:gap-8 sm:py-20">
               {/* Headline */}
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col items-center gap-4">
                 <h1 className="max-w-md text-3xl font-medium tracking-tight text-zinc-900 text-pretty dark:text-zinc-100">
                   One memory for all your AI.
                 </h1>
@@ -166,7 +172,7 @@ export default function LandingPage() {
                 <div className="flex items-center gap-3">
                   <Link
                     href="#"
-                    className="inline-flex select-none items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-[15px] font-medium text-zinc-50 shadow-lg transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                    className="inline-flex select-none items-center gap-2 rounded-full bg-[#1784fe] px-5 py-2.5 text-[15px] font-medium text-white shadow-lg transition-colors hover:bg-[#1784fe]/90"
                   >
                     <AppleIcon className="size-3.5" />
                     Download for free
@@ -183,17 +189,17 @@ export default function LandingPage() {
           {/* App window preview */}
           <div className="mx-auto w-full max-w-2xl">
             <div className="relative mx-auto px-4 pb-0 lg:-mx-8 xl:-mx-12">
-              <div className="w-full translate-y-px overflow-hidden rounded-t-xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08)] ring-[0.5px] ring-zinc-200 select-none dark:bg-zinc-900 dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] dark:ring-zinc-800">
-                {/* Title bar */}
-                <div className="flex items-center px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <div className="size-3 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                    <div className="size-3 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                    <div className="size-3 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                  </div>
-                </div>
-                {/* Placeholder content */}
-                <div className="h-[280px] bg-zinc-50 sm:h-[320px] dark:bg-zinc-900/50" />
+              <div className="w-full overflow-hidden rounded-xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08)] ring-[0.5px] ring-zinc-200 select-none dark:bg-zinc-900 dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] dark:ring-zinc-800">
+                {/* App demo video */}
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full"
+                >
+                  <source src="/demo.mp4" type="video/mp4" />
+                </video>
               </div>
             </div>
           </div>
@@ -236,47 +242,52 @@ export default function LandingPage() {
               Get started in seconds.
             </h2>
             <h3 className="text-2xl font-medium text-zinc-400 dark:text-zinc-500">
-              Two ways to use Supacortex.
+              The Mac app sets everything up. The CLI takes your memory everywhere.
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
-            <div className="flex flex-col gap-4">
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-                Mac app
-              </h3>
-              <ol className="flex flex-col gap-3 text-[15px] text-zinc-400 dark:text-zinc-500">
-                <li className="flex gap-3">
-                  <span className="flex-none font-medium text-zinc-500 dark:text-zinc-400">1.</span>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {/* Mac app card */}
+            <div className="flex flex-col gap-5 rounded-xl border border-zinc-200 bg-zinc-50/50 p-6 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-[#1784fe]/10">
+                  <Monitor className="size-5 text-[#1784fe]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                    Mac app
+                  </h3>
+                  <p className="text-sm text-zinc-400 dark:text-zinc-500">Full experience, zero setup</p>
+                </div>
+              </div>
+              <p className="text-[15px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                Download the app and everything is set up for you — CLI, skills, and AI chat all included.
+              </p>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 text-[15px] text-zinc-500 dark:text-zinc-400">
+                  <Download className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
                   Download and install the app
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-none font-medium text-zinc-500 dark:text-zinc-400">2.</span>
+                </div>
+                <div className="flex items-center gap-3 text-[15px] text-zinc-500 dark:text-zinc-400">
+                  <LogIn className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
                   Sign up and log in
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-none font-medium text-zinc-500 dark:text-zinc-400">3.</span>
-                  Start saving bookmarks and chatting
-                </li>
-              </ol>
+                </div>
+                <div className="flex items-center gap-3 text-[15px] text-zinc-500 dark:text-zinc-400">
+                  <Sparkles className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  Start saving and chatting
+                </div>
+              </div>
+              <Link
+                href="#"
+                className="mt-auto flex w-full select-none items-center justify-center gap-2 rounded-full bg-[#1784fe] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1784fe]/90"
+              >
+                <AppleIcon className="size-3.5" />
+                Download for free
+              </Link>
             </div>
 
-            <div className="flex flex-col gap-4">
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-                CLI only
-              </h3>
-              <div className="flex flex-col gap-3 text-[15px]">
-                <code className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                  npm i -g @supacortex/cli
-                </code>
-                <code className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                  scx login
-                </code>
-                <code className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                  scx bookmarks add &lt;url&gt;
-                </code>
-              </div>
-            </div>
+            {/* CLI card */}
+            <CLICard />
           </div>
         </div>
       </main>
@@ -308,7 +319,7 @@ export default function LandingPage() {
               key={faq.q}
               className="group border-b border-zinc-200 dark:border-zinc-800"
             >
-              <summary className="flex cursor-pointer items-center justify-between py-4 text-[15px] font-medium text-zinc-900 select-none dark:text-zinc-100">
+              <summary className="flex cursor-pointer items-center justify-between py-4 text-lg font-medium text-zinc-900 select-none dark:text-zinc-100">
                 {faq.q}
                 <span className="text-zinc-400 transition-transform group-open:rotate-45">+</span>
               </summary>
@@ -331,7 +342,7 @@ export default function LandingPage() {
         <div className="mt-2 flex items-center gap-3">
           <Link
             href="#"
-            className="inline-flex select-none items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-[15px] font-medium text-zinc-50 shadow-lg transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="inline-flex select-none items-center gap-2 rounded-full bg-[#1784fe] px-5 py-2.5 text-[15px] font-medium text-white shadow-lg transition-colors hover:bg-[#1784fe]/90"
           >
             <AppleIcon className="size-3.5" />
             Download for free
