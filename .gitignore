@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 /.claude/worktrees
 vision.md
+
+# desktop release docs (contains signing credentials info)
+packages/desktop/RELEASE.md
+
+# tauri build artifacts
+packages/desktop/src-tauri/target/
