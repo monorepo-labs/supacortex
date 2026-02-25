@@ -8,8 +8,7 @@ export default function UpdateListener() {
     const isTauri = !!(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__;
     if (!isTauri) return;
 
-    let unlisten1: (() => void) | undefined;
-    let unlisten2: (() => void) | undefined;
+    let unlisteners: (() => void)[] = [];
     let cancelled = false;
 
     (async () => {
@@ -17,7 +16,7 @@ export default function UpdateListener() {
 
       if (cancelled) return;
 
-      unlisten1 = await listen<{ version: string; body: string | null }>(
+      unlisteners.push(await listen<{ version: string; body: string | null }>(
         "update-available",
         (event) => {
           sileo.info({
@@ -26,11 +25,11 @@ export default function UpdateListener() {
             duration: 5000,
           });
         },
-      );
+      ));
 
-      if (cancelled) { unlisten1(); return; }
+      if (cancelled) { unlisteners.forEach((u) => u()); return; }
 
-      unlisten2 = await listen("update-downloaded", () => {
+      unlisteners.push(await listen("update-downloaded", () => {
         sileo.action({
           title: "Update ready",
           description: "Restart to apply the update.",
@@ -43,15 +42,33 @@ export default function UpdateListener() {
             },
           },
         });
-      });
+      }));
 
-      if (cancelled) { unlisten1(); unlisten2(); return; }
+      if (cancelled) { unlisteners.forEach((u) => u()); return; }
+
+      unlisteners.push(await listen("update-not-available", () => {
+        sileo.success({
+          title: "You're up to date",
+          duration: 3000,
+        });
+      }));
+
+      if (cancelled) { unlisteners.forEach((u) => u()); return; }
+
+      unlisteners.push(await listen<string>("update-error", (event) => {
+        sileo.error({
+          title: "Update error",
+          description: event.payload,
+          duration: 8000,
+        });
+      }));
+
+      if (cancelled) { unlisteners.forEach((u) => u()); return; }
     })();
 
     return () => {
       cancelled = true;
-      unlisten1?.();
-      unlisten2?.();
+      unlisteners.forEach((u) => u());
     };
   }, []);
 
