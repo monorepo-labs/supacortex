@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getMemoryForUser } from "@/server/memory/queries";
+import { getMemoryForUser, getMemoryById } from "@/server/memory/queries";
 import { createMemory, updateMemory, deleteMemory } from "@/server/memory/mutations";
 import { Env } from "../../types";
 
@@ -16,6 +16,21 @@ memoryRoute.get("/", async (c) => {
   try {
     const { data, count } = await getMemoryForUser(userId, search, type, limit, offset);
     return c.json({ data, meta: { count, limit, offset } });
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Failed to get memory" }, 400);
+  }
+});
+
+// GET /v1/memory/:id
+memoryRoute.get("/:id", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+
+  try {
+    const data = await getMemoryById(id, userId);
+    if (!data) return c.json({ error: "Memory not found" }, 404);
+    return c.json(data);
   } catch (error) {
     console.error(error);
     return c.json({ error: "Failed to get memory" }, 400);
