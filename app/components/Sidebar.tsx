@@ -389,7 +389,7 @@ export default function Sidebar({
   const { mutate: syncTwitter, isPending: isSyncing } = useSyncTwitter();
   const { data: syncStatus } = useSyncStatus(!!twitterAccount);
 
-  const { data: paymentData, isLoading: isPaymentLoading } = usePaymentStatus();
+  const { data: paymentData } = usePaymentStatus();
 
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [showSyncConfirm, setShowSyncConfirm] = useState(false);
@@ -442,7 +442,6 @@ export default function Sidebar({
   };
 
   const handleSyncClick = () => {
-    if (isPaymentLoading) return;
     if (!paymentData?.hasPaid) {
       setShowPaymentModal(true);
       return;
