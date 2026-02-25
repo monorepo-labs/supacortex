@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Check, Copy, Clipboard } from "lucide-react";
+import { Check, Copy } from "lucide-react";
+import { ClipboardIcon } from "@heroicons/react/24/solid";
 import { CommandLineIcon } from "@heroicons/react/24/solid";
 
 const commands = [
@@ -62,7 +63,7 @@ export function CLICard() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-5 rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
+    <div className="flex flex-col gap-5 rounded-xl bg-[hsl(0,0%,97%)] p-6 dark:bg-zinc-900">
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-lg bg-zinc-900/10 dark:bg-zinc-100/10">
           <CommandLineIcon className="size-5 text-zinc-700 dark:text-zinc-300" />
@@ -71,12 +72,12 @@ export function CLICard() {
           <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
             CLI + skills
           </h3>
-          <p className="text-sm text-zinc-400 dark:text-zinc-500">
+          <p className="text-base font-medium text-zinc-400 dark:text-zinc-500">
             Any device, any AI tool
           </p>
         </div>
       </div>
-      <p className="text-[15px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+      <p className="text-base font-medium leading-relaxed text-zinc-500 dark:text-zinc-400">
         Access your memory from Claude Code, OpenClaw, or any terminal. Install
         on Windows, Linux, or a second Mac.
       </p>
@@ -84,7 +85,7 @@ export function CLICard() {
         {commands.map((cmd) => (
           <div
             key={cmd}
-            className="group flex items-center justify-between gap-2 rounded-lg bg-zinc-100 px-3 py-2 dark:bg-zinc-800"
+            className="group flex items-center justify-between gap-2 rounded-lg bg-[hsl(0,0%,92%)] px-3 py-2 dark:bg-zinc-800"
           >
             <code className="min-w-0 truncate text-[13px] text-zinc-600 dark:text-zinc-400">
               {cmd}
@@ -108,7 +109,7 @@ export function CLICard() {
           </>
         ) : (
           <>
-            <Clipboard className="size-4" />
+            <ClipboardIcon className="size-4" />
             Copy prompt for AI
           </>
         )}

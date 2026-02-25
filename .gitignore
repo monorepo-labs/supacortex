@@ -50,3 +50,4 @@ CLAUDE.md
 .opencode/
 docs/memory-system-brainstorm.md
 packages/desktop/scripts/release.sh
+packages/desktop/RELEASE.md
