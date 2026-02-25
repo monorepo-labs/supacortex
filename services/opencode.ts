@@ -147,7 +147,7 @@ export const startServer = async () => {
   // macOS apps launched from Finder don't inherit shell env
   const command = Command.create("exec-sh", [
     "-c",
-    `source "$HOME/.zshrc" 2>/dev/null || source "$HOME/.bashrc" 2>/dev/null || source "$HOME/.profile" 2>/dev/null; export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$PATH" && cd "$HOME" && opencode serve --port ${PORT}`,
+    `export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$(ls -d $HOME/.nvm/versions/node/*/bin 2>/dev/null | head -1):$PATH" && cd "$HOME" && opencode serve --port ${PORT}`,
   ]);
 
   let startupError = "";
