@@ -1,0 +1,121 @@
+---
+title: Self-Hosting
+description: Deploy your own Supacortex instance.
+---
+
+Supacortex is fully open source. You can self-host the entire stack on your own infrastructure.
+
+<Callout type="warn">
+Self-hosting requires managing your own infrastructure, environment variables, and builds. The published Mac app is configured for the hosted instance — self-hosters need to build their own.
+</Callout>
+
+## What you need to host
+
+Supacortex has three parts:
+
+1. **Hono API server** (`packages/api/`) — handles all data operations, CLI access, and cron jobs
+2. **Next.js web app** (project root) — the web UI that the Mac app loads
+3. **Mac app** (optional) — a Tauri wrapper around your web UI with terminal access for AI chat
+
+The CLI works out of the box — just point it at your API server.
+
+## Requirements
+
+- **Node.js** 20+
+- **PostgreSQL** 15+ (Railway, Supabase, Neon, or self-managed)
+- **pnpm** for package management
+- A server or platform to host the Next.js app and Hono API (Vercel, Railway, VPS)
+
+## Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/monorepo-labs/supacortex.git
+cd supacortex
+pnpm install
+```
+
+### 2. Configure environment variables
+
+Copy the example files and fill in your values:
+
+```bash
+cp .env.example .env.local
+cp packages/api/.env.example packages/api/.env
+```
+
+#### Next.js app (`.env.local` in project root)
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Secret for auth sessions (generate a random string) |
+| `BETTER_AUTH_URL` | Your app's URL (e.g. `https://your-domain.com`) |
+| `NEXT_PUBLIC_APP_URL` | Same as above, used client-side |
+| `INTERNAL_API_SECRET` | Shared secret between the Next.js app and Hono API |
+| `TWITTER_CLIENT_ID` | Twitter OAuth 2.0 client ID (for X sync) |
+| `TWITTER_CLIENT_SECRET` | Twitter OAuth 2.0 client secret (for X sync) |
+| `OPENROUTER_API_KEY` | OpenRouter API key (for AI chat) |
+| `JINA_API_KEY` | Jina API key (for content extraction) |
+| `API_URL` | URL of the Hono API server (e.g. `http://localhost:3001`) |
+
+#### Hono API server (`packages/api/.env`)
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Same PostgreSQL connection string |
+| `INTERNAL_API_SECRET` | Same shared secret as above |
+| `JINA_API_KEY` | Jina API key |
+| `OPENROUTER_API_KEY` | OpenRouter API key |
+| `CRON_SECRET` | Secret for cron job endpoints |
+
+### 3. Run database migrations
+
+```bash
+pnpm db:migrate
+```
+
+### 4. Start the servers
+
+```bash
+pnpm build
+pnpm start
+```
+
+Or for development:
+
+```bash
+pnpm dev
+```
+
+## Connect the CLI
+
+Point the CLI at your API server and authenticate with an API key:
+
+```bash
+scx endpoint https://your-api-domain.com
+scx token <your-api-key>
+```
+
+Create an API key from your web UI (click your avatar → **API key** → create one) or directly in your database.
+
+## Build the Mac app
+
+The published Mac app points to `supacortex.ai`. To use it with your self-hosted instance, you need to build your own:
+
+1. Update the environment variables in the Tauri config to point to your web app and API URLs
+2. Build the DMG with your own config
+3. Distribute to your devices
+
+## Updating
+
+Pull the latest changes and rebuild:
+
+```bash
+git pull
+pnpm install
+pnpm db:migrate
+pnpm build
+pnpm start
+```

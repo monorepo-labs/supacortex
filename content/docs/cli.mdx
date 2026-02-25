@@ -1,0 +1,263 @@
+---
+title: CLI Reference
+description: Complete reference for the Supacortex CLI (scx).
+---
+
+The Supacortex CLI (`scx`) gives you full access to your memory from the terminal. Install it with `npm install -g @supacortex/cli`.
+
+## Authentication
+
+### `scx login`
+
+Authenticate via browser. Opens a device code flow — approve in your browser and the CLI saves your credentials locally.
+
+```bash
+scx login
+```
+
+### `scx logout`
+
+Remove saved credentials.
+
+```bash
+scx logout
+```
+
+### `scx token <apikey>`
+
+Manually set an API key instead of using the browser login flow.
+
+```bash
+scx token sk_live_abc123
+```
+
+### `scx whoami`
+
+Show current configuration — endpoint and API key status.
+
+```bash
+scx whoami
+```
+
+### `scx endpoint [url]`
+
+Show, set, or reset the API endpoint. Useful for self-hosted instances.
+
+```bash
+scx endpoint                          # Show current
+scx endpoint https://my-server.com/api  # Set custom
+scx endpoint reset                    # Reset to default
+```
+
+## Bookmarks
+
+### `scx bookmarks list`
+
+List bookmarks with optional filtering.
+
+```bash
+scx bookmarks list [options]
+```
+
+| Option | Description |
+|---|---|
+| `-l, --limit <number>` | Max results (default: 20) |
+| `-o, --offset <number>` | Skip results |
+| `-s, --search <string>` | Full-text search |
+| `-t, --type <string>` | Filter by type: `tweet`, `link`, `youtube` |
+| `-p, --pretty` | Human-readable output |
+
+```bash
+scx bookmarks list --search "react" --type link --limit 10 --pretty
+```
+
+### `scx bookmarks add <url>`
+
+Save a new bookmark. The URL is automatically scraped for title, content, and metadata.
+
+```bash
+scx bookmarks add "https://example.com/article" --pretty
+```
+
+YouTube URLs are automatically detected — the video title, transcript, and thumbnail are extracted.
+
+### `scx bookmarks get <id>`
+
+Get a bookmark by ID.
+
+```bash
+scx bookmarks get abc123 --pretty
+```
+
+### `scx bookmarks delete <id>`
+
+Delete a bookmark.
+
+```bash
+scx bookmarks delete abc123
+```
+
+## Groups
+
+### `scx groups list`
+
+List all groups.
+
+```bash
+scx groups list
+scx groups list --json    # Raw JSON output
+```
+
+### `scx groups create <name>`
+
+Create a new group.
+
+```bash
+scx groups create "AI Research"
+```
+
+### `scx groups delete <id>`
+
+Delete a group.
+
+```bash
+scx groups delete abc123
+```
+
+## Sync
+
+### `scx sync twitter`
+
+Sync bookmarks from X (Twitter). Handles rate limits automatically — pauses and resumes where it left off.
+
+```bash
+scx sync twitter
+scx sync twitter --since 2024    # Only sync from 2024 onwards
+```
+
+### `scx sync status`
+
+Check the latest sync status.
+
+```bash
+scx sync status
+```
+
+Returns the sync status (`completed`, `interrupted`, `in-progress`, or `none`), number of tweets synced, and rate limit info.
+
+## Conversations
+
+Store summaries of your AI conversations as persistent memory.
+
+### `scx conversation list`
+
+```bash
+scx conversation list [options]
+```
+
+| Option | Description |
+|---|---|
+| `-s, --search <string>` | Search conversations |
+| `--tier <tier>` | Filter by tier: `brief`, `summary`, `detailed` |
+| `-l, --limit <number>` | Max results (default: 20) |
+| `-o, --offset <number>` | Skip results |
+| `-p, --pretty` | Human-readable output |
+
+### `scx conversation add <content>`
+
+Save a conversation summary. The `--tier` flag is required.
+
+```bash
+scx conversation add "Decided to use Fumadocs for docs" --tier brief
+scx conversation add "Discussed React hooks and optimization" --tier summary --title "React discussion"
+```
+
+| Option | Description |
+|---|---|
+| `--tier <tier>` | **Required.** `brief` (1 sentence), `summary` (bullet points), `detailed` (full doc) |
+| `-t, --title <string>` | Title for the conversation |
+| `-m, --metadata <json>` | Metadata as JSON |
+| `-p, --pretty` | Human-readable output |
+
+### `scx conversation get <id>`
+
+```bash
+scx conversation get abc123 --pretty
+```
+
+### `scx conversation update <id>`
+
+Update a saved conversation. At least one field must be provided.
+
+```bash
+scx conversation update abc123 --content "Updated summary" --tier detailed
+```
+
+### `scx conversation delete <id>`
+
+```bash
+scx conversation delete abc123
+```
+
+## Identity
+
+Store metadata about yourself — goals, preferences, interests. This helps AI tools understand your context.
+
+### `scx identity list`
+
+```bash
+scx identity list [options]
+```
+
+| Option | Description |
+|---|---|
+| `-s, --search <string>` | Search entries |
+| `--category <cat>` | Filter: `core`, `goals`, `preferences`, `interests` |
+| `-l, --limit <number>` | Max results (default: 20) |
+| `-o, --offset <number>` | Skip results |
+| `-p, --pretty` | Human-readable output |
+
+### `scx identity add <content>`
+
+```bash
+scx identity add "Solo founder building AI tools" --category core --title "Profile"
+```
+
+| Option | Description |
+|---|---|
+| `-t, --title <string>` | Title for the entry |
+| `--category <cat>` | `core`, `goals`, `preferences`, `interests` |
+| `-m, --metadata <json>` | Additional metadata as JSON |
+| `-p, --pretty` | Human-readable output |
+
+### `scx identity get <id>`
+
+```bash
+scx identity get abc123 --pretty
+```
+
+### `scx identity update <id>`
+
+```bash
+scx identity update abc123 --content "Updated goals" --category goals
+```
+
+### `scx identity delete <id>`
+
+```bash
+scx identity delete abc123
+```
+
+## Utility
+
+### `scx update`
+
+Check for updates and install the latest version.
+
+```bash
+scx update
+```
+
+## Output formats
+
+Most commands default to JSON output. Add `--pretty` (or `-p`) for human-readable output. Groups commands use `--json` (or `-j`) for raw JSON.

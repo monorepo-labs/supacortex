@@ -1,0 +1,233 @@
+---
+title: API Reference
+description: REST API endpoints for programmatic access to Supacortex.
+---
+
+The Supacortex API runs on Hono and provides full CRUD access to your bookmarks, groups, sync, and memory.
+
+## Base URL
+
+```
+https://api.supacortex.ai
+```
+
+For self-hosted instances, use your custom endpoint.
+
+## Authentication
+
+All `/v1/*` endpoints require an API key passed as a Bearer token:
+
+```bash
+Authorization: Bearer YOUR_API_KEY
+```
+
+Create API keys via `scx token create` or from the Mac app settings.
+
+---
+
+## Bookmarks
+
+### List bookmarks
+
+```http
+GET /v1/bookmarks
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `search` | string | Full-text search across title/content |
+| `type` | string | Filter by type: `tweet`, `link`, `youtube` |
+| `group` | string | Filter by group ID |
+| `limit` | number | Max results (default: 100) |
+| `offset` | number | Skip results (default: 0) |
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "type": "link",
+      "title": "Article Title",
+      "url": "https://example.com",
+      "content": "Page content...",
+      "author": "Author Name",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "groupIds": ["group-uuid"]
+    }
+  ],
+  "meta": { "total": 150, "limit": 100, "offset": 0 }
+}
+```
+
+### Get bookmark
+
+```http
+GET /v1/bookmarks/:id
+```
+
+### Create bookmark
+
+```http
+POST /v1/bookmarks
+```
+
+```json
+{ "url": "https://example.com/article" }
+```
+
+The URL is automatically scraped for title, content, and metadata. YouTube URLs extract the video title, transcript, and thumbnail. Tweet URLs are rejected — use the Twitter sync instead.
+
+**Response:** `201 Created`
+
+### Delete bookmark
+
+```http
+DELETE /v1/bookmarks/:id
+```
+
+---
+
+## Groups
+
+### List groups
+
+```http
+GET /v1/groups
+```
+
+### Create group
+
+```http
+POST /v1/groups
+```
+
+```json
+{
+  "name": "My Group",
+  "color": "#6b7280"
+}
+```
+
+`name` is required. `color` defaults to `#6b7280`.
+
+**Response:** `201 Created`
+
+### Delete group
+
+```http
+DELETE /v1/groups/:id
+```
+
+---
+
+## Sync
+
+### Trigger sync
+
+```http
+POST /v1/sync
+```
+
+```json
+{ "sinceYear": 2024 }
+```
+
+`sinceYear` is optional. Triggers a Twitter bookmark sync. If a previous sync was interrupted by rate limits, it resumes from where it left off.
+
+**Response:**
+```json
+{
+  "synced": 50,
+  "status": "completed",
+  "rateLimitResetsAt": null,
+  "apiCalls": 3,
+  "tweetsTotal": 152,
+  "mode": "incremental"
+}
+```
+
+Status can be `completed` or `interrupted` (rate limited).
+
+### Sync status
+
+```http
+GET /v1/sync/status
+```
+
+Returns the latest sync status without triggering a new sync.
+
+---
+
+## Memory
+
+### List memory
+
+```http
+GET /v1/memory
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `search` | string | Full-text search |
+| `type` | string | Exact type match |
+| `typePrefix` | string | Type prefix match (e.g. `context:*`) |
+| `limit` | number | Max results (default: 100) |
+| `offset` | number | Skip results (default: 0) |
+
+### Get memory
+
+```http
+GET /v1/memory/:id
+```
+
+### Create memory
+
+```http
+POST /v1/memory
+```
+
+```json
+{
+  "content": "Note content...",
+  "type": "note",
+  "title": "Optional title",
+  "metadata": { "tags": ["ai"] }
+}
+```
+
+`content` and `type` are required. `title` and `metadata` are optional.
+
+**Response:** `201 Created`
+
+### Update memory
+
+```http
+PATCH /v1/memory/:id
+```
+
+All fields are optional — only provided fields are updated.
+
+### Delete memory
+
+```http
+DELETE /v1/memory/:id
+```
+
+---
+
+## Error responses
+
+All errors return a JSON object with an `error` field:
+
+```json
+{ "error": "Human-readable error message" }
+```
+
+Common status codes:
+- `400` — Bad request (missing/invalid params)
+- `401` — Unauthorized (missing or invalid API key)
+- `404` — Resource not found
+- `409` — Conflict (e.g. duplicate URL)
+- `429` — Rate limited (sync endpoints)
+- `500` — Internal server error

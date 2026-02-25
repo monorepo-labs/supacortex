@@ -1,0 +1,53 @@
+---
+title: Authentication
+description: Set up authentication for the Mac app, CLI, and API.
+---
+
+## Mac app & web
+
+Sign in with your email and password at [supacortex.ai](https://supacortex.ai). The Mac app uses the same account.
+
+## CLI
+
+The CLI uses a device code flow:
+
+```bash
+scx login
+```
+
+This opens your browser where you approve the device. Once approved, the CLI stores your credentials locally.
+
+To check your current session:
+
+```bash
+scx whoami
+```
+
+To log out:
+
+```bash
+scx logout
+```
+
+## API keys
+
+For programmatic access (scripts, integrations, CI/CD), use API keys instead of session auth.
+
+### Create an API key
+
+In the Mac app, click your avatar → **API key** → type a name → **Create**.
+
+### Use an API key
+
+Pass the key as a Bearer token:
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  https://api.supacortex.ai/v1/bookmarks
+```
+
+You can also set it directly in the CLI instead of using the browser login:
+
+```bash
+scx token <your-api-key>
+```

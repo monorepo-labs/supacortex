@@ -27,10 +27,12 @@ function CopyButton({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard access denied */ }
   }, [text]);
 
   return (
@@ -51,10 +53,12 @@ function CopyButton({
 export function CLICard() {
   const [promptCopied, setPromptCopied] = useState(false);
 
-  const handleCopyPrompt = useCallback(() => {
-    navigator.clipboard.writeText(aiPrompt);
-    setPromptCopied(true);
-    setTimeout(() => setPromptCopied(false), 2000);
+  const handleCopyPrompt = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(aiPrompt);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch { /* clipboard access denied */ }
   }, []);
 
   return (
