@@ -19,8 +19,9 @@ export const registerIdentityCommand = (program: Command) => {
     .action(async (option) => {
       const searchParams = new URLSearchParams();
       searchParams.append("type", "identity");
-      if (option.limit) searchParams.append("limit", String(parseInt(option.limit, 10)));
-      if (option.offset) searchParams.append("offset", String(parseInt(option.offset, 10)));
+      // When filtering by category client-side, fetch all and apply limit after
+      if (option.limit && !option.category) searchParams.append("limit", String(parseInt(option.limit, 10)));
+      if (option.offset && !option.category) searchParams.append("offset", String(parseInt(option.offset, 10)));
       if (option.search) searchParams.append("search", option.search);
       const result = await apiRequest(`memory?${searchParams.toString()}`, "GET");
 
@@ -32,6 +33,8 @@ export const registerIdentityCommand = (program: Command) => {
           (m: Record<string, unknown>) =>
             (m.metadata as Record<string, unknown>)?.category === option.category,
         );
+        const limit = parseInt(option.limit, 10);
+        if (limit) data = data.slice(0, limit);
       }
 
       if (!option.pretty) {
@@ -130,7 +133,11 @@ export const registerIdentityCommand = (program: Command) => {
       if (option.title) body.title = option.title;
       if (option.content) body.content = option.content;
       if (option.category || option.metadata) {
-        const metadata: Record<string, unknown> = {};
+        // Fetch existing entry to merge metadata instead of replacing
+        const existing = await apiRequest(`memory/${id}`, "GET");
+        const metadata: Record<string, unknown> = {
+          ...((existing.metadata as Record<string, unknown>) ?? {}),
+        };
         if (option.metadata) {
           try {
             Object.assign(metadata, JSON.parse(option.metadata));
