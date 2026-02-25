@@ -629,7 +629,7 @@ export default function Sidebar({
                   </div>
                 ))}
               </nav>
-              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-background to-transparent" />
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#eff0f2] to-transparent" />
             </div>
             {workspaceControls && (
               <div className="w-52 px-3 pb-3">
