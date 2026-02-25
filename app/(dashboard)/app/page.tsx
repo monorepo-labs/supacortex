@@ -94,10 +94,11 @@ function ChatPageContent() {
   const [conversationDirs, setConversationDirs] = useState<Map<string, string>>(new Map());
 
   // Retry opencode connection when setup completes
-  const setupReadyRef = useRef(false);
+  const prevSetupPhaseRef = useRef(setup.phase);
   useEffect(() => {
-    if (setup.phase === "ready" && !setupReadyRef.current) {
-      setupReadyRef.current = true;
+    const wasNotReady = prevSetupPhaseRef.current !== "ready";
+    prevSetupPhaseRef.current = setup.phase;
+    if (setup.phase === "ready" && wasNotReady) {
       if (!connected && !connecting) retryOpenCode();
     }
   }, [setup.phase, connected, connecting, retryOpenCode]);
