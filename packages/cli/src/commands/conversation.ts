@@ -33,16 +33,15 @@ export const registerConversationCommand = (program: Command) => {
       }
       const result = await apiRequest(`memory?${searchParams.toString()}`, "GET");
 
-      if (!option.pretty) {
-        console.log(JSON.stringify(result, null, 2));
-        return;
-      }
-
-      const { data } = result;
       // Filter to only conversation types when no tier specified
       const conversations = option.tier
-        ? data
-        : data.filter((m: Record<string, unknown>) => String(m.type).startsWith("conversation_"));
+        ? result.data
+        : result.data.filter((m: Record<string, unknown>) => String(m.type).startsWith("conversation_"));
+
+      if (!option.pretty) {
+        console.log(JSON.stringify({ ...result, data: conversations }, null, 2));
+        return;
+      }
 
       if (conversations.length === 0) {
         console.log("No conversations found.");

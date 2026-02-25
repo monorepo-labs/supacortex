@@ -24,11 +24,6 @@ export const registerIdentityCommand = (program: Command) => {
       if (option.search) searchParams.append("search", option.search);
       const result = await apiRequest(`memory?${searchParams.toString()}`, "GET");
 
-      if (!option.pretty) {
-        console.log(JSON.stringify(result, null, 2));
-        return;
-      }
-
       let { data } = result;
 
       // Client-side category filter (API doesn't filter by metadata)
@@ -37,6 +32,11 @@ export const registerIdentityCommand = (program: Command) => {
           (m: Record<string, unknown>) =>
             (m.metadata as Record<string, unknown>)?.category === option.category,
         );
+      }
+
+      if (!option.pretty) {
+        console.log(JSON.stringify({ ...result, data }, null, 2));
+        return;
       }
 
       if (data.length === 0) {
