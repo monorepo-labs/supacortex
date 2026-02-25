@@ -4,6 +4,9 @@ use tauri::Emitter;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+#[cfg(not(debug_assertions))]
+use tauri_plugin_updater::UpdaterExt;
+
 /// Global abort handle for the SSE listener
 static SSE_ABORT: std::sync::OnceLock<Arc<Mutex<Option<tokio::sync::watch::Sender<bool>>>>> = std::sync::OnceLock::new();
 
@@ -234,6 +237,8 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_updater::Builder::new().build())
+    .plugin(tauri_plugin_process::init())
     .invoke_handler(tauri::generate_handler![
       open_webview, close_webview, resize_webview,
       proxy_fetch, start_sse, stop_sse
@@ -245,13 +250,54 @@ pub fn run() {
       window_vibrancy::apply_vibrancy(&window, window_vibrancy::NSVisualEffectMaterial::Sidebar, None, None)
         .expect("failed to apply vibrancy");
 
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
+      // Auto-update check (release builds only)
+      #[cfg(not(debug_assertions))]
+      {
+        let handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+          // Wait for frontend to load and register event listeners
+          tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+          match handle.updater() {
+            Ok(updater) => {
+              match updater.check().await {
+                Ok(Some(update)) => {
+                  let _ = handle.emit("update-available", serde_json::json!({
+                    "version": update.version,
+                    "body": update.body
+                  }));
+                  // Download in background, then notify frontend it's ready
+                  match update.download_and_install(|_, _| {}, || {}).await {
+                    Ok(()) => {
+                      let _ = handle.emit("update-downloaded", ());
+                    }
+                    Err(e) => {
+                      log::warn!("Update download failed: {}", e);
+                    }
+                  }
+                }
+                Ok(None) => {} // No update available
+                Err(e) => {
+                  log::warn!("Update check failed: {}", e);
+                }
+              }
+            }
+            Err(e) => {
+              log::warn!("Updater init failed: {}", e);
+            }
+          }
+        });
       }
+
+      app.handle().plugin(
+        tauri_plugin_log::Builder::default()
+          .level(if cfg!(debug_assertions) {
+            log::LevelFilter::Debug
+          } else {
+            log::LevelFilter::Warn
+          })
+          .build(),
+      )?;
       Ok(())
     })
     .run(tauri::generate_context!())

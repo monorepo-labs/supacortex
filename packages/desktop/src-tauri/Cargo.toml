@@ -25,6 +25,8 @@ tauri-plugin-shell = "2"
 tauri-plugin-http = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 window-vibrancy = "0.6"
 url = "2"
 reqwest = { version = "0.12", features = ["stream"] }
