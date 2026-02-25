@@ -43,3 +43,6 @@ next-env.d.ts
 VISION.md
 session-memory-brainstorm.json
 CLAUDE.md
+.opencode/
+docs/memory-system-brainstorm.md
+packages/desktop/scripts/release.sh
