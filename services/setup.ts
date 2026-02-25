@@ -104,3 +104,25 @@ export async function installScx(onProgress: ProgressCallback): Promise<void> {
     command.spawn().catch(reject);
   });
 }
+
+export async function installSkills(onProgress: ProgressCallback): Promise<void> {
+  const { Command } = await import("@tauri-apps/plugin-shell");
+
+  const script = `${SOURCE_PROFILE}; npx skills add monorepo-labs/skills --skill supacortex -y`;
+  const command = Command.create("exec-sh", ["-c", script]);
+
+  command.stdout.on("data", (line) => onProgress(line));
+  command.stderr.on("data", (line) => onProgress(line));
+
+  return new Promise((resolve, reject) => {
+    command.on("error", (err) => reject(new Error(`Skills install failed: ${err}`)));
+    command.on("close", (data) => {
+      if (data.code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Skills install exited with code ${data.code}`));
+      }
+    });
+    command.spawn().catch(reject);
+  });
+}

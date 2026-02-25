@@ -5,6 +5,7 @@ import {
   checkDependencies,
   installOpencode,
   installScx,
+  installSkills,
   getSetupState,
   setSetupState,
   isSetupFresh,
@@ -99,6 +100,10 @@ export function useSetup(isTauri: boolean): SetupHookReturn {
         await installScx(addLine);
         addLine("✓ scx installed");
       }
+
+      addLine("→ Installing skills...");
+      await installSkills(addLine);
+      addLine("✓ Skills installed");
 
       // Verify
       const verified = await checkDependencies();
