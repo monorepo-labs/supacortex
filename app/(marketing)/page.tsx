@@ -11,11 +11,13 @@ import {
   Search,
   Shield,
   Code,
-  Monitor,
-  Download,
-  LogIn,
-  Sparkles,
 } from "lucide-react";
+import {
+  ComputerDesktopIcon,
+  ArrowDownTrayIcon,
+  ArrowRightEndOnRectangleIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/solid";
 
 function XIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
@@ -248,10 +250,10 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {/* Mac app card */}
-            <div className="flex flex-col gap-5 rounded-xl border border-zinc-200 bg-zinc-50/50 p-6 dark:border-zinc-800 dark:bg-zinc-900/50">
+            <div className="flex flex-col gap-5 rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-lg bg-[#1784fe]/10">
-                  <Monitor className="size-5 text-[#1784fe]" />
+                  <ComputerDesktopIcon className="size-5 text-[#1784fe]" />
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
@@ -265,15 +267,15 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3 text-[15px] text-zinc-500 dark:text-zinc-400">
-                  <Download className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  <ArrowDownTrayIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
                   Download and install the app
                 </div>
                 <div className="flex items-center gap-3 text-[15px] text-zinc-500 dark:text-zinc-400">
-                  <LogIn className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  <ArrowRightEndOnRectangleIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
                   Sign up and log in
                 </div>
                 <div className="flex items-center gap-3 text-[15px] text-zinc-500 dark:text-zinc-400">
-                  <Sparkles className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  <SparklesIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
                   Start saving and chatting
                 </div>
               </div>

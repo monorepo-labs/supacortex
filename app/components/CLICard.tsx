@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Terminal, Check, Copy, Clipboard } from "lucide-react";
+import { Check, Copy, Clipboard } from "lucide-react";
+import { CommandLineIcon } from "@heroicons/react/24/solid";
 
 const commands = [
   "npm i -g @supacortex/cli",
@@ -57,10 +58,10 @@ export function CLICard() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-5 rounded-xl border border-zinc-200 bg-zinc-50/50 p-6 dark:border-zinc-800 dark:bg-zinc-900/50">
+    <div className="flex flex-col gap-5 rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-lg bg-zinc-900/10 dark:bg-zinc-100/10">
-          <Terminal className="size-5 text-zinc-700 dark:text-zinc-300" />
+          <CommandLineIcon className="size-5 text-zinc-700 dark:text-zinc-300" />
         </div>
         <div>
           <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
