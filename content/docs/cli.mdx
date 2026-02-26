@@ -199,55 +199,6 @@ scx conversation update abc123 --content "Updated summary" --tier detailed
 scx conversation delete abc123
 ```
 
-## Identity
-
-Store metadata about yourself — goals, preferences, interests. This helps AI tools understand your context.
-
-### `scx identity list`
-
-```bash
-scx identity list [options]
-```
-
-| Option | Description |
-|---|---|
-| `-s, --search <string>` | Search entries |
-| `--category <cat>` | Filter: `core`, `goals`, `preferences`, `interests` |
-| `-l, --limit <number>` | Max results (default: 20) |
-| `-o, --offset <number>` | Skip results |
-| `-p, --pretty` | Human-readable output |
-
-### `scx identity add <content>`
-
-```bash
-scx identity add "Solo founder building AI tools" --category core --title "Profile"
-```
-
-| Option | Description |
-|---|---|
-| `-t, --title <string>` | Title for the entry |
-| `--category <cat>` | `core`, `goals`, `preferences`, `interests` |
-| `-m, --metadata <json>` | Additional metadata as JSON |
-| `-p, --pretty` | Human-readable output |
-
-### `scx identity get <id>`
-
-```bash
-scx identity get abc123 --pretty
-```
-
-### `scx identity update <id>`
-
-```bash
-scx identity update abc123 --content "Updated goals" --category goals
-```
-
-### `scx identity delete <id>`
-
-```bash
-scx identity delete abc123
-```
-
 ## Utility
 
 ### `scx update`
