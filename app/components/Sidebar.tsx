@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { Plus, RefreshCw, Trash2, PanelRight } from "lucide-react";
 import XIcon from "./XIcon";
 import { RectangleStackIcon } from "@heroicons/react/20/solid";
@@ -236,15 +237,17 @@ function SessionItem({
 
   return (
     <li>
-      <ContextMenu onOpenChange={(open) => { if (!open) setConfirmDelete(false); }}>
+      <ContextMenu
+        onOpenChange={(open) => {
+          if (!open) setConfirmDelete(false);
+        }}
+      >
         <ContextMenuTrigger asChild>
           <button
             type="button"
             onClick={() => onSelect(session.id)}
             className={`flex w-full items-center rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
-              isActive
-                ? "text-zinc-900"
-                : "text-zinc-400 hover:text-zinc-900"
+              isActive ? "text-zinc-900" : "text-zinc-400 hover:text-zinc-900"
             }`}
           >
             <span className="truncate">{session.title || "Untitled"}</span>
@@ -481,6 +484,14 @@ export default function Sidebar({
         className="flex h-full shrink-0 flex-col bg-background tauri:bg-transparent overflow-hidden transition-[width] duration-200 ease-out"
         style={{ width: collapsed ? 0 : 208 }}
       >
+        {/* Logo */}
+        <div className="flex items-center gap-2 px-6 pt-4">
+          <Image src="/supercortex-icon.svg" alt="" width={20} height={20} />
+          <span className="text-sm font-semibold text-zinc-700">
+            Supacortex
+          </span>
+        </div>
+
         {sidebarTab === "library" ? (
           <>
             {/* Groups */}
@@ -566,75 +577,73 @@ export default function Sidebar({
             {/* Conversations */}
             <div className="relative mt-4 flex-1 w-52 min-h-0">
               <nav className="h-full px-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-              <Button
-                onClick={() => onNewConversation?.()}
-                variant="link"
-                className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
-              >
-                <Plus size={14} />
-                New Chat
-              </Button>
-              {twitterAccount ? (
-                isInterrupted ? (
-                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-500">
-                    <RefreshCw size={12} className="animate-spin shrink-0" />
-                    <span>
-                      Syncing...{" "}
-                      {resumeTime
-                        ? `next batch at ${resumeTime}`
-                        : "resuming soon"}
-                    </span>
-                  </div>
+                <Button
+                  onClick={() => onNewConversation?.()}
+                  variant="link"
+                  className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
+                >
+                  <Plus size={14} />
+                  New Chat
+                </Button>
+                {twitterAccount ? (
+                  isInterrupted ? (
+                    <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-500">
+                      <RefreshCw size={12} className="animate-spin shrink-0" />
+                      <span>
+                        Syncing...{" "}
+                        {resumeTime
+                          ? `next batch at ${resumeTime}`
+                          : "resuming soon"}
+                      </span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="link"
+                      onClick={handleSyncClick}
+                      disabled={isSyncing}
+                      className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
+                    >
+                      <RefreshCw
+                        size={14}
+                        className={isSyncing ? "animate-spin" : ""}
+                      />
+                      {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
+                    </Button>
+                  )
                 ) : (
                   <Button
                     variant="link"
-                    onClick={handleSyncClick}
-                    disabled={isSyncing}
+                    onClick={() => linkTwitter()}
                     className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
                   >
-                    <RefreshCw
-                      size={14}
-                      className={isSyncing ? "animate-spin" : ""}
-                    />
-                    {isSyncing ? "Syncing..." : "Sync X Bookmarks"}
+                    <XIcon className="h-3.5 w-3.5" /> Connect X
                   </Button>
-                )
-              ) : (
-                <Button
-                  variant="link"
-                  onClick={() => linkTwitter()}
-                  className="w-full justify-start text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
-                >
-                  <XIcon className="h-3.5 w-3.5" /> Connect X
-                </Button>
-              )}
-              {sessions.length > 0 &&
-                groupSessionsByDate(sessions).map((group) => (
-                  <div key={group.label}>
-                    <p className="text-[11px] font-medium text-zinc-400 px-2 pt-3 pb-1">
-                      {group.label}
-                    </p>
-                    <ul className="flex flex-col gap-0.5">
-                      {group.items.map((session) => (
-                        <SessionItem
-                          key={session.id}
-                          session={session}
-                          isActive={activeConversationId === session.id}
-                          onSelect={(id) => onConversationSelect?.(id)}
-                          onDelete={(id) => onDeleteSession?.(id)}
-                          onOpenInPanel={onOpenInPanel}
-                        />
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                )}
+                {sessions.length > 0 &&
+                  groupSessionsByDate(sessions).map((group) => (
+                    <div key={group.label}>
+                      <p className="text-[11px] font-medium text-zinc-400 px-2 pt-3 pb-1">
+                        {group.label}
+                      </p>
+                      <ul className="flex flex-col gap-0.5">
+                        {group.items.map((session) => (
+                          <SessionItem
+                            key={session.id}
+                            session={session}
+                            isActive={activeConversationId === session.id}
+                            onSelect={(id) => onConversationSelect?.(id)}
+                            onDelete={(id) => onDeleteSession?.(id)}
+                            onOpenInPanel={onOpenInPanel}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
               </nav>
               <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#eff0f2] to-transparent" />
             </div>
             {workspaceControls && (
-              <div className="w-52 px-3 pb-3">
-                {workspaceControls}
-              </div>
+              <div className="w-52 px-3 pb-3">{workspaceControls}</div>
             )}
           </>
         )}

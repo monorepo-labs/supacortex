@@ -115,7 +115,7 @@ const features = [
 function DownloadButton({ className }: { className?: string }) {
   return (
     <Link
-      href="https://github.com/monorepo-labs/supacortex/releases/latest"
+      href="https://github.com/monorepo-labs/supacortex/releases/latest/download/Supacortex.dmg"
       target="_blank"
       rel="noopener noreferrer"
       className={`inline-flex select-none items-center gap-2 rounded-full bg-[#1784fe] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1784fe]/90 ${className ?? ""}`}
@@ -132,7 +132,7 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5">
             <Image
               src="/supercortex-icon.svg"
               alt="Supacortex"
@@ -182,7 +182,7 @@ export default function LandingPage() {
               {/* CTAs */}
               <div className="flex flex-col items-center gap-3 sm:flex-row">
                 <Link
-                  href="https://github.com/monorepo-labs/supacortex/releases/latest"
+                  href="https://github.com/monorepo-labs/supacortex/releases/latest/download/Supacortex.dmg"
                   className="inline-flex select-none items-center gap-2 rounded-full bg-[#1784fe] px-5 py-2.5 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[#1784fe]/90"
                 >
                   <AppleIcon className="size-3.5" />
@@ -288,7 +288,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <Link
-                href="https://github.com/monorepo-labs/supacortex/releases/latest"
+                href="https://github.com/monorepo-labs/supacortex/releases/latest/download/Supacortex.dmg"
                 className="mt-auto flex w-full select-none items-center justify-center gap-2 rounded-full bg-[#1784fe] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1784fe]/90"
               >
                 <AppleIcon className="size-3.5" />
@@ -351,7 +351,7 @@ export default function LandingPage() {
         </p>
         <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">
           <Link
-            href="https://github.com/monorepo-labs/supacortex/releases/latest"
+            href="https://github.com/monorepo-labs/supacortex/releases/latest/download/Supacortex.dmg"
             className="inline-flex select-none items-center gap-2 rounded-full bg-[#1784fe] px-5 py-2.5 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[#1784fe]/90"
           >
             <AppleIcon className="size-3.5" />
