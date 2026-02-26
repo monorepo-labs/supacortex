@@ -34,6 +34,7 @@ export default function SyncPaymentModal({
     return () => stopPolling();
   }, [open, stopPolling]);
 
+
   const startPolling = () => {
     setWaitingForPayment(true);
     pollRef.current = setInterval(async () => {
@@ -69,10 +70,20 @@ export default function SyncPaymentModal({
     });
   };
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     stopPolling();
     onOpenChange(false);
-  };
+  }, [stopPolling, onOpenChange]);
+
+  // Escape key to close
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleCancel();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, handleCancel]);
 
   if (!open) return null;
 
@@ -80,7 +91,7 @@ export default function SyncPaymentModal({
     <Dialog open={open} onOpenChange={handleCancel}>
       <DialogPortal>
         <DialogOverlay />
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div role="dialog" aria-label="Unlock Bookmark Sync" className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="relative w-full max-w-xs mx-4">
             {/* Button layer — sits behind and below the card */}
             {waitingForPayment ? (
