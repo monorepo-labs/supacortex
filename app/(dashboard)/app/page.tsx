@@ -50,7 +50,6 @@ import LibraryGridView from "@/app/components/LibraryGridView";
 import type { BookmarkData } from "@/app/components/BookmarkNode";
 import { useBookmarks, useCreateBookmark, useBookmarkExists } from "@/hooks/use-bookmarks";
 import { sileo } from "sileo";
-import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace, type PanelConfig } from "@/hooks/use-workspace";
 import { ChatPanel, ChatPanelProvider } from "@/app/components/ChatPanel";
 import { SetupScreen } from "@/app/components/SetupScreen";
@@ -69,7 +68,6 @@ function ChatPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlConversationId = searchParams.get("id");
-  const queryClient = useQueryClient();
 
   const isTauri = useIsTauri();
   const setup = useSetup(isTauri);
@@ -140,31 +138,6 @@ function ChatPageContent() {
     }
   }, [panels, updatePanel]);
 
-  // Handle post-payment redirect — poll for webhook confirmation
-  useEffect(() => {
-    if (searchParams.get("payment") !== "success") return;
-    let attempts = 0;
-    const poll = setInterval(async () => {
-      attempts++;
-      try {
-        const res = await fetch("/api/payments/status");
-        const data = await res.json();
-        if (data.hasPaid) {
-          clearInterval(poll);
-          queryClient.invalidateQueries({ queryKey: ["payment-status"] });
-          sileo.success({ title: "Payment confirmed! You can now sync bookmarks." });
-          router.replace("/app");
-          return;
-        }
-      } catch { /* ignore */ }
-      if (attempts >= 5) {
-        clearInterval(poll);
-        sileo.info({ title: "Payment processing — try syncing in a moment." });
-        router.replace("/app");
-      }
-    }, 2000);
-    return () => clearInterval(poll);
-  }, [searchParams, router, queryClient]);
 
   // When URL changes (e.g. sidebar click), update the first chat panel without a matching conversation
   const prevUrlRef = useRef(urlConversationId);

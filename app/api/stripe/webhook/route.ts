@@ -41,7 +41,10 @@ export async function POST(request: Request) {
         amount: session.amount_total ?? 1000,
       }).catch((err: unknown) => {
         // Ignore unique constraint violation (record already exists from checkout route)
-        const code = (err as { code?: string }).code;
+        // Drizzle wraps PG errors — check both err.code and err.cause.code
+        const code =
+          (err as { code?: string }).code ??
+          (err as { cause?: { code?: string } }).cause?.code;
         if (code !== "23505") throw err;
       });
     }
