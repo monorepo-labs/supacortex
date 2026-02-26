@@ -1,6 +1,6 @@
 {
   "name": "supacortex",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "private": true,
   "packageManager": "pnpm@10.29.3",
   "scripts": {
