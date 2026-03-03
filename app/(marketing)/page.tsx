@@ -2,6 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { CLICard } from "@/app/components/CLICard";
+import {
+  SyncVisual,
+  SaveVisual,
+  RecallVisual,
+} from "@/app/components/HowItWorksVisuals";
 
 import {
   Terminal,
@@ -74,21 +79,24 @@ const features = [
   {
     icon: Terminal,
     title: "CLI first",
-    description: (
-      <>
-        Access your memory from{" "}
-        <a href="https://github.com/nicholasgriffintn/OpenClaw" target="_blank" rel="noopener noreferrer" className="text-zinc-500 underline decoration-zinc-300 hover:text-zinc-700 dark:decoration-zinc-600 dark:hover:text-zinc-300">OpenClaw</a>
-        , Claude Code, or any terminal-based AI tool.
-      </>
-    ),
+    description:
+      "Access your memory from OpenClaw, Claude Code, or any terminal-based AI tool.",
   },
   {
     icon: MessageSquare,
     title: "AI chat",
     description: (
       <>
-        Chat with your memory. Ask questions, find things, brainstorm — powered by{" "}
-        <a href="https://opencode.ai" target="_blank" rel="noopener noreferrer" className="text-zinc-500 underline decoration-zinc-300 hover:text-zinc-700 dark:decoration-zinc-600 dark:hover:text-zinc-300">OpenCode</a>
+        Chat with your memory. Ask questions, find things, brainstorm — powered
+        by{" "}
+        <a
+          href="https://opencode.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-zinc-500 underline decoration-zinc-300 hover:text-zinc-700 dark:decoration-zinc-600 dark:hover:text-zinc-300"
+        >
+          OpenCode
+        </a>
         .
       </>
     ),
@@ -105,7 +113,14 @@ const features = [
     description: (
       <>
         The entire codebase is public. Self-host it, fork it, contribute to it.{" "}
-        <a href="https://github.com/monorepo-labs/supacortex" target="_blank" rel="noopener noreferrer" className="text-zinc-500 underline decoration-zinc-300 hover:text-zinc-700 dark:decoration-zinc-600 dark:hover:text-zinc-300">View on GitHub</a>
+        <a
+          href="https://github.com/monorepo-labs/supacortex"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-zinc-500 underline decoration-zinc-300 hover:text-zinc-700 dark:decoration-zinc-600 dark:hover:text-zinc-300"
+        >
+          View on GitHub
+        </a>
         .
       </>
     ),
@@ -172,10 +187,11 @@ export default function LandingPage() {
               {/* Headline */}
               <div className="flex flex-col items-center gap-4">
                 <h1 className="max-w-md text-3xl font-medium tracking-tight text-zinc-900 text-pretty dark:text-zinc-100">
-                  One memory for all your AI
+                  Share your context across AI
                 </h1>
                 <p className="mx-auto max-w-lg text-lg font-medium text-zinc-500 text-pretty dark:text-zinc-400">
-                  Save your bookmarks and conversations in one place — so every AI tool you use has the context it needs.
+                  Save your bookmarks and conversations in one place - so every
+                  AI tool you use can access the context it needs.
                 </p>
               </div>
 
@@ -201,17 +217,122 @@ export default function LandingPage() {
             <div className="relative mx-auto px-4 pb-0 lg:-mx-8 xl:-mx-12">
               <div className="w-full overflow-hidden rounded-xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08)] ring-[0.5px] ring-zinc-200 select-none dark:bg-zinc-900 dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] dark:ring-zinc-800">
                 {/* App demo video */}
-                <video
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full"
-                >
+                <video autoPlay loop muted playsInline className="w-full">
                   <source src="/demo.mp4" type="video/mp4" />
                 </video>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* How it works */}
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-4 py-8 sm:gap-12 sm:py-12">
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">
+              How it works
+            </h2>
+            <h3 className="text-2xl font-medium text-zinc-500 dark:text-zinc-400">
+              Talk to your AI. Supacortex handles the rest.
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {/* Step 1 */}
+            <div className="flex flex-col gap-3 rounded-xl bg-[hsl(0,0%,97%)] p-5 dark:bg-zinc-900">
+              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                Sync your X bookmarks
+              </h3>
+              <p className="text-base font-medium text-zinc-500 dark:text-zinc-400">
+                Connect your X account and import all your bookmarks with one
+                click.
+              </p>
+              <div className="mt-auto">
+                <SyncVisual />
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex flex-col gap-3 rounded-xl bg-[hsl(0,0%,97%)] p-5 dark:bg-zinc-900">
+              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                Save anything &mdash; just say so
+              </h3>
+              <p className="text-base font-medium text-zinc-500 dark:text-zinc-400">
+                Tell your AI &ldquo;save this to cortex&rdquo; &mdash;
+                conversations, links, YouTube.
+              </p>
+              <div className="mt-auto">
+                <SaveVisual />
+              </div>
+            </div>
+
+            {/* Step 3 — full width */}
+            <div className="flex flex-col gap-3 rounded-xl bg-[hsl(0,0%,97%)] p-5 sm:col-span-2 dark:bg-zinc-900">
+              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                Recall from any AI tool
+              </h3>
+              <p className="text-base font-medium text-zinc-500 dark:text-zinc-400">
+                Ask &ldquo;pull my conversation about auth&rdquo; or
+                &ldquo;find that article about RAG&rdquo; &mdash; your AI pulls
+                it from Supacortex automatically.
+              </p>
+              <RecallVisual />
+            </div>
+          </div>
+        </div>
+
+        {/* Get Started */}
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-4 py-8 sm:gap-12 sm:py-12">
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">
+              Get started in seconds.
+            </h2>
+            <h3 className="text-2xl font-medium text-zinc-500 dark:text-zinc-400">
+              The Mac app sets everything up. The CLI takes your memory
+              everywhere.
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {/* Mac app card */}
+            <div className="flex flex-col gap-5 rounded-xl bg-[hsl(0,0%,97%)] p-6 dark:bg-zinc-900">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-zinc-200 backdrop-blur-sm dark:bg-zinc-700">
+                  <ComputerDesktopIcon className="size-5 text-zinc-500 dark:text-zinc-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+                    Mac app
+                  </h3>
+                  <p className="text-base font-medium text-zinc-400 dark:text-zinc-500">
+                    Full experience, zero setup
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                  <ArrowDownTrayIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  Download and install
+                </div>
+                <div className="flex items-center gap-3 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                  <ArrowRightEndOnRectangleIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  Sign up and log in
+                </div>
+                <div className="flex items-center gap-3 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                  <SparklesIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  CLI, skills, and AI chat included
+                </div>
+              </div>
+              <Link
+                href="https://github.com/monorepo-labs/supacortex/releases/latest/download/Supacortex.dmg"
+                className="mt-auto flex w-full select-none items-center justify-center gap-2 rounded-full bg-[#1784fe] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1784fe]/90"
+              >
+                <AppleIcon className="size-3.5" />
+                Download for free
+              </Link>
+            </div>
+
+            {/* CLI card */}
+            <CLICard />
           </div>
         </div>
 
@@ -228,7 +349,10 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5">
             {features.map((feature) => (
-              <div key={feature.title} className="flex flex-col gap-4 rounded-xl bg-[hsl(0,0%,97%)] p-5 dark:bg-zinc-900">
+              <div
+                key={feature.title}
+                className="flex flex-col gap-4 rounded-xl bg-[hsl(0,0%,97%)] p-5 dark:bg-zinc-900"
+              >
                 <div className="flex size-8 flex-none items-center justify-center text-zinc-400 dark:text-zinc-500">
                   <feature.icon className="size-6" />
                 </div>
@@ -242,62 +366,6 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Get Started */}
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-4 py-8 sm:gap-12 sm:py-12">
-          <div className="flex flex-col">
-            <h2 className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">
-              Get started in seconds.
-            </h2>
-            <h3 className="text-2xl font-medium text-zinc-500 dark:text-zinc-400">
-              The Mac app sets everything up. The CLI takes your memory everywhere.
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {/* Mac app card */}
-            <div className="flex flex-col gap-5 rounded-xl bg-[hsl(0,0%,97%)] p-6 dark:bg-zinc-900">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-[#1784fe]/10">
-                  <ComputerDesktopIcon className="size-5 text-[#1784fe]" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-                    Mac app
-                  </h3>
-                  <p className="text-base font-medium text-zinc-400 dark:text-zinc-500">Full experience, zero setup</p>
-                </div>
-              </div>
-              <p className="text-base font-medium leading-relaxed text-zinc-500 dark:text-zinc-400">
-                Download the app and everything is set up for you — CLI, skills, and AI chat all included.
-              </p>
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-base font-medium text-zinc-500 dark:text-zinc-400">
-                  <ArrowDownTrayIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
-                  Download and install the app
-                </div>
-                <div className="flex items-center gap-3 text-base font-medium text-zinc-500 dark:text-zinc-400">
-                  <ArrowRightEndOnRectangleIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
-                  Sign up and log in
-                </div>
-                <div className="flex items-center gap-3 text-base font-medium text-zinc-500 dark:text-zinc-400">
-                  <SparklesIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
-                  Start saving and chatting
-                </div>
-              </div>
-              <Link
-                href="https://github.com/monorepo-labs/supacortex/releases/latest/download/Supacortex.dmg"
-                className="mt-auto flex w-full select-none items-center justify-center gap-2 rounded-full bg-[#1784fe] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1784fe]/90"
-              >
-                <AppleIcon className="size-3.5" />
-                Download for free
-              </Link>
-            </div>
-
-            {/* CLI card */}
-            <CLICard />
           </div>
         </div>
       </main>
@@ -331,7 +399,9 @@ export default function LandingPage() {
             >
               <summary className="flex cursor-pointer items-center justify-between py-4 text-lg font-medium text-zinc-900 select-none dark:text-zinc-100">
                 {faq.q}
-                <span className="text-zinc-400 transition-transform group-open:rotate-45">+</span>
+                <span className="text-zinc-400 transition-transform group-open:rotate-45">
+                  +
+                </span>
               </summary>
               <p className="pb-4 text-base font-medium text-zinc-500 dark:text-zinc-400">
                 {faq.a}
@@ -367,9 +437,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-zinc-200 dark:border-zinc-800">
         <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 px-4 py-6 text-sm sm:flex-row sm:justify-between sm:gap-0">
-          <p className="text-zinc-400">
-            &copy; 2026 Monorepo Labs
-          </p>
+          <p className="text-zinc-400">&copy; 2026 Monorepo Labs</p>
           <div className="flex items-center gap-4">
             <Link
               href="https://github.com/monorepo-labs/supacortex"
