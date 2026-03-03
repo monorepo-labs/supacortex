@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, memo } from "react";
 import Image from "next/image";
 import {
   Link as LinkIcon,
@@ -36,7 +36,7 @@ function formatDate(dateStr: string | null): string | null {
   });
 }
 
-export default function BookmarkCard({
+const BookmarkCard = memo(function BookmarkCard({
   bookmark,
   expanded,
   expandedOverflows,
@@ -54,7 +54,7 @@ export default function BookmarkCard({
   bookmark: BookmarkData;
   expanded: boolean;
   expandedOverflows?: boolean;
-  onToggleExpand: () => void;
+  onToggleExpand?: () => void;
   onClick: () => void;
   onOpenInNewPanel?: () => void;
   textSelectable?: boolean;
@@ -63,11 +63,15 @@ export default function BookmarkCard({
   isOpenInReader?: boolean;
   onSelect?: (id: string) => void;
   className?: string;
-  contextMenuExtra?: React.ReactNode;
+  contextMenuExtra?: () => React.ReactNode;
 }) {
   const { mutate: remove } = useDeleteBookmark();
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const wasDragged = useRef(false);
+  // Keep a ref to the latest contextMenuExtra so the memo comparator can
+  // skip it without risking stale closures when the context menu opens.
+  const contextMenuExtraRef = useRef(contextMenuExtra);
+  contextMenuExtraRef.current = contextMenuExtra;
   const [contextMode, setContextMode] = useState<"default" | "addToGroup">(
     "default",
   );
@@ -390,7 +394,7 @@ export default function BookmarkCard({
                 </ContextMenuShortcut>
               </ContextMenuItem>
             )}
-            {contextMenuExtra}
+            {contextMenuExtraRef.current?.()}
             <ContextMenuItem
               onClick={(e) => {
                 e.stopPropagation();
@@ -487,4 +491,18 @@ export default function BookmarkCard({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+}, (prev, next) => {
+  // Compare value props only — skip function refs that change every render
+  return (
+    prev.bookmark === next.bookmark &&
+    prev.expanded === next.expanded &&
+    prev.expandedOverflows === next.expandedOverflows &&
+    prev.textSelectable === next.textSelectable &&
+    prev.isSelected === next.isSelected &&
+    prev.isAttachedToChat === next.isAttachedToChat &&
+    prev.isOpenInReader === next.isOpenInReader &&
+    prev.className === next.className
+  );
+});
+
+export default BookmarkCard;
