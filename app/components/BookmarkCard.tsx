@@ -487,6 +487,18 @@ const BookmarkCard = memo(function BookmarkCard({
       </ContextMenuContent>
     </ContextMenu>
   );
+}, (prev, next) => {
+  // Compare value props only — skip function refs that change every render
+  return (
+    prev.bookmark === next.bookmark &&
+    prev.expanded === next.expanded &&
+    prev.expandedOverflows === next.expandedOverflows &&
+    prev.textSelectable === next.textSelectable &&
+    prev.isSelected === next.isSelected &&
+    prev.isAttachedToChat === next.isAttachedToChat &&
+    prev.isOpenInReader === next.isOpenInReader &&
+    prev.className === next.className
+  );
 });
 
 export default BookmarkCard;
