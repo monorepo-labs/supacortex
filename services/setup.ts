@@ -66,10 +66,10 @@ export async function checkDependencies(): Promise<DependencyStatus> {
 async function ensureNode(onProgress: ProgressCallback): Promise<void> {
   const { Command } = await import("@tauri-apps/plugin-shell");
 
-  // Check if any package manager exists
+  // Check if any package manager exists (source nvm first in case it's already installed)
   const check = await Command.create("exec-sh", [
     "-c",
-    `${EXTRA_PATH}; command -v bun >/dev/null 2>&1 || command -v pnpm >/dev/null 2>&1 || command -v npm >/dev/null 2>&1`,
+    `export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" 2>/dev/null; ${EXTRA_PATH}; command -v bun >/dev/null 2>&1 || command -v pnpm >/dev/null 2>&1 || command -v npm >/dev/null 2>&1`,
   ]).execute();
 
   if (check.code === 0) return; // Already have a package manager
@@ -123,9 +123,8 @@ export async function installScx(onProgress: ProgressCallback): Promise<void> {
 
   const { Command } = await import("@tauri-apps/plugin-shell");
 
-  // Source nvm in case it was just installed
-  const nvmSetup = `export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"`;
-  const script = `${EXTRA_PATH}; ${nvmSetup}; if command -v bun >/dev/null 2>&1; then bun install -g @supacortex/cli; elif command -v pnpm >/dev/null 2>&1; then pnpm install -g @supacortex/cli; elif command -v npm >/dev/null 2>&1; then npm install -g @supacortex/cli; else echo "ERROR: No package manager found" >&2; exit 1; fi`;
+  // Source nvm first so npm is available, then add other known binary paths
+  const script = `export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" 2>/dev/null; ${EXTRA_PATH}; if command -v bun >/dev/null 2>&1; then bun install -g @supacortex/cli; elif command -v pnpm >/dev/null 2>&1; then pnpm install -g @supacortex/cli; elif command -v npm >/dev/null 2>&1; then npm install -g @supacortex/cli; else echo "ERROR: No package manager found. Install Node.js from https://nodejs.org" >&2; exit 1; fi`;
   const command = Command.create("exec-sh", ["-c", script]);
 
   command.stdout.on("data", (line) => onProgress(line));
@@ -254,8 +253,7 @@ ${ASSISTANT_MD}AGENT_EOF`;
 export async function installSkills(onProgress: ProgressCallback): Promise<void> {
   const { Command } = await import("@tauri-apps/plugin-shell");
 
-  const nvmSetup = `export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"`;
-  const script = `${EXTRA_PATH}; ${nvmSetup}; if command -v bunx >/dev/null 2>&1; then bunx skills add monorepo-labs/skills --skill supacortex -y; elif command -v pnpm >/dev/null 2>&1; then pnpm dlx skills add monorepo-labs/skills --skill supacortex -y; elif command -v npx >/dev/null 2>&1; then npx skills add monorepo-labs/skills --skill supacortex -y; else echo "ERROR: No package manager found" >&2; exit 1; fi`;
+  const script = `export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" 2>/dev/null; ${EXTRA_PATH}; if command -v bunx >/dev/null 2>&1; then bunx skills add monorepo-labs/skills --skill supacortex -y; elif command -v pnpm >/dev/null 2>&1; then pnpm dlx skills add monorepo-labs/skills --skill supacortex -y; elif command -v npx >/dev/null 2>&1; then npx skills add monorepo-labs/skills --skill supacortex -y; else echo "ERROR: No package manager found. Install Node.js from https://nodejs.org" >&2; exit 1; fi`;
   const command = Command.create("exec-sh", ["-c", script]);
 
   command.stdout.on("data", (line) => onProgress(line));
