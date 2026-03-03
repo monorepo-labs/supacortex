@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       >
         Privacy Policy
       </h1>
-      <p className="mt-1 text-sm text-zinc-400">Last updated: February 13, 2026</p>
+      <p className="mt-1 text-sm text-zinc-400">Last updated: March 3, 2026</p>
 
       <div className="mt-8 space-y-6 text-sm leading-relaxed text-zinc-600">
         <section>
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
           <h2 className="font-medium text-zinc-900">7. Your Rights</h2>
           <p>You have the right to:</p>
           <ul className="mt-2 list-disc pl-5 space-y-1">
-            <li>Access and export your data</li>
+            <li>Request access to your data</li>
             <li>Delete your account and all associated data</li>
             <li>Disconnect third-party accounts at any time</li>
           </ul>
