@@ -20,7 +20,7 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://supacortex.ai"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://www.supacortex.ai"),
   title: "Supacortex — Share your context across AI",
   description: "Save your bookmarks and conversations in one place — so every AI tool you use can access the context it needs.",
   openGraph: {
