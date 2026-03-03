@@ -68,6 +68,10 @@ const BookmarkCard = memo(function BookmarkCard({
   const { mutate: remove } = useDeleteBookmark();
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const wasDragged = useRef(false);
+  // Keep a ref to the latest contextMenuExtra so the memo comparator can
+  // skip it without risking stale closures when the context menu opens.
+  const contextMenuExtraRef = useRef(contextMenuExtra);
+  contextMenuExtraRef.current = contextMenuExtra;
   const [contextMode, setContextMode] = useState<"default" | "addToGroup">(
     "default",
   );
@@ -390,7 +394,7 @@ const BookmarkCard = memo(function BookmarkCard({
                 </ContextMenuShortcut>
               </ContextMenuItem>
             )}
-            {contextMenuExtra?.()}
+            {contextMenuExtraRef.current?.()}
             <ContextMenuItem
               onClick={(e) => {
                 e.stopPropagation();
