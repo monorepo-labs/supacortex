@@ -136,7 +136,7 @@ export default function LibraryGridView({
   return (
     <div
       ref={scrollRef}
-      className="relative h-full w-full overflow-y-auto overflow-x-hidden scrollbar-none"
+      className="relative h-full w-full overflow-y-auto overflow-x-hidden scrollbar-none will-change-transform"
     >
       {placeholder ? (
         <div className="flex h-full items-center justify-center text-zinc-400">
@@ -158,7 +158,6 @@ export default function LibraryGridView({
               <BookmarkCard
                 bookmark={bookmark}
                 expanded={false}
-                onToggleExpand={() => {}}
                 onClick={() => handleOpenReader(bookmark)}
                 onOpenInNewPanel={
                   onOpenInNewPanel
@@ -170,7 +169,11 @@ export default function LibraryGridView({
                 isAttachedToChat={attachedToChatIds?.has(bookmark.id)}
                 isOpenInReader={openReaderIds?.has(bookmark.id)}
                 onSelect={handleSelect}
-                contextMenuExtra={contextMenuExtra?.(bookmark)}
+                contextMenuExtra={
+                  contextMenuExtra
+                    ? () => contextMenuExtra(bookmark)
+                    : undefined
+                }
               />
             </div>
           ))}

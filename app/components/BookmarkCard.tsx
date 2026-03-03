@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, memo } from "react";
 import Image from "next/image";
 import {
   Link as LinkIcon,
@@ -36,7 +36,7 @@ function formatDate(dateStr: string | null): string | null {
   });
 }
 
-export default function BookmarkCard({
+const BookmarkCard = memo(function BookmarkCard({
   bookmark,
   expanded,
   expandedOverflows,
@@ -54,7 +54,7 @@ export default function BookmarkCard({
   bookmark: BookmarkData;
   expanded: boolean;
   expandedOverflows?: boolean;
-  onToggleExpand: () => void;
+  onToggleExpand?: () => void;
   onClick: () => void;
   onOpenInNewPanel?: () => void;
   textSelectable?: boolean;
@@ -63,7 +63,7 @@ export default function BookmarkCard({
   isOpenInReader?: boolean;
   onSelect?: (id: string) => void;
   className?: string;
-  contextMenuExtra?: React.ReactNode;
+  contextMenuExtra?: () => React.ReactNode;
 }) {
   const { mutate: remove } = useDeleteBookmark();
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -390,7 +390,7 @@ export default function BookmarkCard({
                 </ContextMenuShortcut>
               </ContextMenuItem>
             )}
-            {contextMenuExtra}
+            {contextMenuExtra?.()}
             <ContextMenuItem
               onClick={(e) => {
                 e.stopPropagation();
@@ -487,4 +487,6 @@ export default function BookmarkCard({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});
+
+export default BookmarkCard;
