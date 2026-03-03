@@ -55,6 +55,7 @@ export default function RootLayout({
             __html: `(function(){var n=0;(function t(){if(window.__TAURI_INTERNALS__){document.documentElement.setAttribute('data-tauri','');document.documentElement.style.setProperty('--titlebar-height','28px')}else if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',t)}else if(n++<5){setTimeout(t,50)}})()})()`,
           }}
         />
+        <script src="https://cdn.supalytics.co/script.js" data-site="CxeDAnYm" defer />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased`}
