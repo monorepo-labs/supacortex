@@ -20,8 +20,19 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Supacortex",
-  description: "Your knowledge workspace",
+  title: "Supacortex — Share your context across AI",
+  description: "Save your bookmarks and conversations in one place — so every AI tool you use can access the context it needs.",
+  openGraph: {
+    title: "Supacortex — Share your context across AI",
+    description: "Save your bookmarks and conversations in one place — so every AI tool you use can access the context it needs.",
+    images: [{ url: "/supacortex-og.png" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Supacortex — Share your context across AI",
+    description: "Save your bookmarks and conversations in one place — so every AI tool you use can access the context it needs.",
+    images: ["/supacortex-og.png"],
+  },
 };
 
 export default function RootLayout({
