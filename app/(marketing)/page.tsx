@@ -321,6 +321,10 @@ export default function LandingPage() {
                   <SparklesIcon className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
                   CLI, skills, and AI chat included
                 </div>
+                <div className="flex items-center gap-3 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                  <Terminal className="size-4 flex-none text-zinc-400 dark:text-zinc-500" />
+                  Run opencode in terminal to set up AI
+                </div>
               </div>
               <Link
                 href="https://github.com/monorepo-labs/supacortex/releases/latest/download/Supacortex.dmg"
@@ -387,6 +391,10 @@ export default function LandingPage() {
             {
               q: "Is it free?",
               a: "Yes. Supacortex is open source and free to use. The only paid feature is the initial X bookmark sync — a one-time $10 fee to cover API costs. Everything else is free.",
+            },
+            {
+              q: "How do I set up AI chat?",
+              a: "After installing the Mac app, open your terminal and run \"opencode\" once. It will ask you to log in with an AI provider (Anthropic, OpenAI, etc.). This is a one-time setup \u2014 the app uses the same credentials automatically after that.",
             },
             {
               q: "Where is my data stored?",
