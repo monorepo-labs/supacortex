@@ -1,10 +1,17 @@
 import * as brevo from "@getbrevo/brevo";
 
-const apiInstance = new brevo.TransactionalEmailsApi();
-apiInstance.setApiKey(
-  brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY!
-);
+let apiInstance: brevo.TransactionalEmailsApi | null = null;
+
+function getApiInstance() {
+  if (!apiInstance) {
+    apiInstance = new brevo.TransactionalEmailsApi();
+    apiInstance.setApiKey(
+      brevo.TransactionalEmailsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY!
+    );
+  }
+  return apiInstance;
+}
 
 interface SendEmailParams {
   to: string;
@@ -14,6 +21,7 @@ interface SendEmailParams {
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
+  const api = getApiInstance();
   const sendSmtpEmail = new brevo.SendSmtpEmail();
 
   sendSmtpEmail.sender = {
@@ -27,7 +35,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
     sendSmtpEmail.textContent = text;
   }
 
-  return apiInstance.sendTransacEmail(sendSmtpEmail);
+  return api.sendTransacEmail(sendSmtpEmail);
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
