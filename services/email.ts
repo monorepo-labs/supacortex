@@ -11,6 +11,15 @@ emailApi.setApiKey(
   process.env.BREVO_API_KEY || "",
 );
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/'/g, "&#39;");
+}
+
 interface SendEmailParams {
   to: string;
   subject: string;
@@ -51,7 +60,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Reset your password</h2>
         <p>Click the link below to reset your password. This link expires in 1 hour.</p>
-        <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 6px;">
+        <a href="${escapeHtml(resetUrl)}" style="display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 6px;">
           Reset Password
         </a>
         <p style="margin-top: 24px; color: #666; font-size: 14px;">
