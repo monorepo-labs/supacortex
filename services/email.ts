@@ -36,8 +36,8 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
   try {
     const result = await emailApi.sendTransacEmail({
       sender: {
-        name: process.env.EMAIL_FROM_NAME || "Supacortex",
-        email: process.env.EMAIL_FROM_ADDRESS,
+        name: "Supacortex",
+        email: "alerts@mail.supacortex.ai",
       },
       to: [{ email: to }],
       subject,
