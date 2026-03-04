@@ -103,6 +103,17 @@ function LoginForm() {
             minLength={8}
           />
 
+          {!isSignUp && (
+            <div className="text-right">
+              <a
+                href="/forgot-password"
+                className="text-sm text-zinc-500 hover:text-zinc-700 underline underline-offset-2"
+              >
+                Forgot password?
+              </a>
+            </div>
+          )}
+
           {error && (
             <p className="text-sm text-red-500">{error}</p>
           )}
