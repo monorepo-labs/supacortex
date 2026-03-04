@@ -1,12 +1,12 @@
-import * as brevo from "@getbrevo/brevo";
+import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from "@getbrevo/brevo";
 
-let apiInstance: brevo.TransactionalEmailsApi | null = null;
+let apiInstance: TransactionalEmailsApi | null = null;
 
 function getApiInstance() {
   if (!apiInstance) {
-    apiInstance = new brevo.TransactionalEmailsApi();
+    apiInstance = new TransactionalEmailsApi();
     apiInstance.setApiKey(
-      brevo.TransactionalEmailsApiApiKeys.apiKey,
+      TransactionalEmailsApiApiKeys.apiKey,
       process.env.BREVO_API_KEY!
     );
   }
@@ -22,20 +22,17 @@ interface SendEmailParams {
 
 export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
   const api = getApiInstance();
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
 
-  sendSmtpEmail.sender = {
-    name: process.env.EMAIL_FROM_NAME || "Supacortex",
-    email: process.env.EMAIL_FROM_ADDRESS!,
-  };
-  sendSmtpEmail.to = [{ email: to }];
-  sendSmtpEmail.subject = subject;
-  sendSmtpEmail.htmlContent = html;
-  if (text) {
-    sendSmtpEmail.textContent = text;
-  }
-
-  return api.sendTransacEmail(sendSmtpEmail);
+  return api.sendTransacEmail({
+    sender: {
+      name: process.env.EMAIL_FROM_NAME || "Supacortex",
+      email: process.env.EMAIL_FROM_ADDRESS!,
+    },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+    textContent: text,
+  });
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
