@@ -1,18 +1,4 @@
 import "server-only";
-import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from "@getbrevo/brevo";
-
-let apiInstance: TransactionalEmailsApi | null = null;
-
-function getApiInstance() {
-  if (!apiInstance) {
-    apiInstance = new TransactionalEmailsApi();
-    apiInstance.setApiKey(
-      TransactionalEmailsApiApiKeys.apiKey,
-      process.env.BREVO_API_KEY!
-    );
-  }
-  return apiInstance;
-}
 
 interface SendEmailParams {
   to: string;
@@ -22,18 +8,31 @@ interface SendEmailParams {
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
-  const api = getApiInstance();
-
-  return api.sendTransacEmail({
-    sender: {
-      name: process.env.EMAIL_FROM_NAME || "Supacortex",
-      email: process.env.EMAIL_FROM_ADDRESS!,
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "accept": "application/json",
+      "api-key": process.env.BREVO_API_KEY!,
+      "content-type": "application/json",
     },
-    to: [{ email: to }],
-    subject,
-    htmlContent: html,
-    textContent: text,
+    body: JSON.stringify({
+      sender: {
+        name: process.env.EMAIL_FROM_NAME || "Supacortex",
+        email: process.env.EMAIL_FROM_ADDRESS,
+      },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
   });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to send email: ${error}`);
+  }
+
+  return response.json();
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
