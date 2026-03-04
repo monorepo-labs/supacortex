@@ -1,3 +1,4 @@
+import "server-only";
 import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from "@getbrevo/brevo";
 
 let apiInstance: TransactionalEmailsApi | null = null;
