@@ -1,5 +1,16 @@
 import "server-only";
 
+import {
+  TransactionalEmailsApi,
+  TransactionalEmailsApiApiKeys,
+} from "@getbrevo/brevo";
+
+const emailApi = new TransactionalEmailsApi();
+emailApi.setApiKey(
+  TransactionalEmailsApiApiKeys.apiKey,
+  process.env.BREVO_API_KEY || "",
+);
+
 interface SendEmailParams {
   to: string;
   subject: string;
@@ -8,14 +19,13 @@ interface SendEmailParams {
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "accept": "application/json",
-      "api-key": process.env.BREVO_API_KEY!,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
+  if (!process.env.BREVO_API_KEY) {
+    console.warn("BREVO_API_KEY not set, skipping email send");
+    return null;
+  }
+
+  try {
+    const result = await emailApi.sendTransacEmail({
       sender: {
         name: process.env.EMAIL_FROM_NAME || "Supacortex",
         email: process.env.EMAIL_FROM_ADDRESS,
@@ -24,15 +34,13 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
       subject,
       htmlContent: html,
       textContent: text,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to send email: ${error}`);
+    });
+    console.log(`Email sent to ${to}:`, result.body.messageId);
+    return result.body;
+  } catch (error) {
+    console.error("Failed to send email:", error);
+    throw error;
   }
-
-  return response.json();
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
