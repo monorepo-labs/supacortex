@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ export default function ResetPasswordPage() {
 }
 
 function ResetPasswordForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -23,6 +22,7 @@ function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   if (!token) {
     return (
@@ -45,6 +45,26 @@ function ResetPasswordForm() {
           >
             Request a new link
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="w-full max-w-sm space-y-6 px-4 text-center">
+          <div className="space-y-1">
+            <h1
+              style={{ fontFamily: "var(--font-source-serif)" }}
+              className="text-2xl font-medium text-zinc-900"
+            >
+              Password updated
+            </h1>
+            <p className="text-sm text-zinc-500">
+              Your password has been reset successfully. Go back to the app and sign in with your new password.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -75,7 +95,7 @@ function ResetPasswordForm() {
         setError(error.message ?? "Failed to reset password");
         return;
       }
-      router.push("/login?reset=success");
+      setSuccess(true);
     } catch {
       setError("Something went wrong");
     } finally {
