@@ -390,7 +390,8 @@ async function initialSync(
   resumeTweetsTotal?: number,
 ): Promise<InternalSyncResult> {
   let apiCalls = 0;
-  let tweetsTotal = resumeTweetsTotal ?? 0;
+  let tweetsTotal = 0;
+  const cumulativeTweets = resumeTweetsTotal ?? 0; // tracks total across resume sessions for cap
   let synced = 0;
   let paginationToken: string | undefined = resumeToken;
   const allInserted: InsertedBookmark[] = [];
@@ -398,8 +399,8 @@ async function initialSync(
   let batch = 0;
   do {
     // Enforce hard cap on total tweets fetched (across resume sessions)
-    if (tweetsTotal >= MAX_INITIAL_TWEETS) {
-      console.log(`[sync:initial] cap reached (${tweetsTotal}/${MAX_INITIAL_TWEETS}) at batch=${batch}, stopping`);
+    if (cumulativeTweets + tweetsTotal >= MAX_INITIAL_TWEETS) {
+      console.log(`[sync:initial] cap reached (${cumulativeTweets + tweetsTotal}/${MAX_INITIAL_TWEETS}) at batch=${batch}, stopping`);
       break;
     }
 
@@ -409,7 +410,7 @@ async function initialSync(
       const page = await fetchBookmarksPage(xUserId, accessToken, 80, paginationToken);
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
-      console.log(`[sync:initial] batch=${batch} received=${count} total=${tweetsTotal}/${MAX_INITIAL_TWEETS} hasNext=${!!page.meta?.next_token}`);
+      console.log(`[sync:initial] batch=${batch} received=${count} cumulative=${cumulativeTweets + tweetsTotal}/${MAX_INITIAL_TWEETS} hasNext=${!!page.meta?.next_token}`);
       if (!page.data || count === 0) break;
 
       // Save immediately — nothing lost if rate limited on next page
