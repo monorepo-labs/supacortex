@@ -440,19 +440,19 @@ async function initialSync(
           paginationToken,
           rateLimitResetsAt: err.resetAt,
           apiCalls,
-          tweetsTotal,
+          tweetsTotal: cumulativeTweets + tweetsTotal,
           insertedBookmarks: allInserted,
         };
       }
       if (err instanceof CreditsDepletedError) {
         console.log(`[sync:initial] credits depleted after batch=${batch}, saved ${synced} bookmarks`);
-        return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+        return { synced, status: "completed", apiCalls, tweetsTotal: cumulativeTweets + tweetsTotal, insertedBookmarks: allInserted };
       }
       throw err;
     }
   } while (paginationToken);
 
-  return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+  return { synced, status: "completed", apiCalls, tweetsTotal: cumulativeTweets + tweetsTotal, insertedBookmarks: allInserted };
 }
 
 // ── Incremental sync: probe 1, then batches of 10, exit on dup ──────
