@@ -24,14 +24,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { sileo } from "sileo";
 import {
   useGroups,
@@ -48,7 +40,6 @@ import {
 } from "@/hooks/use-twitter";
 import type { Session } from "@opencode-ai/sdk/client";
 import GroupIconPicker, { ICON_MAP } from "./GroupIconPicker";
-import SyncDateFilterModal from "./SyncDateFilterModal";
 import SyncPaymentModal from "./SyncPaymentModal";
 import { usePaymentStatus } from "@/hooks/use-payments";
 import { randomColor, randomGroupName } from "@/lib/group-defaults";
@@ -394,7 +385,6 @@ export default function Sidebar({
 
   const { data: paymentData, isLoading: isPaymentLoading } = usePaymentStatus();
 
-  const [showDateFilter, setShowDateFilter] = useState(false);
   const [showSyncConfirm, setShowSyncConfirm] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const sessions = opencodeSessions ?? [];
@@ -417,10 +407,10 @@ export default function Sidebar({
   //   }
   // }, [twitterAccount, syncStatus?.status, isSyncing, syncTwitter]);
 
-  const triggerSync = (sinceYear?: number) => {
+  const triggerSync = () => {
     sileo.promise(
       new Promise((resolve, reject) => {
-        syncTwitter(sinceYear, {
+        syncTwitter(undefined, {
           onSuccess: (data) => {
             resolve(data);
             if (data.status === "interrupted")
@@ -450,18 +440,7 @@ export default function Sidebar({
       setShowPaymentModal(true);
       return;
     }
-    // First sync → show year picker modal
-    if (syncStatus?.status === "none") {
-      setShowDateFilter(true);
-    } else {
-      // Incremental sync — show confirmation
-      setShowSyncConfirm(true);
-    }
-  };
-
-  const handleDateFilterConfirm = (sinceYear: number | undefined) => {
-    setShowDateFilter(false);
-    triggerSync(sinceYear);
+    setShowSyncConfirm(true);
   };
 
   const handleAddGroup = () => {
@@ -547,6 +526,27 @@ export default function Sidebar({
                         : "resuming soon"}
                     </span>
                   </div>
+                ) : showSyncConfirm ? (
+                  <div className="flex items-center gap-1.5 px-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowSyncConfirm(false)}
+                      className="flex-1 text-xs text-zinc-500"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setShowSyncConfirm(false);
+                        triggerSync();
+                      }}
+                      className="flex-1 text-xs"
+                    >
+                      Confirm Sync
+                    </Button>
+                  </div>
                 ) : (
                   <Button
                     variant="link"
@@ -595,6 +595,27 @@ export default function Sidebar({
                           ? `next batch at ${resumeTime}`
                           : "resuming soon"}
                       </span>
+                    </div>
+                  ) : showSyncConfirm ? (
+                    <div className="flex items-center gap-1.5 px-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowSyncConfirm(false)}
+                        className="flex-1 text-xs text-zinc-500 no-underline hover:no-underline"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setShowSyncConfirm(false);
+                          triggerSync();
+                        }}
+                        className="flex-1 text-xs"
+                      >
+                        Confirm Sync
+                      </Button>
                     </div>
                   ) : (
                     <Button
@@ -653,35 +674,6 @@ export default function Sidebar({
         open={showPaymentModal}
         onOpenChange={setShowPaymentModal}
       />
-
-      <SyncDateFilterModal
-        open={showDateFilter}
-        onConfirm={handleDateFilterConfirm}
-      />
-
-      <Dialog open={showSyncConfirm} onOpenChange={setShowSyncConfirm}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Sync bookmarks?</DialogTitle>
-            <DialogDescription>
-              This will fetch new bookmarks from X since your last sync.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowSyncConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setShowSyncConfirm(false);
-                triggerSync();
-              }}
-            >
-              Sync
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

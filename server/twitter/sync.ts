@@ -248,6 +248,10 @@ function resolveReferencedTweet(
   };
 }
 
+// ── Hard cap on initial sync to control API costs ────────────────────
+
+const MAX_INITIAL_TWEETS = 1500;
+
 // ── Check if this is the first sync ─────────────────────────────────
 
 async function isFirstSync(userId: string): Promise<boolean> {
@@ -291,7 +295,7 @@ export async function syncTwitterBookmarks(
   options?: {
     resumeToken?: string;
     resumeMode?: "initial" | "incremental";
-    sinceYear?: number;
+    resumeTweetsTotal?: number;
   },
 ): Promise<SyncResult> {
   // Concurrency guard
@@ -304,8 +308,7 @@ export async function syncTwitterBookmarks(
     ? options.resumeMode === "initial"
     : await isFirstSync(userId);
   const mode = firstSync ? "initial" : "incremental";
-  const sinceYear = options?.sinceYear;
-  console.log(`[sync] mode=${mode} user=${userId} resume=${isResume} sinceYear=${sinceYear ?? "all"}`);
+  console.log(`[sync] mode=${mode} user=${userId} resume=${isResume}`);
 
   const start = Date.now();
 
@@ -318,17 +321,12 @@ export async function syncTwitterBookmarks(
     tweetsSynced: 0,
     apiCalls: 0,
     cost: 0,
-    sinceYear: sinceYear ?? null,
   }).returning({ id: syncLogs.id });
   const syncLogId = log.id;
 
-  const cutoffDate = sinceYear
-    ? new Date(`${sinceYear}-01-01T00:00:00Z`)
-    : undefined;
-
   try {
     const result = firstSync
-      ? await initialSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken, cutoffDate)
+      ? await initialSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken, options?.resumeTweetsTotal)
       : await incrementalSync(userId, accessToken, xUserId, syncLogId, options?.resumeToken);
 
     const durationMs = Date.now() - start;
@@ -389,30 +387,37 @@ async function initialSync(
   xUserId: string,
   syncLogId: string,
   resumeToken?: string,
-  cutoffDate?: Date,
+  resumeTweetsTotal?: number,
 ): Promise<InternalSyncResult> {
   let apiCalls = 0;
   let tweetsTotal = 0;
+  const cumulativeTweets = resumeTweetsTotal ?? 0; // tracks total across resume sessions for cap
   let synced = 0;
   let paginationToken: string | undefined = resumeToken;
   const allInserted: InsertedBookmark[] = [];
 
   let batch = 0;
   do {
+    // Enforce hard cap on total tweets fetched (across resume sessions)
+    if (cumulativeTweets + tweetsTotal >= MAX_INITIAL_TWEETS) {
+      console.log(`[sync:initial] cap reached (${cumulativeTweets + tweetsTotal}/${MAX_INITIAL_TWEETS}) at batch=${batch}, stopping`);
+      break;
+    }
+
     batch++;
     try {
       apiCalls++;
       const page = await fetchBookmarksPage(xUserId, accessToken, 80, paginationToken);
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
-      console.log(`[sync:initial] batch=${batch} received=${count} hasNext=${!!page.meta?.next_token}`);
+      console.log(`[sync:initial] batch=${batch} received=${count} cumulative=${cumulativeTweets + tweetsTotal}/${MAX_INITIAL_TWEETS} hasNext=${!!page.meta?.next_token}`);
       if (!page.data || count === 0) break;
 
       // Save immediately — nothing lost if rate limited on next page
-      const result = await insertTweets(page, userId, false, cutoffDate);
+      const result = await insertTweets(page, userId, false);
       synced += result.synced;
       allInserted.push(...result.insertedBookmarks);
-      console.log(`[sync:initial] batch=${batch} inserted=${result.synced} hitCutoff=${result.hitCutoff}`);
+      console.log(`[sync:initial] batch=${batch} inserted=${result.synced}`);
 
       // Update syncLog progress after each page
       await db.update(syncLogs).set({
@@ -421,12 +426,6 @@ async function initialSync(
         apiCalls,
         cost: tweetsTotal * 0.005,
       }).where(eq(syncLogs.id, syncLogId));
-
-      // Stop if every tweet in the batch was older than the cutoff
-      if (result.hitCutoff) {
-        console.log(`[sync:initial] cutoff reached at batch=${batch}, stopping pagination`);
-        break;
-      }
 
       paginationToken = page.meta?.next_token;
     } catch (err) {
@@ -441,19 +440,19 @@ async function initialSync(
           paginationToken,
           rateLimitResetsAt: err.resetAt,
           apiCalls,
-          tweetsTotal,
+          tweetsTotal: cumulativeTweets + tweetsTotal,
           insertedBookmarks: allInserted,
         };
       }
       if (err instanceof CreditsDepletedError) {
         console.log(`[sync:initial] credits depleted after batch=${batch}, saved ${synced} bookmarks`);
-        return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+        return { synced, status: "completed", apiCalls, tweetsTotal: cumulativeTweets + tweetsTotal, insertedBookmarks: allInserted };
       }
       throw err;
     }
   } while (paginationToken);
 
-  return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
+  return { synced, status: "completed", apiCalls, tweetsTotal: cumulativeTweets + tweetsTotal, insertedBookmarks: allInserted };
 }
 
 // ── Incremental sync: probe 1, then batches of 10, exit on dup ──────
@@ -553,11 +552,9 @@ async function insertTweets(
   page: BookmarksResponse,
   userId: string,
   stopOnDuplicate = true,
-  cutoffDate?: Date,
 ) {
   let synced = 0;
   let hitDuplicate = false;
-  let skippedByCutoff = 0;
   const insertedBookmarks: InsertedBookmark[] = [];
 
   const userMap = new Map<string, UserData>();
@@ -601,12 +598,6 @@ async function insertTweets(
     // Parse tweetCreatedAt from X API created_at field
     const tweetCreatedAt = tweet.created_at ? new Date(tweet.created_at) : null;
 
-    // Skip tweets older than the cutoff date
-    if (cutoffDate && tweetCreatedAt && tweetCreatedAt < cutoffDate) {
-      skippedByCutoff++;
-      continue;
-    }
-
     try {
       const [inserted] = await db
         .insert(bookmarks)
@@ -636,8 +627,5 @@ async function insertTweets(
     }
   }
 
-  // hitCutoff = true when every tweet in the batch was older than cutoff
-  const totalTweets = page.data?.length ?? 0;
-  const hitCutoff = cutoffDate ? skippedByCutoff === totalTweets && totalTweets > 0 : false;
-  return { synced, hitDuplicate, hitCutoff, insertedBookmarks };
+  return { synced, hitDuplicate, insertedBookmarks };
 }

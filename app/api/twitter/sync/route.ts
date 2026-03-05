@@ -21,15 +21,6 @@ export async function POST(request: Request) {
       { status: 402 },
     );
 
-  // Read optional sinceYear from request body
-  let sinceYear: number | undefined;
-  try {
-    const body = await request.json();
-    if (body?.sinceYear != null) sinceYear = Number(body.sinceYear);
-  } catch {
-    // No body — sinceYear stays undefined
-  }
-
   // Refresh X access token via BetterAuth (ensures token is fresh before sync)
   try {
     await auth.api.getAccessToken({
@@ -49,7 +40,7 @@ export async function POST(request: Request) {
         "X-User-Id": user.id,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ sinceYear: sinceYear ?? null }),
+      body: JSON.stringify({}),
     });
 
     const body = await res.json();
