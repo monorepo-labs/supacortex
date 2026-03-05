@@ -527,22 +527,21 @@ export default function Sidebar({
                     </span>
                   </div>
                 ) : showSyncConfirm ? (
-                  <div className="flex items-center gap-1.5 px-1">
+                  <div className="flex items-center gap-1">
                     <Button
-                      variant="ghost"
-                      size="sm"
+                      variant="link"
                       onClick={() => setShowSyncConfirm(false)}
-                      className="flex-1 text-xs text-zinc-500"
+                      className="flex-1 justify-center text-zinc-500 hover:text-zinc-600"
                     >
                       Cancel
                     </Button>
                     <Button
-                      size="sm"
+                      variant="link"
                       onClick={() => {
                         setShowSyncConfirm(false);
                         triggerSync();
                       }}
-                      className="flex-1 text-xs"
+                      className="flex-1 justify-center text-zinc-500 hover:text-zinc-600"
                     >
                       Confirm Sync
                     </Button>
@@ -597,22 +596,21 @@ export default function Sidebar({
                       </span>
                     </div>
                   ) : showSyncConfirm ? (
-                    <div className="flex items-center gap-1.5 px-1">
+                    <div className="flex items-center gap-1">
                       <Button
-                        variant="ghost"
-                        size="sm"
+                        variant="link"
                         onClick={() => setShowSyncConfirm(false)}
-                        className="flex-1 text-xs text-zinc-500 no-underline hover:no-underline"
+                        className="flex-1 justify-center text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
                       >
                         Cancel
                       </Button>
                       <Button
-                        size="sm"
+                        variant="link"
                         onClick={() => {
                           setShowSyncConfirm(false);
                           triggerSync();
                         }}
-                        className="flex-1 text-xs"
+                        className="flex-1 justify-center text-zinc-500 hover:text-zinc-600 no-underline hover:no-underline"
                       >
                         Confirm Sync
                       </Button>
