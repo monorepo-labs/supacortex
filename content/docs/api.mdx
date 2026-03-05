@@ -129,11 +129,7 @@ DELETE /v1/groups/:id
 POST /v1/sync
 ```
 
-```json
-{ "sinceYear": 2024 }
-```
-
-`sinceYear` is optional. Triggers a Twitter bookmark sync. If a previous sync was interrupted by rate limits, it resumes from where it left off.
+Triggers a Twitter bookmark sync. Initial syncs are capped at 1500 bookmarks. If a previous sync was interrupted by rate limits, it resumes from where it left off.
 
 **Response:**
 ```json

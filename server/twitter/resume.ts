@@ -11,7 +11,7 @@ type InterruptedSync = {
   paginationToken: string;
   rateLimitResetsAt: Date | null;
   mode: string;
-  sinceYear: number | null;
+  tweetsTotal: number;
 };
 
 export async function getInterruptedSync(userId: string): Promise<InterruptedSync | null> {
@@ -22,7 +22,7 @@ export async function getInterruptedSync(userId: string): Promise<InterruptedSyn
       paginationToken: syncLogs.paginationToken,
       rateLimitResetsAt: syncLogs.rateLimitResetsAt,
       mode: syncLogs.mode,
-      sinceYear: syncLogs.sinceYear,
+      tweetsTotal: syncLogs.tweetsTotal,
     })
     .from(syncLogs)
     .where(and(eq(syncLogs.userId, userId), eq(syncLogs.status, "interrupted")))
@@ -42,7 +42,7 @@ export async function getAllResumableSyncs(): Promise<InterruptedSync[]> {
       paginationToken: syncLogs.paginationToken,
       rateLimitResetsAt: syncLogs.rateLimitResetsAt,
       mode: syncLogs.mode,
-      sinceYear: syncLogs.sinceYear,
+      tweetsTotal: syncLogs.tweetsTotal,
     })
     .from(syncLogs)
     .where(
@@ -77,6 +77,6 @@ export async function resumeSync(userId: string) {
   return syncTwitterBookmarks(userId, token.accessToken, token.xUserId, {
     resumeToken: interrupted.paginationToken,
     resumeMode: interrupted.mode as "initial" | "incremental",
-    sinceYear: interrupted.sinceYear ?? undefined,
+    resumeTweetsTotal: interrupted.tweetsTotal,
   });
 }
