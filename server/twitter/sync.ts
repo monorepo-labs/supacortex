@@ -504,7 +504,7 @@ async function incrementalSync(
     batch++;
     try {
       apiCalls++;
-      const page = await fetchBookmarksPage(xUserId, accessToken, 80, paginationToken);
+      const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
       console.log(`[sync:incremental] batch=${batch} received=${count}`);
