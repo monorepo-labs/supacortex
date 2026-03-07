@@ -471,36 +471,40 @@ async function incrementalSync(
 
   let paginationToken: string | undefined = resumeToken;
 
-  // If not resuming, do the probe
+  // If not resuming, probe to check if there's anything new
   if (!resumeToken) {
     apiCalls++;
     const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
-    tweetsTotal += probe.data?.length ?? 0;
 
     if (!probe.data || probe.data.length === 0) {
       console.log("[sync:incremental] probe empty — nothing new");
       return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
     }
 
-    const probeInserted = await insertTweets(probe, userId);
-    synced += probeInserted.synced;
-    allInserted.push(...probeInserted.insertedBookmarks);
+    // Check if the newest bookmark is already in DB (without inserting)
+    const newestTweet = probe.data[0];
+    const newestUrl = `https://x.com/${probe.includes?.users?.find(u => u.id === newestTweet.author_id)?.username ?? "unknown"}/status/${newestTweet.id}`;
+    const [existing] = await db
+      .select({ id: bookmarks.id })
+      .from(bookmarks)
+      .where(eq(bookmarks.url, newestUrl))
+      .limit(1);
 
-    if (probeInserted.synced === 0) {
+    if (existing) {
       console.log("[sync:incremental] probe was duplicate — nothing new");
       return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
     }
 
-    console.log("[sync:incremental] probe found new bookmark, fetching more...");
-    paginationToken = probe.meta?.next_token;
+    console.log("[sync:incremental] probe found new bookmark, fetching all new...");
   }
 
+  // Fetch and insert in batches, starting from the newest
   let batch = 0;
-  while (paginationToken) {
+  while (true) {
     batch++;
     try {
       apiCalls++;
-      const page = await fetchBookmarksPage(xUserId, accessToken, 10, paginationToken);
+      const page = await fetchBookmarksPage(xUserId, accessToken, 80, paginationToken);
       const count = page.data?.length ?? 0;
       tweetsTotal += count;
       console.log(`[sync:incremental] batch=${batch} received=${count}`);
@@ -522,6 +526,7 @@ async function incrementalSync(
       if (result.hitDuplicate) break;
 
       paginationToken = page.meta?.next_token;
+      if (!paginationToken) break;
     } catch (err) {
       if (err instanceof RateLimitError) {
         console.log(`[sync:incremental] rate limited after batch=${batch} synced=${synced}`);
