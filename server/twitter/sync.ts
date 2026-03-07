@@ -474,6 +474,7 @@ async function incrementalSync(
   // If not resuming, probe to check if there's anything new
   if (!resumeToken) {
     apiCalls++;
+    console.log("[sync:incremental] probing newest bookmark...");
     const probe = await fetchBookmarksPage(xUserId, accessToken, 1);
 
     if (!probe.data || probe.data.length === 0) {
@@ -483,7 +484,11 @@ async function incrementalSync(
 
     // Check if the newest bookmark is already in DB (without inserting)
     const newestTweet = probe.data[0];
-    const newestUrl = `https://x.com/${probe.includes?.users?.find(u => u.id === newestTweet.author_id)?.username ?? "unknown"}/status/${newestTweet.id}`;
+    const author = probe.includes?.users?.find(u => u.id === newestTweet.author_id);
+    const username = author?.username ?? "unknown";
+    const newestUrl = `https://x.com/${username}/status/${newestTweet.id}`;
+    console.log(`[sync:incremental] probe tweet=${newestTweet.id} author=${username} url=${newestUrl}`);
+
     const [existing] = await db
       .select({ id: bookmarks.id })
       .from(bookmarks)
@@ -491,7 +496,7 @@ async function incrementalSync(
       .limit(1);
 
     if (existing) {
-      console.log("[sync:incremental] probe was duplicate — nothing new");
+      console.log(`[sync:incremental] probe is duplicate (db id=${existing.id}) — nothing new`);
       return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
     }
 
@@ -548,6 +553,7 @@ async function incrementalSync(
     }
   }
 
+  console.log(`[sync:incremental] finished — synced=${synced} apiCalls=${apiCalls} tweetsTotal=${tweetsTotal}`);
   return { synced, status: "completed", apiCalls, tweetsTotal, insertedBookmarks: allInserted };
 }
 
