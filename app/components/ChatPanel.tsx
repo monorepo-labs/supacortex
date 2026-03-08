@@ -34,6 +34,7 @@ import {
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
+  ConversationScrollBridge,
 } from "@/components/ai-elements/conversation";
 import {
   PromptInput,
@@ -184,6 +185,7 @@ export function ChatPanel({
 }) {
   const ctx = useChatPanelContext();
   const chatPanelRef = useRef<HTMLElement>(null);
+  const scrollToBottomRef = useRef<(() => void) | null>(null);
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
 
   // Per-panel model selection (initialized from shared localStorage default)
@@ -448,6 +450,8 @@ export function ChatPanel({
           createdAt: new Date().toISOString(),
           attachments: fileAttachments?.length ? fileAttachments : undefined,
         });
+        // Scroll to bottom after sending so the new message is visible
+        requestAnimationFrame(() => scrollToBottomRef.current?.());
         processQueue(convKey, messageText, files, bookmarks);
       }
     },
@@ -539,6 +543,7 @@ export function ChatPanel({
 
       {/* Messages area */}
       <Conversation className="flex-1">
+        <ConversationScrollBridge scrollToBottomRef={scrollToBottomRef} />
         {messages.length === 0 && (
           <ConversationEmptyState
             className={`absolute inset-0 z-10 ${isSending ? "opacity-0 transition-opacity duration-150" : "opacity-100 transition-opacity duration-150"}`}

@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowDownIcon, DownloadIcon } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useEffect, type MutableRefObject } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
@@ -99,6 +99,24 @@ export const ConversationScrollButton = ({
     )
   );
 };
+
+/**
+ * Renders nothing — captures scrollToBottom into an external ref
+ * so parent components outside StickToBottom can trigger scroll.
+ */
+export const ConversationScrollBridge = ({
+  scrollToBottomRef,
+}: {
+  scrollToBottomRef: MutableRefObject<(() => void) | null>;
+}) => {
+  const { scrollToBottom } = useStickToBottomContext();
+  useEffect(() => {
+    scrollToBottomRef.current = scrollToBottom;
+  }, [scrollToBottom, scrollToBottomRef]);
+  return null;
+};
+
+export { useStickToBottomContext as useConversationScrollToBottom };
 
 export interface ConversationMessage {
   role: "user" | "assistant" | "system" | "data" | "tool";
