@@ -515,7 +515,8 @@ async function incrementalSync(
       console.log(`[sync:incremental] batch=${batch} received=${count}`);
       if (!page.data || count === 0) break;
 
-      const result = await insertTweets(page, userId);
+      // Process newest first (no reverse), insert all new ones before stopping
+      const result = await insertTweets(page, userId, false, false);
       synced += result.synced;
       allInserted.push(...result.insertedBookmarks);
       console.log(`[sync:incremental] batch=${batch} inserted=${result.synced} dupes=${result.hitDuplicate}`);
@@ -528,6 +529,7 @@ async function incrementalSync(
         cost: tweetsTotal * 0.005,
       }).where(eq(syncLogs.id, syncLogId));
 
+      // Stop when we hit any duplicate — means we've reached already-synced bookmarks
       if (result.hitDuplicate) break;
 
       paginationToken = page.meta?.next_token;
@@ -563,6 +565,7 @@ async function insertTweets(
   page: BookmarksResponse,
   userId: string,
   stopOnDuplicate = true,
+  reverse = true,
 ) {
   let synced = 0;
   let hitDuplicate = false;
@@ -583,8 +586,8 @@ async function insertTweets(
     tweetMap.set(t.id, t);
   }
 
-  // Reverse so oldest tweets are inserted first (earliest createdAt)
-  const tweets = [...(page.data ?? [])].reverse();
+  // Reverse for initial sync so oldest tweets get earliest createdAt
+  const tweets = reverse ? [...(page.data ?? [])].reverse() : [...(page.data ?? [])];
 
   for (let i = 0; i < tweets.length; i++) {
     const tweet = tweets[i];
