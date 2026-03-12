@@ -445,7 +445,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-zinc-200 dark:border-zinc-800">
         <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 px-4 py-6 text-sm sm:flex-row sm:justify-between sm:gap-0">
-          <p className="text-zinc-400">&copy; 2026 Monorepo Labs</p>
+          <p className="text-zinc-400">&copy; 2026 Monorepo Labs &middot; Bootstrapped LLC</p>
           <div className="flex items-center gap-4">
             <Link
               href="https://github.com/monorepo-labs/supacortex"
